@@ -219,6 +219,7 @@ export default function DependenciesPage() {
           </Dialog>
         </div>
       </PageHeader>
+      
       <MainContent>
       <Tabs defaultValue="all">
         <div className="flex flex-col gap-4 mb-4">

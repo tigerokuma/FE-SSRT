@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useSearchParams } from "next/navigation"
-import { AlertTriangle, Calendar, Code, ExternalLink, GitCommit, GitFork, GitPullRequest, Star } from "lucide-react"
+import { AlertTriangle, Calendar, Code, ExternalLink, GitCommit, GitFork, GithubIcon, GitPullRequest, Star } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -102,34 +102,52 @@ export default function RepositoryPage() {
   }
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col w-full overflow-x-hidden">
       <PageHeader title={repo.name} description={repo.description}>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm">
-            <Star className="mr-2 h-4 w-4" />
-            Star
+        <div className="grid grid-cols-3 sm:flex sm:flex-row w-full sm:w-auto gap-2 mt-2 sm:mt-0">
+          <Button 
+            variant="default" 
+            size="sm" 
+            className="w-full sm:w-auto bg-primary/10 hover:bg-primary/20 text-primary border-0 flex items-center justify-center h-12 sm:h-9"
+          >
+            <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2">
+              <Star className="h-4 w-4" />
+              <span className="text-xs sm:text-sm">Star</span>
+            </div>
           </Button>
-          <Button variant="outline" size="sm">
-            <GitFork className="mr-2 h-4 w-4" />
-            Fork
+          <Button 
+            variant="default" 
+            size="sm" 
+            className="w-full sm:w-auto bg-primary/10 hover:bg-primary/20 text-primary border-0 flex items-center justify-center h-12 sm:h-9"
+          >
+            <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2">
+              <GitFork className="h-4 w-4" />
+              <span className="text-xs sm:text-sm">Fork</span>
+            </div>
           </Button>
-          <Button variant="outline" size="sm">
-            <ExternalLink className="mr-2 h-4 w-4" />
-            View on GitHub
+          <Button 
+            variant="default" 
+            size="sm" 
+            className="w-full sm:w-auto bg-primary/10 hover:bg-primary/20 text-primary border-0 flex items-center justify-center h-12 sm:h-9"
+          >
+            <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2">
+              <GithubIcon className="h-4 w-4" />
+              <span className="text-xs sm:text-sm whitespace-nowrap">GitHub</span>
+            </div>
           </Button>
         </div>
       </PageHeader>
 
-      <div className="py-6">
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          <div className="lg:col-span-2">
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>Repository Activity</CardTitle>
-                  <div className="flex gap-2">
+      <div className="py-4 sm:py-6 w-full max-w-full overflow-x-hidden">
+        <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3 w-full">
+          <div className="lg:col-span-2 space-y-4 sm:space-y-0 w-full">
+            <Card className="w-full">
+              <CardHeader className="p-4 sm:p-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+                  <CardTitle className="text-xl sm:text-2xl">Repository Activity</CardTitle>
+                  <div className="flex flex-wrap gap-2">
                     {repo.alerts.map((alert) => (
-                      <Badge key={alert.id} variant="outline" className="flex items-center gap-1">
+                      <Badge key={alert.id} variant="outline" className="flex items-center gap-1 text-xs sm:text-sm">
                         <AlertTriangle className="h-3 w-3 text-yellow-600" />
                         <span>{alert.message}</span>
                       </Badge>
@@ -138,32 +156,32 @@ export default function RepositoryPage() {
                 </div>
                 <CardDescription>Recent commits and activity</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-4 sm:p-6">
                 <Tabs defaultValue="commits">
-                  <TabsList className="mb-4">
-                    <TabsTrigger value="commits">Commits</TabsTrigger>
-                    <TabsTrigger value="pulls">Pull Requests</TabsTrigger>
-                    <TabsTrigger value="issues">Issues</TabsTrigger>
+                  <TabsList className="mb-4 w-full sm:w-auto flex">
+                    <TabsTrigger value="commits" className="flex-1 sm:flex-none text-sm">Commits</TabsTrigger>
+                    <TabsTrigger value="pulls" className="flex-1 sm:flex-none text-sm">Pull Requests</TabsTrigger>
+                    <TabsTrigger value="issues" className="flex-1 sm:flex-none text-sm">Issues</TabsTrigger>
                   </TabsList>
-                  <TabsContent value="commits" className="space-y-4">
+                  <TabsContent value="commits" className="space-y-3 sm:space-y-4">
                     {repo.commits.map((commit) => (
-                      <div key={commit.id} className="flex items-start gap-4 rounded-lg border p-4">
-                        <Avatar className="h-8 w-8">
+                      <div key={commit.id} className="flex items-start gap-2 sm:gap-4 rounded-lg border p-3 sm:p-4 min-w-0">
+                        <Avatar className="h-8 w-8 shrink-0">
                           <AvatarImage src={commit.avatar || "/placeholder.svg"} alt={commit.author} />
                           <AvatarFallback>{commit.initials}</AvatarFallback>
                         </Avatar>
-                        <div className="flex-1 space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium">{commit.author}</span>
-                            <Badge variant="outline" className="flex items-center gap-1">
+                        <div className="flex-1 min-w-0 space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-medium truncate">{commit.author}</span>
+                            <Badge variant="outline" className="flex items-center gap-1 shrink-0">
                               <GitCommit className="h-3 w-3" />
                               <span className="text-xs">{commit.id.substring(0, 7)}</span>
                             </Badge>
                           </div>
-                          <p className="text-sm">{commit.message}</p>
+                          <p className="text-sm break-words">{commit.message}</p>
                           <p className="text-xs text-muted-foreground">{commit.time}</p>
                         </div>
-                        <Button variant="ghost" size="icon">
+                        <Button variant="ghost" size="icon" className="shrink-0 hidden sm:flex">
                           <ExternalLink className="h-4 w-4" />
                         </Button>
                       </div>
@@ -191,66 +209,66 @@ export default function RepositoryPage() {
               </CardContent>
             </Card>
           </div>
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Repository Info</CardTitle>
+          <div className="space-y-4 sm:space-y-6 w-full">
+            <Card className="w-full">
+              <CardHeader className="p-4 sm:p-6">
+                <CardTitle className="text-lg sm:text-xl">Repository Info</CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2">
-                    <Star className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">{repo.stars} stars</span>
+              <CardContent className="p-4 sm:p-6 pt-0">
+                <div className="grid grid-cols-2 sm:grid-cols-1 gap-3 sm:gap-4">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Star className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="text-sm truncate">{repo.stars} stars</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <GitFork className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">{repo.forks} forks</span>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <GitFork className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="text-sm truncate">{repo.forks} forks</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">Updated {repo.lastUpdated}</span>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="text-sm truncate">Updated {repo.lastUpdated}</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Code className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">{repo.language}</span>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Code className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className="text-sm truncate">{repo.language}</span>
                   </div>
                 </div>
               </CardContent>
             </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>Maintainers</CardTitle>
+            <Card className="w-full">
+              <CardHeader className="p-4 sm:p-6">
+                <CardTitle className="text-lg sm:text-xl">Maintainers</CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="flex flex-wrap gap-4">
+              <CardContent className="p-4 sm:p-6 pt-0">
+                <div className="grid grid-cols-1 sm:flex sm:flex-wrap gap-3 sm:gap-4">
                   {repo.maintainers.map((maintainer) => (
-                    <div key={maintainer.name} className="flex items-center gap-2">
-                      <Avatar className="h-8 w-8">
+                    <div key={maintainer.name} className="flex items-center gap-2 min-w-0">
+                      <Avatar className="h-8 w-8 shrink-0">
                         <AvatarImage src={maintainer.avatar} alt={maintainer.name} />
                         <AvatarFallback>{maintainer.initials}</AvatarFallback>
                       </Avatar>
-                      <span className="text-sm font-medium">{maintainer.name}</span>
+                      <span className="text-sm font-medium truncate">{maintainer.name}</span>
                     </div>
                   ))}
                 </div>
               </CardContent>
             </Card>
-            <Card>
-              <CardHeader>
-                <CardTitle>Alerts</CardTitle>
+            <Card className="w-full">
+              <CardHeader className="p-4 sm:p-6">
+                <CardTitle className="text-lg sm:text-xl">Alerts</CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
+              <CardContent className="p-4 sm:p-6 pt-0">
+                <div className="space-y-3 sm:space-y-4">
                   {repo.alerts.map((alert) => (
-                    <div key={alert.id} className="flex items-center gap-4 rounded-lg border p-4">
+                    <div key={alert.id} className="flex items-start gap-2 sm:gap-4 rounded-lg border p-3 sm:p-4 min-w-0">
                       <div
-                        className={`flex h-8 w-8 items-center justify-center rounded-full ${getSeverityColor(alert.severity)}`}
+                        className={`flex h-8 w-8 items-center justify-center rounded-full shrink-0 ${getSeverityColor(alert.severity)}`}
                       >
                         <AlertTriangle className="h-4 w-4" />
                       </div>
-                      <div className="flex-1 space-y-1">
-                        <p className="text-sm font-medium">{alert.message}</p>
-                        <p className="text-xs text-muted-foreground">{alert.description}</p>
+                      <div className="flex-1 min-w-0 space-y-1">
+                        <p className="text-sm font-medium truncate">{alert.message}</p>
+                        <p className="text-xs text-muted-foreground break-words">{alert.description}</p>
                         <p className="text-xs text-muted-foreground">{alert.time}</p>
                       </div>
                     </div>
@@ -264,3 +282,4 @@ export default function RepositoryPage() {
     </div>
   )
 }
+
