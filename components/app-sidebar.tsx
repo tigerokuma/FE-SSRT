@@ -34,38 +34,32 @@ export function AppSidebar() {
     {
       title: "Dashboard",
       href: "/",
-      icon: Home,
-      description: "Overview and key metrics"
+      icon: Home
     },
     {
       title: "Repository Activity",
       href: "/repository",
-      icon: GitBranch,
-      description: "Monitor repository changes and updates"
+      icon: GitBranch
     },
     {
       title: "Alert Center",
       href: "/alerts",
-      icon: AlertTriangle,
-      description: "View and manage security alerts"
+      icon: AlertTriangle
     },
     {
       title: "Dependency Watchlist",
       href: "/dependencies",
-      icon: Package,
-      description: "Track project dependencies"
+      icon: Package
     },
     {
       title: "Semantic Graph Export",
       href: "/graph-export",
-      icon: BarChart3,
-      description: "Export and analyze dependency graphs"
+      icon: BarChart3
     },
     {
       title: "Team Alert Routing",
       href: "/team-routing",
-      icon: Users,
-      description: "Configure team notifications"
+      icon: Users
     },
   ]
 
@@ -117,7 +111,7 @@ export function AppSidebar() {
                     tooltip={isCollapsed ? item.title : undefined}
                     className={cn(
                       "flex items-center rounded-md transition-colors w-full",
-                      isCollapsed ? "justify-center py-2.5" : "px-4 py-2.5",
+                      isCollapsed ? "justify-center py-2" : "px-4 py-2",
                       pathname === item.href && "bg-muted"
                     )}
                   >
@@ -128,10 +122,7 @@ export function AppSidebar() {
                         pathname !== item.href && "text-muted-foreground"
                       )} />
                       {!isCollapsed && (
-                        <div className="flex flex-col gap-1 min-w-0">
-                          <span className="font-medium truncate leading-none">{item.title}</span>
-                          <span className="text-xs text-muted-foreground truncate leading-none">{item.description}</span>
-                        </div>
+                        <span className="font-medium truncate">{item.title}</span>
                       )}
                     </Link>
                   </SidebarMenuButton>
@@ -155,7 +146,7 @@ export function AppSidebar() {
                     tooltip={isCollapsed ? "lodash/lodash" : undefined}
                     className={cn(
                       "flex items-center rounded-md transition-colors w-full",
-                      isCollapsed ? "justify-center py-2.5" : "px-4 py-2.5"
+                      isCollapsed ? "justify-center py-2" : "px-4 py-2"
                     )}
                   >
                     <Link href="/repository?repo=lodash/lodash" className="flex items-center gap-3">
@@ -170,7 +161,7 @@ export function AppSidebar() {
                     tooltip={isCollapsed ? "vercel/next.js" : undefined}
                     className={cn(
                       "flex items-center rounded-md transition-colors w-full",
-                      isCollapsed ? "justify-center py-2.5" : "px-4 py-2.5"
+                      isCollapsed ? "justify-center py-2" : "px-4 py-2"
                     )}
                   >
                     <Link href="/repository?repo=vercel/next.js" className="flex items-center gap-3">
@@ -185,7 +176,7 @@ export function AppSidebar() {
                     tooltip={isCollapsed ? "facebook/react" : undefined}
                     className={cn(
                       "flex items-center rounded-md transition-colors w-full",
-                      isCollapsed ? "justify-center py-2.5" : "px-4 py-2.5"
+                      isCollapsed ? "justify-center py-2" : "px-4 py-2"
                     )}
                   >
                     <Link href="/repository?repo=facebook/react" className="flex items-center gap-3">
