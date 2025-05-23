@@ -74,29 +74,28 @@ export function AppSidebar() {
       <SidebarRail />
       <SidebarHeader className="relative border-b">
         <div className={cn(
-          "flex items-center gap-2 px-4 py-3",
+          "flex items-center gap-2 px-4 py-2",
           isCollapsed && "justify-center px-2"
         )}>
           {!isCollapsed && (
             <>
-              <Box className="h-5 w-5 shrink-0" />
-              <div className="font-semibold truncate">
+              <Box className="h-6 w-6" />
+              <div className="font-semibold">
                 OSS Tracker
               </div>
             </>
           )}
           <SidebarTrigger className={cn(
-            "ml-auto",
-            isCollapsed && "w-full flex justify-center"
+            isCollapsed ? "w-full flex justify-center" : "ml-auto"
           )}>
             <Box className={cn(
-              "h-5 w-5",
+              "h-6 w-6",
               !isCollapsed && "hidden"
             )} />
           </SidebarTrigger>
         </div>
         <div className={cn(
-          "px-4 pb-3 transition-all duration-300",
+          "px-4 pb-2 transition-all duration-300",
           isCollapsed && "hidden"
         )}>
           <Input 
@@ -105,30 +104,30 @@ export function AppSidebar() {
           />
         </div>
       </SidebarHeader>
-      <SidebarContent className="px-2">
+      <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel className="px-2">Main Navigation</SidebarGroupLabel>
+          <SidebarGroupLabel>Main Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="space-y-1">
               {mainNavItems.map((item) => (
-                <SidebarMenuItem key={item.href}>
+                <SidebarMenuItem key={item.href} className="px-2">
                   <SidebarMenuButton 
                     asChild 
                     isActive={pathname === item.href} 
                     tooltip={isCollapsed ? item.title : undefined}
                     className={cn(
-                      "flex items-center gap-3 px-2 py-2 w-full",
+                      "flex items-center gap-3 px-4 py-2.5 rounded-md",
                       isCollapsed && "[&>a]:justify-center"
                     )}
                   >
-                    <Link href={item.href} className="flex items-center gap-3 flex-1">
+                    <Link href={item.href} className="flex items-center gap-3">
                       <item.icon className="h-4 w-4 shrink-0" />
                       <div className={cn(
-                        "flex flex-col gap-0.5 min-w-0",
+                        "flex flex-col gap-1 min-w-0",
                         isCollapsed && "hidden"
                       )}>
-                        <span className="font-medium truncate">{item.title}</span>
-                        <span className="text-xs text-muted-foreground truncate">{item.description}</span>
+                        <span className="font-medium truncate leading-none">{item.title}</span>
+                        <span className="text-xs text-muted-foreground truncate leading-none">{item.description}</span>
                       </div>
                     </Link>
                   </SidebarMenuButton>
@@ -143,40 +142,40 @@ export function AppSidebar() {
         )}>
           <SidebarSeparator className="my-4" />
           <SidebarGroup>
-            <SidebarGroupLabel className="px-2">Recent Repositories</SidebarGroupLabel>
+            <SidebarGroupLabel>Recent Repositories</SidebarGroupLabel>
             <SidebarGroupContent>
-              <SidebarMenu>
-                <SidebarMenuItem>
+              <SidebarMenu className="space-y-1">
+                <SidebarMenuItem className="px-2">
                   <SidebarMenuButton 
                     asChild 
                     tooltip={isCollapsed ? "lodash/lodash" : undefined}
-                    className="flex items-center px-2 py-2 w-full"
+                    className="flex items-center px-4 py-2.5 rounded-md"
                   >
-                    <Link href="/repository?repo=lodash/lodash" className="flex items-center gap-3 w-full">
+                    <Link href="/repository?repo=lodash/lodash" className="flex items-center gap-3">
                       <GitBranch className="h-4 w-4 shrink-0" />
                       <span className="truncate">lodash/lodash</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-                <SidebarMenuItem>
+                <SidebarMenuItem className="px-2">
                   <SidebarMenuButton 
                     asChild 
                     tooltip={isCollapsed ? "vercel/next.js" : undefined}
-                    className="flex items-center px-2 py-2 w-full"
+                    className="flex items-center px-4 py-2.5 rounded-md"
                   >
-                    <Link href="/repository?repo=vercel/next.js" className="flex items-center gap-3 w-full">
+                    <Link href="/repository?repo=vercel/next.js" className="flex items-center gap-3">
                       <GitBranch className="h-4 w-4 shrink-0" />
                       <span className="truncate">vercel/next.js</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-                <SidebarMenuItem>
+                <SidebarMenuItem className="px-2">
                   <SidebarMenuButton 
                     asChild 
                     tooltip={isCollapsed ? "facebook/react" : undefined}
-                    className="flex items-center px-2 py-2 w-full"
+                    className="flex items-center px-4 py-2.5 rounded-md"
                   >
-                    <Link href="/repository?repo=facebook/react" className="flex items-center gap-3 w-full">
+                    <Link href="/repository?repo=facebook/react" className="flex items-center gap-3">
                       <GitBranch className="h-4 w-4 shrink-0" />
                       <span className="truncate">facebook/react</span>
                     </Link>
@@ -197,7 +196,7 @@ export function AppSidebar() {
             <AvatarFallback>JD</AvatarFallback>
           </Avatar>
           <div className={cn(
-            "flex flex-col min-w-0 transition-all duration-300",
+            "flex flex-col min-w-0",
             isCollapsed && "hidden"
           )}>
             <span className="text-sm font-medium truncate">Jane Doe</span>
