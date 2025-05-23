@@ -75,7 +75,7 @@ export function AppSidebar() {
             <>
               <Box className="h-6 w-6" />
               <div className="font-semibold">
-                OpenSource Insight
+                OSS Tracker
               </div>
             </>
           )}

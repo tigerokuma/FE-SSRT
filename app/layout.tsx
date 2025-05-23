@@ -26,7 +26,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <SidebarProvider defaultOpen={true}>
-            <div className="flex min-h-screen">
+            <div className="flex min-h-screen max-w-[2000px] mx-auto">
               <AppSidebar />
               <MainContent>{children}</MainContent>
             </div>
