@@ -27,7 +27,7 @@ import { cn } from "@/lib/utils"
 
 export function AppSidebar() {
   const pathname = usePathname()
-  const { state } = useSidebar()
+  const { state, isMobile } = useSidebar()
   const isCollapsed = state === "collapsed"
 
   const mainNavItems = [
@@ -66,12 +66,12 @@ export function AppSidebar() {
   return (
     <Sidebar variant="sidebar" collapsible="icon">
       <SidebarRail />
-      <SidebarHeader className="relative border-b">
+      <SidebarHeader className="relative">
         <div className={cn(
-          "flex items-center gap-2 px-4 py-2",
-          isCollapsed && "justify-center px-2"
+          "flex items-center gap-2 px-4 py-3",
+          isCollapsed && !isMobile && "justify-center px-2"
         )}>
-          {!isCollapsed && (
+          {(!isCollapsed || isMobile) && (
             <>
               <Box className="h-6 w-6" />
               <div className="font-semibold">
@@ -79,18 +79,20 @@ export function AppSidebar() {
               </div>
             </>
           )}
-          <SidebarTrigger className={cn(
-            isCollapsed ? "w-full flex justify-center" : "ml-auto"
-          )}>
-            <Box className={cn(
-              "h-6 w-6",
-              !isCollapsed && "hidden"
-            )} />
-          </SidebarTrigger>
+          {!isMobile && (
+            <SidebarTrigger className={cn(
+              isCollapsed ? "w-full flex justify-center" : "ml-auto"
+            )}>
+              <Box className={cn(
+                "h-6 w-6",
+                !isCollapsed && "hidden"
+              )} />
+            </SidebarTrigger>
+          )}
         </div>
         <div className={cn(
-          "px-4 pb-2 transition-all duration-300",
-          isCollapsed && "hidden"
+          "px-4 pb-3 transition-all duration-300",
+          isCollapsed && !isMobile && "hidden"
         )}>
           <Input 
             placeholder="Search repositories..." 
@@ -108,20 +110,20 @@ export function AppSidebar() {
                   <SidebarMenuButton 
                     asChild 
                     isActive={pathname === item.href} 
-                    tooltip={isCollapsed ? item.title : undefined}
+                    tooltip={isCollapsed && !isMobile ? item.title : undefined}
                     className={cn(
                       "flex items-center rounded-md transition-colors w-full",
-                      isCollapsed ? "justify-center py-2" : "px-4 py-2",
+                      isCollapsed && !isMobile ? "justify-center py-2" : "px-4 py-2",
                       pathname === item.href && "bg-muted"
                     )}
                   >
                     <Link href={item.href} className="flex items-center gap-3">
                       <item.icon className={cn(
-                        "h-4 w-4 shrink-0",
+                        "h-5 w-5 shrink-0",
                         pathname === item.href && "text-foreground",
                         pathname !== item.href && "text-muted-foreground"
                       )} />
-                      {!isCollapsed && (
+                      {(!isCollapsed || isMobile) && (
                         <span className="font-medium truncate">{item.title}</span>
                       )}
                     </Link>
@@ -133,7 +135,7 @@ export function AppSidebar() {
         </SidebarGroup>
         <div className={cn(
           "transition-all duration-300",
-          isCollapsed && "hidden"
+          isCollapsed && !isMobile && "hidden"
         )}>
           <SidebarSeparator className="my-4" />
           <SidebarGroup>
@@ -143,45 +145,45 @@ export function AppSidebar() {
                 <SidebarMenuItem>
                   <SidebarMenuButton 
                     asChild 
-                    tooltip={isCollapsed ? "lodash/lodash" : undefined}
+                    tooltip={isCollapsed && !isMobile ? "lodash/lodash" : undefined}
                     className={cn(
                       "flex items-center rounded-md transition-colors w-full",
-                      isCollapsed ? "justify-center py-2" : "px-4 py-2"
+                      isCollapsed && !isMobile ? "justify-center py-2" : "px-4 py-2"
                     )}
                   >
                     <Link href="/repository?repo=lodash/lodash" className="flex items-center gap-3">
-                      <GitBranch className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      {!isCollapsed && <span className="truncate">lodash/lodash</span>}
+                      <GitBranch className="h-5 w-5 shrink-0 text-muted-foreground" />
+                      {(!isCollapsed || isMobile) && <span className="truncate">lodash/lodash</span>}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton 
                     asChild 
-                    tooltip={isCollapsed ? "vercel/next.js" : undefined}
+                    tooltip={isCollapsed && !isMobile ? "vercel/next.js" : undefined}
                     className={cn(
                       "flex items-center rounded-md transition-colors w-full",
-                      isCollapsed ? "justify-center py-2" : "px-4 py-2"
+                      isCollapsed && !isMobile ? "justify-center py-2" : "px-4 py-2"
                     )}
                   >
                     <Link href="/repository?repo=vercel/next.js" className="flex items-center gap-3">
-                      <GitBranch className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      {!isCollapsed && <span className="truncate">vercel/next.js</span>}
+                      <GitBranch className="h-5 w-5 shrink-0 text-muted-foreground" />
+                      {(!isCollapsed || isMobile) && <span className="truncate">vercel/next.js</span>}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
                 <SidebarMenuItem>
                   <SidebarMenuButton 
                     asChild 
-                    tooltip={isCollapsed ? "facebook/react" : undefined}
+                    tooltip={isCollapsed && !isMobile ? "facebook/react" : undefined}
                     className={cn(
                       "flex items-center rounded-md transition-colors w-full",
-                      isCollapsed ? "justify-center py-2" : "px-4 py-2"
+                      isCollapsed && !isMobile ? "justify-center py-2" : "px-4 py-2"
                     )}
                   >
                     <Link href="/repository?repo=facebook/react" className="flex items-center gap-3">
-                      <GitBranch className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      {!isCollapsed && <span className="truncate">facebook/react</span>}
+                      <GitBranch className="h-5 w-5 shrink-0 text-muted-foreground" />
+                      {(!isCollapsed || isMobile) && <span className="truncate">facebook/react</span>}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -190,8 +192,8 @@ export function AppSidebar() {
           </SidebarGroup>
         </div>
       </SidebarContent>
-      <SidebarFooter className="border-t">
-        {isCollapsed ? (
+      <SidebarFooter>
+        {isCollapsed && !isMobile ? (
           <div className="flex flex-col items-center gap-2 py-4">
             <Avatar className="h-8 w-8">
               <AvatarImage src="/placeholder-user.jpg" alt="User" />
@@ -206,8 +208,8 @@ export function AppSidebar() {
             </Button>
           </div>
         ) : (
-          <div className="flex items-center gap-2 p-4">
-            <Avatar className="h-8 w-8 shrink-0">
+          <div className="flex items-center gap-3 p-4">
+            <Avatar className="h-9 w-9 shrink-0">
               <AvatarImage src="/placeholder-user.jpg" alt="User" />
               <AvatarFallback>JD</AvatarFallback>
             </Avatar>

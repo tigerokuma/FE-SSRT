@@ -6,10 +6,11 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ActivityFeed } from "@/components/activity-feed"
 import { PageHeader } from "@/components/page-header"
+import { MainContent } from "@/components/main-content"
 
 export default function HomePage() {
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col min-h-screen">
       <PageHeader
         title="OpenSource Insight Tracker"
         description="Monitor the health, risk, and activity of open-source repositories"
@@ -22,7 +23,8 @@ export default function HomePage() {
         </div>
       </PageHeader>
 
-      <section className="container py-4 sm:py-6 md:py-8">
+      <MainContent>
+      <section className="py-4 sm:py-6 md:py-8">
         <div className="mx-auto space-y-4 sm:space-y-6">
           <div className="text-center space-y-3 sm:space-y-4">
             <h1 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl lg:text-6xl">
@@ -128,7 +130,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <div className="py-8 px-2">
+      <div className="py-8">
         <Tabs defaultValue="activity" className="w-full">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold tracking-tight">Recent Activity</h2>
@@ -188,6 +190,7 @@ export default function HomePage() {
           </TabsContent>
         </Tabs>
       </div>
+    </MainContent>
     </div>
   )
 }

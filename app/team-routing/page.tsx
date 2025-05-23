@@ -21,6 +21,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { PageHeader } from "@/components/page-header"
+import { MainContent } from "@/components/main-content"
 
 const teamsData = [
   {
@@ -139,17 +140,17 @@ export default function TeamRoutingPage() {
   }
 
   return (
-    <div className="flex flex-col">
-      <PageHeader title="Team Alert Routing" description="Configure alert routing for your teams">
-        <div className="flex items-center gap-2">
+    <div className="flex flex-col min-h-screen">
+      <PageHeader title="Team Routing" description="Manage team assignments and repository routing">
+        <div className="flex flex-col sm:flex-row gap-2">
           <Dialog open={isAddTeamOpen} onOpenChange={setIsAddTeamOpen}>
             <DialogTrigger asChild>
-              <Button size="sm" variant="outline">
+              <Button size="sm" className="sm:w-auto">
                 <Users className="mr-2 h-4 w-4" />
                 Add Team
               </Button>
             </DialogTrigger>
-            <DialogContent className="w-[calc(100%-2rem)] sm:max-w-[500px]">
+            <DialogContent className="sm:max-w-[500px]">
               <DialogHeader>
                 <DialogTitle>Add New Team</DialogTitle>
                 <DialogDescription>Create a new team to route alerts to.</DialogDescription>
@@ -193,12 +194,12 @@ export default function TeamRoutingPage() {
           </Dialog>
           <Dialog open={isAddRuleOpen} onOpenChange={setIsAddRuleOpen}>
             <DialogTrigger asChild>
-              <Button size="sm">
+              <Button size="sm" className="sm:w-auto">
                 <Plus className="mr-2 h-4 w-4" />
                 Add Routing Rule
               </Button>
             </DialogTrigger>
-            <DialogContent className="w-[calc(100%-2rem)] sm:max-w-[600px]">
+            <DialogContent className="sm:max-w-[600px]">
               <DialogHeader>
                 <DialogTitle>Add Alert Routing Rule</DialogTitle>
                 <DialogDescription>
@@ -282,26 +283,30 @@ export default function TeamRoutingPage() {
         </div>
       </PageHeader>
 
-      <div className="py-6">
-        <Tabs defaultValue="teams" className="w-full">
-          <TabsList className="mb-6">
-            <TabsTrigger value="teams">Teams</TabsTrigger>
-            <TabsTrigger value="routing">Routing Rules</TabsTrigger>
-            <TabsTrigger value="import">Import/Export</TabsTrigger>
-          </TabsList>
-          <TabsContent value="teams">
+      <MainContent>
+        <Tabs defaultValue="teams">
+          <div className="flex flex-col gap-4 mb-4">
+            <h2 className="text-xl font-bold tracking-tight">Team Management</h2>
+            <TabsList className="grid grid-cols-3 max-w-md">
+              <TabsTrigger value="teams">Teams</TabsTrigger>
+              <TabsTrigger value="routing">Routing Rules</TabsTrigger>
+              <TabsTrigger value="import">Import/Export</TabsTrigger>
+            </TabsList>
+          </div>
+
+          <TabsContent value="teams" className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle>Teams</CardTitle>
                 <CardDescription>Manage teams for alert routing</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="w-full">
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Team Name</TableHead>
                       <TableHead>Members</TableHead>
-                      <TableHead>Repositories</TableHead>
+                      <TableHead>Repository</TableHead>
                       <TableHead>Alert Rules</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
@@ -329,7 +334,7 @@ export default function TeamRoutingPage() {
                 </Table>
               </CardContent>
             </Card>
-            <div className="mt-6 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2">
               <Card>
                 <CardHeader>
                   <CardTitle>Team Members</CardTitle>
@@ -398,15 +403,14 @@ export default function TeamRoutingPage() {
               </Card>
             </div>
           </TabsContent>
-          <TabsContent value="routing">
+
+          <TabsContent value="routing" className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle>Alert Routing Rules</CardTitle>
-                <CardDescription>
-                  Configure which team receives alerts for specific rules and repositories
-                </CardDescription>
+                <CardDescription>Configure which team receives alerts for specific rules and repositories</CardDescription>
               </CardHeader>
-              <CardContent>
+              <CardContent className="w-full">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -442,61 +446,60 @@ export default function TeamRoutingPage() {
                 </Table>
               </CardContent>
             </Card>
-            <div className="mt-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Test Alert Routing</CardTitle>
-                  <CardDescription>Simulate an alert to test your routing configuration</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    <div className="space-y-2">
-                      <Label htmlFor="test-rule">Alert Rule</Label>
-                      <Select>
-                        <SelectTrigger id="test-rule">
-                          <SelectValue placeholder="Select rule" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="high_loc">High LOC PR</SelectItem>
-                          <SelectItem value="risky_import">Risky Import</SelectItem>
-                          <SelectItem value="cve_alert">CVE Alert</SelectItem>
-                          <SelectItem value="inactive_maintainer">Inactive Maintainer</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="test-repo">Repository</Label>
-                      <Select>
-                        <SelectTrigger id="test-repo">
-                          <SelectValue placeholder="Select repository" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="lodash">lodash/lodash</SelectItem>
-                          <SelectItem value="nextjs">vercel/next.js</SelectItem>
-                          <SelectItem value="react">facebook/react</SelectItem>
-                          <SelectItem value="tailwind">tailwindlabs/tailwindcss</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+            <Card>
+              <CardHeader>
+                <CardTitle>Test Alert Routing</CardTitle>
+                <CardDescription>Simulate an alert to test your routing configuration</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="test-rule">Alert Rule</Label>
+                    <Select>
+                      <SelectTrigger id="test-rule">
+                        <SelectValue placeholder="Select rule" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="high_loc">High LOC PR</SelectItem>
+                        <SelectItem value="risky_import">Risky Import</SelectItem>
+                        <SelectItem value="cve_alert">CVE Alert</SelectItem>
+                        <SelectItem value="inactive_maintainer">Inactive Maintainer</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <div className="mt-4 flex justify-end">
-                    <Button>
-                      <Send className="mr-2 h-4 w-4" />
-                      Send Test Alert
-                    </Button>
+                  <div className="space-y-2">
+                    <Label htmlFor="test-repo">Repository</Label>
+                    <Select>
+                      <SelectTrigger id="test-repo">
+                        <SelectValue placeholder="Select repository" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="lodash">lodash/lodash</SelectItem>
+                        <SelectItem value="nextjs">vercel/next.js</SelectItem>
+                        <SelectItem value="react">facebook/react</SelectItem>
+                        <SelectItem value="tailwind">tailwindlabs/tailwindcss</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <div className="mt-4 rounded-lg border p-4">
-                    <h3 className="text-lg font-medium">Routing Preview</h3>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      Run a test to see which team would receive this alert.
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+                </div>
+                <div className="mt-4 flex justify-end">
+                  <Button>
+                    <Send className="mr-2 h-4 w-4" />
+                    Send Test Alert
+                  </Button>
+                </div>
+                <div className="mt-4 rounded-lg border p-4">
+                  <h3 className="text-lg font-medium">Routing Preview</h3>
+                  <p className="mt-2 text-sm text-muted-foreground">
+                    Run a test to see which team would receive this alert.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
-          <TabsContent value="import">
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+
+          <TabsContent value="import" className="space-y-6">
+            <div className="grid gap-4 sm:grid-cols-2">
               <Card>
                 <CardHeader>
                   <CardTitle>Import Configuration</CardTitle>
@@ -587,7 +590,7 @@ export default function TeamRoutingPage() {
             </div>
           </TabsContent>
         </Tabs>
-      </div>
+      </MainContent>
     </div>
   )
 }

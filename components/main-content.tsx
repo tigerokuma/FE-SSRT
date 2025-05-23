@@ -26,13 +26,18 @@ export function MainContent({ children }: { children: React.ReactNode }) {
           "flex flex-col",
           isCollapsed ? "md:pl-14" : "md:pl-4",
           "px-4 py-6 sm:px-6 lg:px-8",
-          "relative"
+          "relative w-full"
         )}
       >
         <div className={cn(
           "w-full",
           "mx-auto",
-          "max-w-[100%] sm:max-w-[640px] md:max-w-[768px] lg:max-w-[1024px] xl:max-w-[1280px] 2xl:max-w-[1536px]",
+          "max-w-[100%]",
+          "sm:max-w-[640px]",
+          "md:max-w-[768px]",
+          "lg:max-w-[960px]",
+          "xl:max-w-[1200px]",
+          "2xl:max-w-[1400px]",
           "transition-all duration-300"
         )}>
           {children}

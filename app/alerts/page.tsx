@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { PageHeader } from "@/components/page-header"
+import { MainContent } from "@/components/main-content"
 
 const alertsData = [
   {
@@ -119,18 +120,18 @@ export default function AlertsPage() {
     <div className="flex flex-col min-h-screen">
       <PageHeader title="Alert Center" description="Monitor and manage security and activity alerts">
         <div className="flex flex-col sm:flex-row gap-2">
-          <Button variant="outline" size="sm" className="w-full sm:w-auto">
+          <Button variant="outline" size="sm" className="sm:w-auto">
             <Filter className="mr-2 h-4 w-4" />
             Filter
           </Button>
           <Dialog open={isCreateRuleOpen} onOpenChange={setIsCreateRuleOpen}>
             <DialogTrigger asChild>
-              <Button size="sm" className="w-full sm:w-auto">
+              <Button size="sm" className="sm:w-auto">
                 <Plus className="mr-2 h-4 w-4" />
                 Create Rule
               </Button>
             </DialogTrigger>
-            <DialogContent className="w-[calc(100%-2rem)] sm:max-w-[600px]">
+            <DialogContent className="sm:max-w-[600px]">
               <DialogHeader className="space-y-2 pb-4">
                 <DialogTitle>Create Alert Rule</DialogTitle>
                 <DialogDescription>Define conditions that will trigger alerts for your repositories.</DialogDescription>
@@ -192,19 +193,19 @@ export default function AlertsPage() {
         </div>
       </PageHeader>
 
-      <div className="flex-1 py-4">
-        <Tabs defaultValue="all" className="w-full">
+      <MainContent>
+        <Tabs defaultValue="all">
           <div className="flex flex-col gap-4 mb-4">
             <h2 className="text-xl font-bold tracking-tight">Active Alerts</h2>
-            <TabsList className="grid w-full grid-cols-3 max-w-md">
-              <TabsTrigger value="all" className="px-2 sm:px-4">All</TabsTrigger>
-              <TabsTrigger value="open" className="px-2 sm:px-4">Open</TabsTrigger>
-              <TabsTrigger value="resolved" className="px-2 sm:px-4">Resolved</TabsTrigger>
+            <TabsList className="grid grid-cols-3 max-w-md">
+              <TabsTrigger value="all">All</TabsTrigger>
+              <TabsTrigger value="open">Open</TabsTrigger>
+              <TabsTrigger value="resolved">Resolved</TabsTrigger>
             </TabsList>
           </div>
 
-          <TabsContent value="all" className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          <TabsContent value="all" className="space-y-6">
+            <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4">
               {alerts.map((alert) => (
                 <div key={alert.id} className="rounded-lg border bg-card p-4 space-y-3">
                   <div className="flex flex-col gap-1">
@@ -231,8 +232,8 @@ export default function AlertsPage() {
             </div>
           </TabsContent>
 
-          <TabsContent value="open" className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          <TabsContent value="open" className="space-y-6">
+            <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4">
               {alerts.filter(alert => alert.status === "open").map((alert) => (
                 <div key={alert.id} className="rounded-lg border bg-card p-4 space-y-3">
                   <div className="flex flex-col gap-1">
@@ -272,8 +273,8 @@ export default function AlertsPage() {
             </div>
           </TabsContent>
 
-          <TabsContent value="resolved" className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          <TabsContent value="resolved" className="space-y-6">
+            <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4">
               {alerts.filter(alert => alert.status === "resolved").map((alert) => (
                 <div key={alert.id} className="rounded-lg border bg-card p-4 space-y-3">
                   <div className="flex flex-col gap-1">
@@ -309,7 +310,7 @@ export default function AlertsPage() {
             </div>
           </TabsContent>
         </Tabs>
-      </div>
+      </MainContent>
     </div>
   )
 }
