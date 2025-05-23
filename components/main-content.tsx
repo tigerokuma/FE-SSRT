@@ -32,8 +32,8 @@ export function MainContent({ children }: { children: React.ReactNode }) {
         <div className={cn(
           "w-full",
           "mx-auto",
-          "max-w-[100%] sm:max-w-[540px] md:max-w-[720px] lg:max-w-[960px] xl:max-w-[1140px]",
-          "px-2 sm:px-0"
+          "max-w-[100%] sm:max-w-[640px] md:max-w-[768px] lg:max-w-[1024px] xl:max-w-[1280px] 2xl:max-w-[1536px]",
+          "transition-all duration-300"
         )}>
           {children}
         </div>

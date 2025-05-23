@@ -116,21 +116,21 @@ export default function AlertsPage() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen w-full overflow-x-hidden">
+    <div className="flex flex-col min-h-screen">
       <PageHeader title="Alert Center" description="Monitor and manage security and activity alerts">
-        <div className="flex flex-col w-full gap-2 px-4">
-          <Button variant="outline" size="sm" className="w-full">
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Button variant="outline" size="sm" className="w-full sm:w-auto">
             <Filter className="mr-2 h-4 w-4" />
             Filter
           </Button>
           <Dialog open={isCreateRuleOpen} onOpenChange={setIsCreateRuleOpen}>
             <DialogTrigger asChild>
-              <Button size="sm" className="w-full">
+              <Button size="sm" className="w-full sm:w-auto">
                 <Plus className="mr-2 h-4 w-4" />
                 Create Rule
               </Button>
             </DialogTrigger>
-            <DialogContent className="w-[calc(100%-2rem)] sm:max-w-[600px] p-4">
+            <DialogContent className="w-[calc(100%-2rem)] sm:max-w-[600px]">
               <DialogHeader className="space-y-2 pb-4">
                 <DialogTitle>Create Alert Rule</DialogTitle>
                 <DialogDescription>Define conditions that will trigger alerts for your repositories.</DialogDescription>
@@ -192,11 +192,11 @@ export default function AlertsPage() {
         </div>
       </PageHeader>
 
-      <div className="flex-1 px-4 py-4 w-full max-w-full overflow-hidden">
+      <div className="flex-1 py-4">
         <Tabs defaultValue="all" className="w-full">
           <div className="flex flex-col gap-4 mb-4">
             <h2 className="text-xl font-bold tracking-tight">Active Alerts</h2>
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-3 max-w-md">
               <TabsTrigger value="all" className="px-2 sm:px-4">All</TabsTrigger>
               <TabsTrigger value="open" className="px-2 sm:px-4">Open</TabsTrigger>
               <TabsTrigger value="resolved" className="px-2 sm:px-4">Resolved</TabsTrigger>
@@ -204,9 +204,9 @@ export default function AlertsPage() {
           </div>
 
           <TabsContent value="all" className="space-y-4">
-            <div className="grid gap-4">
+            <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
               {alerts.map((alert) => (
-                <div key={alert.id} className="rounded-lg border bg-card p-4 space-y-3 w-full break-words">
+                <div key={alert.id} className="rounded-lg border bg-card p-4 space-y-3">
                   <div className="flex flex-col gap-1">
                     <div className="flex items-start justify-between gap-2">
                       <span className="font-medium line-clamp-1 min-w-0">{alert.rule}</span>
@@ -225,9 +225,87 @@ export default function AlertsPage() {
                       </Badge>
                     )}
                   </div>
-                  <p className="text-sm text-muted-foreground line-clamp-2 break-words">{alert.description}</p>
+                  <p className="text-sm text-muted-foreground line-clamp-2">{alert.description}</p>
                 </div>
               ))}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="open" className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+              {alerts.filter(alert => alert.status === "open").map((alert) => (
+                <div key={alert.id} className="rounded-lg border bg-card p-4 space-y-3">
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="font-medium line-clamp-1 min-w-0">{alert.rule}</span>
+                      <div className="shrink-0">
+                        {getStatusBadge(alert.status)}
+                      </div>
+                    </div>
+                    <span className="text-sm text-muted-foreground line-clamp-1">{alert.repository}</span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="shrink-0">{getSeverityBadge(alert.severity)}</div>
+                    <span className="text-sm text-muted-foreground">{alert.created}</span>
+                    {alert.team && (
+                      <Badge variant="outline" className="text-xs shrink-0">
+                        {alert.team}
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-sm text-muted-foreground line-clamp-2">{alert.description}</p>
+                </div>
+              ))}
+              {alerts.filter(alert => alert.status === "open").length === 0 && (
+                <div className="col-span-full flex flex-col items-center justify-center rounded-lg border bg-card p-8">
+                  <Check className="h-12 w-12 text-muted-foreground" />
+                  <h3 className="mt-4 text-lg font-medium">No Open Alerts</h3>
+                  <p className="mt-2 text-sm text-muted-foreground text-center">
+                    All alerts have been resolved. Create a new alert rule to start monitoring.
+                  </p>
+                  <Button onClick={() => setIsCreateRuleOpen(true)} className="mt-4">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Create Rule
+                  </Button>
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
+          <TabsContent value="resolved" className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+              {alerts.filter(alert => alert.status === "resolved").map((alert) => (
+                <div key={alert.id} className="rounded-lg border bg-card p-4 space-y-3">
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="font-medium line-clamp-1 min-w-0">{alert.rule}</span>
+                      <div className="shrink-0">
+                        {getStatusBadge(alert.status)}
+                      </div>
+                    </div>
+                    <span className="text-sm text-muted-foreground line-clamp-1">{alert.repository}</span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="shrink-0">{getSeverityBadge(alert.severity)}</div>
+                    <span className="text-sm text-muted-foreground">{alert.created}</span>
+                    {alert.team && (
+                      <Badge variant="outline" className="text-xs shrink-0">
+                        {alert.team}
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-sm text-muted-foreground line-clamp-2">{alert.description}</p>
+                </div>
+              ))}
+              {alerts.filter(alert => alert.status === "resolved").length === 0 && (
+                <div className="col-span-full flex flex-col items-center justify-center rounded-lg border bg-card p-8">
+                  <AlertTriangle className="h-12 w-12 text-muted-foreground" />
+                  <h3 className="mt-4 text-lg font-medium">No Resolved Alerts</h3>
+                  <p className="mt-2 text-sm text-muted-foreground text-center">
+                    There are no resolved alerts yet. Alerts will appear here once they are addressed.
+                  </p>
+                </div>
+              )}
             </div>
           </TabsContent>
         </Tabs>

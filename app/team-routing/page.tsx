@@ -149,7 +149,7 @@ export default function TeamRoutingPage() {
                 Add Team
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px]">
+            <DialogContent className="w-[calc(100%-2rem)] sm:max-w-[500px]">
               <DialogHeader>
                 <DialogTitle>Add New Team</DialogTitle>
                 <DialogDescription>Create a new team to route alerts to.</DialogDescription>
@@ -198,7 +198,7 @@ export default function TeamRoutingPage() {
                 Add Routing Rule
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[600px]">
+            <DialogContent className="w-[calc(100%-2rem)] sm:max-w-[600px]">
               <DialogHeader>
                 <DialogTitle>Add Alert Routing Rule</DialogTitle>
                 <DialogDescription>
@@ -282,8 +282,8 @@ export default function TeamRoutingPage() {
         </div>
       </PageHeader>
 
-      <div className="container py-6">
-        <Tabs defaultValue="teams">
+      <div className="py-6">
+        <Tabs defaultValue="teams" className="w-full">
           <TabsList className="mb-6">
             <TabsTrigger value="teams">Teams</TabsTrigger>
             <TabsTrigger value="routing">Routing Rules</TabsTrigger>
@@ -329,7 +329,7 @@ export default function TeamRoutingPage() {
                 </Table>
               </CardContent>
             </Card>
-            <div className="mt-6 grid gap-6 md:grid-cols-2">
+            <div className="mt-6 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               <Card>
                 <CardHeader>
                   <CardTitle>Team Members</CardTitle>
@@ -449,7 +449,7 @@ export default function TeamRoutingPage() {
                   <CardDescription>Simulate an alert to test your routing configuration</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid gap-4 md:grid-cols-2">
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                     <div className="space-y-2">
                       <Label htmlFor="test-rule">Alert Rule</Label>
                       <Select>
@@ -496,7 +496,7 @@ export default function TeamRoutingPage() {
             </div>
           </TabsContent>
           <TabsContent value="import">
-            <div className="grid gap-6 md:grid-cols-2">
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               <Card>
                 <CardHeader>
                   <CardTitle>Import Configuration</CardTitle>

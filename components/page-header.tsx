@@ -9,7 +9,7 @@ interface PageHeaderProps {
 export function PageHeader({ title, description, children }: PageHeaderProps) {
   return (
     <div className="border-b">
-      <div className="container flex flex-col items-start justify-between gap-4 py-4 sm:py-6 md:py-8">
+      <div className="container flex flex-col items-start justify-between gap-4 py-4 sm:py-6 md:py-10">
         <div className="grid gap-1 w-full">
           <h1 className="text-xl font-bold tracking-tight sm:text-2xl md:text-3xl truncate">{title}</h1>
           {description && (

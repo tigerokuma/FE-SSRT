@@ -159,17 +159,17 @@ export default function DependenciesPage() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen w-full overflow-x-hidden">
+    <div className="flex flex-col min-h-screen">
       <PageHeader title="Dependency Watchlist" description="Monitor and manage your project dependencies">
-        <div className="flex flex-col w-full gap-2 px-4">
+        <div className="flex flex-col sm:flex-row gap-2">
           <Dialog open={isAddDependencyOpen} onOpenChange={setIsAddDependencyOpen}>
             <DialogTrigger asChild>
-              <Button size="sm" className="w-full">
+              <Button size="sm" className="w-full sm:w-auto">
                 <Plus className="mr-2 h-4 w-4" />
                 Add Dependency
               </Button>
             </DialogTrigger>
-            <DialogContent className="w-[calc(100%-2rem)] sm:max-w-[500px] p-4">
+            <DialogContent className="w-[calc(100%-2rem)] sm:max-w-[500px]">
               <DialogHeader className="space-y-2 pb-4">
                 <DialogTitle>Add Dependency to Watchlist</DialogTitle>
                 <DialogDescription>Search for a package to add to your watchlist for monitoring.</DialogDescription>
@@ -219,11 +219,11 @@ export default function DependenciesPage() {
         </div>
       </PageHeader>
 
-      <div className="flex-1 px-4 py-4 w-full max-w-full overflow-hidden">
+      <div className="flex-1 py-4">
         <Tabs defaultValue="all" className="w-full">
           <div className="flex flex-col gap-4 mb-4">
             <h2 className="text-xl font-bold tracking-tight">Dependencies</h2>
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-3 max-w-md">
               <TabsTrigger value="all" className="px-2 sm:px-4">All</TabsTrigger>
               <TabsTrigger value="production" className="px-2 sm:px-4">Production</TabsTrigger>
               <TabsTrigger value="development" className="px-2 sm:px-4">Development</TabsTrigger>
@@ -231,9 +231,9 @@ export default function DependenciesPage() {
           </div>
 
           <TabsContent value="all" className="space-y-4">
-            <div className="grid gap-4">
+            <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
               {dependencies.map((dep) => (
-                <div key={dep.id} className="rounded-lg border bg-card p-4 space-y-3 w-full break-words">
+                <div key={dep.id} className="rounded-lg border bg-card p-4 space-y-3">
                   <div className="flex flex-col gap-1">
                     <div className="flex items-start justify-between gap-2">
                       <span className="font-medium min-w-0 truncate">{dep.name}</span>
@@ -245,22 +245,22 @@ export default function DependenciesPage() {
                     </div>
                   </div>
                   <div className="grid grid-cols-3 gap-2 text-sm">
-                    <div className="flex items-center gap-1 shrink-0">
+                    <div className="flex items-center gap-1">
                       <AlertTriangle className="h-4 w-4 text-yellow-500" />
                       <span>{dep.cves} CVEs</span>
                     </div>
-                    <div className="flex items-center gap-1 shrink-0">
+                    <div className="flex items-center gap-1">
                       <Users className="h-4 w-4 text-blue-500" />
                       <span>{dep.maintainers}</span>
                     </div>
-                    <div className="flex items-center gap-1 shrink-0">
+                    <div className="flex items-center gap-1">
                       <Star className="h-4 w-4 text-yellow-400" />
                       <span>{dep.stars}</span>
                     </div>
                   </div>
                   <div className="flex items-center justify-between text-sm text-muted-foreground">
                     <span className="truncate">Updated {dep.lastUpdate}</span>
-                    <Button variant="ghost" size="sm" className="h-8 px-2 shrink-0">
+                    <Button variant="ghost" size="sm" className="h-8 px-2">
                       <ExternalLink className="h-4 w-4" />
                     </Button>
                   </div>

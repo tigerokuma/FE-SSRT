@@ -120,9 +120,9 @@ export default function RepositoryPage() {
         </div>
       </PageHeader>
 
-      <div className="container py-6">
-        <div className="grid gap-6 md:grid-cols-3">
-          <div className="md:col-span-2">
+      <div className="py-6">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="lg:col-span-2">
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -222,19 +222,14 @@ export default function RepositoryPage() {
                 <CardTitle>Maintainers</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {repo.maintainers.map((maintainer, index) => (
-                    <div key={index} className="flex items-center gap-3">
+                <div className="flex flex-wrap gap-4">
+                  {repo.maintainers.map((maintainer) => (
+                    <div key={maintainer.name} className="flex items-center gap-2">
                       <Avatar className="h-8 w-8">
-                        <AvatarImage src={maintainer.avatar || "/placeholder.svg"} alt={maintainer.name} />
+                        <AvatarImage src={maintainer.avatar} alt={maintainer.name} />
                         <AvatarFallback>{maintainer.initials}</AvatarFallback>
                       </Avatar>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">{maintainer.name}</p>
-                      </div>
-                      <Button variant="ghost" size="icon">
-                        <ExternalLink className="h-4 w-4" />
-                      </Button>
+                      <span className="text-sm font-medium">{maintainer.name}</span>
                     </div>
                   ))}
                 </div>
