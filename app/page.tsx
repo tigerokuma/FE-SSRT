@@ -1,4 +1,4 @@
-import { AlertTriangle, BarChart3, GitBranch, Package, Search } from "lucide-react"
+import { AlertTriangle, BarChart3, GitBranch, Package, Search, CheckCircle2, ArrowRight } from "lucide-react"
 import Link from "next/link"
 
 import { Button } from "@/components/ui/button"
@@ -41,80 +41,151 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="container py-8">
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-          <Card className="hover:shadow-md transition-shadow">
-            <CardHeader className="space-y-0 pb-2">
-              <CardTitle className="text-lg font-medium">Track a Repository</CardTitle>
-              <CardDescription>Monitor activity and health</CardDescription>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <div className="flex h-12 w-12 items-center justify-center rounded-md bg-primary/10 text-primary">
+      <section className="container py-12">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4 lg:gap-8">
+          <Card className="group relative overflow-hidden transition-all hover:shadow-lg dark:hover:shadow-2xl dark:hover:shadow-primary/10">
+            <CardHeader className="space-y-1 pb-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
                 <GitBranch className="h-6 w-6" />
+              </div>
+              <CardTitle className="text-xl font-semibold pt-4">Track a Repository</CardTitle>
+              <CardDescription className="text-sm text-muted-foreground">
+                Monitor repository activity and track overall health metrics in real-time
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0 pb-4">
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <div className="flex items-center">
+                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  <span>Real-time activity monitoring</span>
+                </div>
+                <div className="flex items-center">
+                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  <span>Health score tracking</span>
+                </div>
+                <div className="flex items-center">
+                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  <span>Automated issue detection</span>
+                </div>
               </div>
             </CardContent>
             <CardFooter>
-              <Button asChild variant="ghost" className="w-full justify-start">
-                <Link href="/repository">
+              <Button asChild variant="default" className="w-full justify-center group-hover:bg-primary/90">
+                <Link href="/repository" className="flex items-center gap-2">
                   Start Tracking
+                  <ArrowRight className="h-4 w-4" />
                   <span className="sr-only">Track a Repository</span>
                 </Link>
               </Button>
             </CardFooter>
           </Card>
-          <Card className="hover:shadow-md transition-shadow">
-            <CardHeader className="space-y-0 pb-2">
-              <CardTitle className="text-lg font-medium">Watch a Dependency</CardTitle>
-              <CardDescription>Get alerts on changes</CardDescription>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <div className="flex h-12 w-12 items-center justify-center rounded-md bg-primary/10 text-primary">
+
+          <Card className="group relative overflow-hidden transition-all hover:shadow-lg dark:hover:shadow-2xl dark:hover:shadow-primary/10">
+            <CardHeader className="space-y-1 pb-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
                 <Package className="h-6 w-6" />
               </div>
+              <CardTitle className="text-xl font-semibold pt-4">Watch Dependencies</CardTitle>
+              <CardDescription className="text-sm text-muted-foreground">
+                Stay updated on dependency changes and security vulnerabilities
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0 pb-4">
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <div className="flex items-center">
+                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  <span>Version update notifications</span>
+                </div>
+                <div className="flex items-center">
+                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  <span>Security vulnerability alerts</span>
+                </div>
+                <div className="flex items-center">
+                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  <span>Dependency health metrics</span>
+                </div>
+              </div>
             </CardContent>
             <CardFooter>
-              <Button asChild variant="ghost" className="w-full justify-start">
-                <Link href="/dependencies">
+              <Button asChild variant="default" className="w-full justify-center group-hover:bg-primary/90">
+                <Link href="/dependencies" className="flex items-center gap-2">
                   Add Dependency
-                  <span className="sr-only">Watch a Dependency</span>
+                  <ArrowRight className="h-4 w-4" />
+                  <span className="sr-only">Watch Dependencies</span>
                 </Link>
               </Button>
             </CardFooter>
           </Card>
-          <Card className="hover:shadow-md transition-shadow">
-            <CardHeader className="space-y-0 pb-2">
-              <CardTitle className="text-lg font-medium">View Alerts</CardTitle>
-              <CardDescription>Check security and activity alerts</CardDescription>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <div className="flex h-12 w-12 items-center justify-center rounded-md bg-primary/10 text-primary">
+
+          <Card className="group relative overflow-hidden transition-all hover:shadow-lg dark:hover:shadow-2xl dark:hover:shadow-primary/10">
+            <CardHeader className="space-y-1 pb-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
                 <AlertTriangle className="h-6 w-6" />
               </div>
+              <CardTitle className="text-xl font-semibold pt-4">Security Alerts</CardTitle>
+              <CardDescription className="text-sm text-muted-foreground">
+                Monitor and respond to security alerts and vulnerabilities
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0 pb-4">
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <div className="flex items-center">
+                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  <span>Real-time security notifications</span>
+                </div>
+                <div className="flex items-center">
+                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  <span>Vulnerability assessment</span>
+                </div>
+                <div className="flex items-center">
+                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  <span>Automated fix suggestions</span>
+                </div>
+              </div>
             </CardContent>
             <CardFooter>
-              <Button asChild variant="ghost" className="w-full justify-start">
-                <Link href="/alerts">
+              <Button asChild variant="default" className="w-full justify-center group-hover:bg-primary/90">
+                <Link href="/alerts" className="flex items-center gap-2">
                   View Alerts
-                  <span className="sr-only">View Alerts</span>
+                  <ArrowRight className="h-4 w-4" />
+                  <span className="sr-only">Security Alerts</span>
                 </Link>
               </Button>
             </CardFooter>
           </Card>
-          <Card className="hover:shadow-md transition-shadow">
-            <CardHeader className="space-y-0 pb-2">
-              <CardTitle className="text-lg font-medium">Export Graphs</CardTitle>
-              <CardDescription>Generate visual insights</CardDescription>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <div className="flex h-12 w-12 items-center justify-center rounded-md bg-primary/10 text-primary">
+
+          <Card className="group relative overflow-hidden transition-all hover:shadow-lg dark:hover:shadow-2xl dark:hover:shadow-primary/10">
+            <CardHeader className="space-y-1 pb-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
                 <BarChart3 className="h-6 w-6" />
+              </div>
+              <CardTitle className="text-xl font-semibold pt-4">Insights & Graphs</CardTitle>
+              <CardDescription className="text-sm text-muted-foreground">
+                Generate visual insights and dependency graphs
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0 pb-4">
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <div className="flex items-center">
+                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  <span>Interactive dependency graphs</span>
+                </div>
+                <div className="flex items-center">
+                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  <span>Trend analysis</span>
+                </div>
+                <div className="flex items-center">
+                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  <span>Custom graph exports</span>
+                </div>
               </div>
             </CardContent>
             <CardFooter>
-              <Button asChild variant="ghost" className="w-full justify-start">
-                <Link href="/graph-export">
+              <Button asChild variant="default" className="w-full justify-center group-hover:bg-primary/90">
+                <Link href="/graph-export" className="flex items-center gap-2">
                   Create Graph
-                  <span className="sr-only">Export Graphs</span>
+                  <ArrowRight className="h-4 w-4" />
+                  <span className="sr-only">Insights & Graphs</span>
                 </Link>
               </Button>
             </CardFooter>
