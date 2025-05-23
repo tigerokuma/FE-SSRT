@@ -12,6 +12,9 @@ import {
   Shield,
   ShieldAlert,
   ShieldCheck,
+  Users,
+  Star,
+  ArrowDown,
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -156,312 +159,116 @@ export default function DependenciesPage() {
   }
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col min-h-screen w-full overflow-x-hidden">
       <PageHeader title="Dependency Watchlist" description="Monitor and manage your project dependencies">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col w-full gap-2 px-4">
           <Dialog open={isAddDependencyOpen} onOpenChange={setIsAddDependencyOpen}>
             <DialogTrigger asChild>
-              <Button size="sm">
+              <Button size="sm" className="w-full">
                 <Plus className="mr-2 h-4 w-4" />
                 Add Dependency
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[500px]">
-              <DialogHeader>
+            <DialogContent className="w-[calc(100%-2rem)] sm:max-w-[500px] p-4">
+              <DialogHeader className="space-y-2 pb-4">
                 <DialogTitle>Add Dependency to Watchlist</DialogTitle>
                 <DialogDescription>Search for a package to add to your watchlist for monitoring.</DialogDescription>
               </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="flex items-center gap-2">
-                  <Input placeholder="Search for a package..." className="flex-1" />
-                  <Button size="icon" variant="ghost">
-                    <Search className="h-4 w-4" />
-                  </Button>
+              <div className="grid gap-4">
+                <div className="flex flex-col gap-2">
+                  <div className="flex gap-2">
+                    <Input placeholder="Search for a package..." className="flex-1 min-w-0" />
+                    <Button size="icon" variant="ghost" className="shrink-0">
+                      <Search className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-                <div className="rounded-lg border p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Package className="h-5 w-5" />
-                      <span className="font-medium">react-query</span>
+                <div className="rounded-lg border p-4 space-y-3">
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Package className="h-5 w-5 shrink-0" />
+                        <span className="font-medium truncate">react-query</span>
+                      </div>
+                      <Badge variant="outline" className="shrink-0">v4.28.0</Badge>
                     </div>
-                    <Badge variant="outline">v4.28.0</Badge>
+                    <p className="text-sm text-muted-foreground break-words">
+                      Hooks for fetching, caching and updating asynchronous data in React
+                    </p>
                   </div>
-                  <div className="mt-2 text-sm text-muted-foreground">
-                    Hooks for fetching, caching and updating asynchronous data in React
-                  </div>
-                  <div className="mt-2 flex items-center gap-2 text-sm">
-                    <span>Stars: 34.2k</span>
-                    <span>•</span>
-                    <span>Weekly Downloads: 2.8M</span>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="version">Version</Label>
-                    <Select>
-                      <SelectTrigger id="version">
-                        <SelectValue placeholder="Select version" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="4.28.0">4.28.0 (Latest)</SelectItem>
-                        <SelectItem value="4.27.0">4.27.0</SelectItem>
-                        <SelectItem value="4.26.1">4.26.1</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="type">Dependency Type</Label>
-                    <Select>
-                      <SelectTrigger id="type">
-                        <SelectValue placeholder="Select type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="production">Production</SelectItem>
-                        <SelectItem value="development">Development</SelectItem>
-                        <SelectItem value="peer">Peer</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Star className="h-4 w-4 text-yellow-400" />
+                      <span>34.2k stars</span>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <ArrowDown className="h-4 w-4 text-green-400" />
+                      <span>2.8M weekly</span>
+                    </div>
                   </div>
                 </div>
               </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsAddDependencyOpen(false)}>
+              <DialogFooter className="flex flex-col gap-2 mt-6">
+                <Button className="w-full">Add to Watchlist</Button>
+                <Button variant="outline" className="w-full" onClick={() => setIsAddDependencyOpen(false)}>
                   Cancel
                 </Button>
-                <Button onClick={() => setIsAddDependencyOpen(false)}>Add to Watchlist</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
         </div>
       </PageHeader>
 
-      <div className="container py-6">
-        <Tabs defaultValue="all">
-          <div className="flex items-center justify-between">
-            <TabsList>
-              <TabsTrigger value="all">All Dependencies</TabsTrigger>
-              <TabsTrigger value="high-risk">High Risk</TabsTrigger>
-              <TabsTrigger value="cve">CVE Alerts</TabsTrigger>
+      <div className="flex-1 px-4 py-4 w-full max-w-full overflow-hidden">
+        <Tabs defaultValue="all" className="w-full">
+          <div className="flex flex-col gap-4 mb-4">
+            <h2 className="text-xl font-bold tracking-tight">Dependencies</h2>
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="all" className="px-2 sm:px-4">All</TabsTrigger>
+              <TabsTrigger value="production" className="px-2 sm:px-4">Production</TabsTrigger>
+              <TabsTrigger value="development" className="px-2 sm:px-4">Development</TabsTrigger>
             </TabsList>
-            <div className="flex items-center gap-2">
-              <Input placeholder="Search dependencies..." className="w-[250px]" />
-            </div>
           </div>
-          <TabsContent value="all" className="mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Dependency Watchlist</CardTitle>
-                <CardDescription>Monitor the health and activity of your dependencies</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid gap-4">
-                  {dependencies.map((dependency) => (
-                    <div
-                      key={dependency.id}
-                      className="flex flex-col rounded-lg border p-4 sm:flex-row sm:items-center"
-                    >
-                      <div className="flex-1 space-y-1">
-                        <div className="flex items-center gap-2">
-                          <h3 className="text-lg font-medium">{dependency.name}</h3>
-                          <Badge variant="outline">{dependency.version}</Badge>
-                          <Badge variant="secondary">{dependency.type}</Badge>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          {getRiskBadge(dependency.risk)}
-                          {getActivityBadge(dependency.activity)}
-                          {dependency.cves > 0 && (
-                            <Badge variant="destructive" className="flex items-center gap-1">
-                              <AlertTriangle className="h-3 w-3" />
-                              {dependency.cves} CVEs
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <span>Updated: {dependency.lastUpdate}</span>
-                          <span>Maintainers: {dependency.maintainers}</span>
-                          <span>Stars: {dependency.stars}</span>
-                        </div>
-                      </div>
-                      <div className="mt-4 flex items-center gap-2 sm:mt-0">
-                        <Button variant="outline" size="sm">
-                          View Details
-                        </Button>
-                        <Button variant="ghost" size="icon">
-                          <ExternalLink className="h-4 w-4" />
-                        </Button>
-                      </div>
+
+          <TabsContent value="all" className="space-y-4">
+            <div className="grid gap-4">
+              {dependencies.map((dep) => (
+                <div key={dep.id} className="rounded-lg border bg-card p-4 space-y-3 w-full break-words">
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="font-medium min-w-0 truncate">{dep.name}</span>
+                      <Badge variant="outline" className="shrink-0">v{dep.version}</Badge>
                     </div>
-                  ))}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="shrink-0">{getRiskBadge(dep.risk)}</div>
+                      <div className="shrink-0">{getActivityBadge(dep.activity)}</div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 text-sm">
+                    <div className="flex items-center gap-1 shrink-0">
+                      <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                      <span>{dep.cves} CVEs</span>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Users className="h-4 w-4 text-blue-500" />
+                      <span>{dep.maintainers}</span>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Star className="h-4 w-4 text-yellow-400" />
+                      <span>{dep.stars}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between text-sm text-muted-foreground">
+                    <span className="truncate">Updated {dep.lastUpdate}</span>
+                    <Button variant="ghost" size="sm" className="h-8 px-2 shrink-0">
+                      <ExternalLink className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-              </CardContent>
-              <CardFooter className="flex justify-between">
-                <Button variant="outline">Previous</Button>
-                <Button variant="outline">Next</Button>
-              </CardFooter>
-            </Card>
-          </TabsContent>
-          <TabsContent value="high-risk" className="mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>High Risk Dependencies</CardTitle>
-                <CardDescription>Dependencies that require immediate attention</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid gap-4">
-                  {dependencies
-                    .filter((dependency) => dependency.risk === "high")
-                    .map((dependency) => (
-                      <div
-                        key={dependency.id}
-                        className="flex flex-col rounded-lg border p-4 sm:flex-row sm:items-center"
-                      >
-                        <div className="flex-1 space-y-1">
-                          <div className="flex items-center gap-2">
-                            <h3 className="text-lg font-medium">{dependency.name}</h3>
-                            <Badge variant="outline">{dependency.version}</Badge>
-                            <Badge variant="secondary">{dependency.type}</Badge>
-                          </div>
-                          <div className="flex flex-wrap gap-2">
-                            {getRiskBadge(dependency.risk)}
-                            {getActivityBadge(dependency.activity)}
-                            {dependency.cves > 0 && (
-                              <Badge variant="destructive" className="flex items-center gap-1">
-                                <AlertTriangle className="h-3 w-3" />
-                                {dependency.cves} CVEs
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                            <span>Updated: {dependency.lastUpdate}</span>
-                            <span>Maintainers: {dependency.maintainers}</span>
-                            <span>Stars: {dependency.stars}</span>
-                          </div>
-                        </div>
-                        <div className="mt-4 flex items-center gap-2 sm:mt-0">
-                          <Button variant="outline" size="sm">
-                            View Details
-                          </Button>
-                          <Button variant="ghost" size="icon">
-                            <ExternalLink className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-          <TabsContent value="cve" className="mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>CVE Alerts</CardTitle>
-                <CardDescription>Dependencies with known security vulnerabilities</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid gap-4">
-                  {dependencies
-                    .filter((dependency) => dependency.cves > 0)
-                    .map((dependency) => (
-                      <div
-                        key={dependency.id}
-                        className="flex flex-col rounded-lg border p-4 sm:flex-row sm:items-center"
-                      >
-                        <div className="flex-1 space-y-1">
-                          <div className="flex items-center gap-2">
-                            <h3 className="text-lg font-medium">{dependency.name}</h3>
-                            <Badge variant="outline">{dependency.version}</Badge>
-                            <Badge variant="secondary">{dependency.type}</Badge>
-                          </div>
-                          <div className="flex flex-wrap gap-2">
-                            {getRiskBadge(dependency.risk)}
-                            {getActivityBadge(dependency.activity)}
-                            <Badge variant="destructive" className="flex items-center gap-1">
-                              <AlertTriangle className="h-3 w-3" />
-                              {dependency.cves} CVEs
-                            </Badge>
-                          </div>
-                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                            <span>Updated: {dependency.lastUpdate}</span>
-                            <span>Maintainers: {dependency.maintainers}</span>
-                            <span>Stars: {dependency.stars}</span>
-                          </div>
-                        </div>
-                        <div className="mt-4 flex items-center gap-2 sm:mt-0">
-                          <Button variant="outline" size="sm">
-                            View Details
-                          </Button>
-                          <Button variant="ghost" size="icon">
-                            <ExternalLink className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              </CardContent>
-            </Card>
+              ))}
+            </div>
           </TabsContent>
         </Tabs>
-
-        <div className="mt-8">
-          <Card>
-            <CardHeader>
-              <CardTitle>CVE Warnings</CardTitle>
-              <CardDescription>Security vulnerabilities in your dependencies</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-900 dark:bg-red-950">
-                  <div className="flex items-start gap-4">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-300">
-                      <AlertTriangle className="h-5 w-5" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-lg font-medium text-red-800 dark:text-red-300">CVE-2023-1234</h3>
-                      <p className="mt-1 text-sm text-red-700 dark:text-red-400">Affects: moment (2.29.4)</p>
-                      <p className="mt-2 text-sm text-red-700 dark:text-red-400">
-                        A vulnerability in the moment library allows attackers to potentially execute arbitrary code
-                        through malicious date strings. This vulnerability has a CVSS score of 7.5 (High).
-                      </p>
-                      <div className="mt-4">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="border-red-300 text-red-700 hover:bg-red-100 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-900"
-                        >
-                          View Details
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div className="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-900 dark:bg-red-950">
-                  <div className="flex items-start gap-4">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100 text-red-600 dark:bg-red-900 dark:text-red-300">
-                      <AlertTriangle className="h-5 w-5" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-lg font-medium text-red-800 dark:text-red-300">CVE-2023-5678</h3>
-                      <p className="mt-1 text-sm text-red-700 dark:text-red-400">Affects: axios (1.3.4)</p>
-                      <p className="mt-2 text-sm text-red-700 dark:text-red-400">
-                        A vulnerability in axios could allow an attacker to perform server-side request forgery (SSRF)
-                        attacks. This vulnerability has a CVSS score of 6.5 (Medium).
-                      </p>
-                      <div className="mt-4">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="border-red-300 text-red-700 hover:bg-red-100 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-900"
-                        >
-                          View Details
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
       </div>
     </div>
   )

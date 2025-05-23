@@ -9,12 +9,20 @@ interface PageHeaderProps {
 export function PageHeader({ title, description, children }: PageHeaderProps) {
   return (
     <div className="border-b">
-      <div className="container flex flex-col items-start justify-between gap-4 py-6 md:flex-row md:items-center md:py-8">
-        <div className="grid gap-1">
-          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">{title}</h1>
-          {description && <p className="text-muted-foreground">{description}</p>}
+      <div className="container flex flex-col items-start justify-between gap-4 py-4 sm:py-6 md:py-8">
+        <div className="grid gap-1 w-full">
+          <h1 className="text-xl font-bold tracking-tight sm:text-2xl md:text-3xl truncate">{title}</h1>
+          {description && (
+            <p className="text-sm sm:text-base text-muted-foreground line-clamp-2 sm:line-clamp-none">
+              {description}
+            </p>
+          )}
         </div>
-        {children}
+        {children && (
+          <div className="flex w-full sm:w-auto">
+            {children}
+          </div>
+        )}
       </div>
     </div>
   )

@@ -25,14 +25,15 @@ export function MainContent({ children }: { children: React.ReactNode }) {
           "flex-1 min-h-screen transition-all duration-300",
           "flex flex-col",
           isCollapsed ? "md:pl-14" : "md:pl-4",
-          "p-6 lg:px-8 xl:px-12 2xl:px-16",
+          "px-4 py-6 sm:px-6 lg:px-8",
           "relative"
         )}
       >
         <div className={cn(
-          "w-full max-w-[1400px]",
+          "w-full",
           "mx-auto",
-          "lg:mx-8 xl:mx-16 2xl:mx-auto"
+          "max-w-[100%] sm:max-w-[540px] md:max-w-[720px] lg:max-w-[960px] xl:max-w-[1140px]",
+          "px-2 sm:px-0"
         )}>
           {children}
         </div>

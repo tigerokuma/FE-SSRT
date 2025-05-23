@@ -116,38 +116,34 @@ export default function AlertsPage() {
   }
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col min-h-screen w-full overflow-x-hidden">
       <PageHeader title="Alert Center" description="Monitor and manage security and activity alerts">
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm">
+        <div className="flex flex-col w-full gap-2 px-4">
+          <Button variant="outline" size="sm" className="w-full">
             <Filter className="mr-2 h-4 w-4" />
             Filter
           </Button>
           <Dialog open={isCreateRuleOpen} onOpenChange={setIsCreateRuleOpen}>
             <DialogTrigger asChild>
-              <Button size="sm">
+              <Button size="sm" className="w-full">
                 <Plus className="mr-2 h-4 w-4" />
                 Create Rule
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[600px]">
-              <DialogHeader>
+            <DialogContent className="w-[calc(100%-2rem)] sm:max-w-[600px] p-4">
+              <DialogHeader className="space-y-2 pb-4">
                 <DialogTitle>Create Alert Rule</DialogTitle>
                 <DialogDescription>Define conditions that will trigger alerts for your repositories.</DialogDescription>
               </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="rule-name" className="text-right">
-                    Rule Name
-                  </Label>
-                  <Input id="rule-name" placeholder="e.g., High LOC PR" className="col-span-3" />
+              <div className="grid gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="rule-name">Rule Name</Label>
+                  <Input id="rule-name" placeholder="e.g., High LOC PR" />
                 </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="rule-type" className="text-right">
-                    Rule Type
-                  </Label>
+                <div className="grid gap-2">
+                  <Label htmlFor="rule-type">Rule Type</Label>
                   <Select>
-                    <SelectTrigger id="rule-type" className="col-span-3">
+                    <SelectTrigger id="rule-type">
                       <SelectValue placeholder="Select rule type" />
                     </SelectTrigger>
                     <SelectContent>
@@ -158,13 +154,11 @@ export default function AlertsPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="condition" className="text-right">
-                    Condition
-                  </Label>
-                  <div className="col-span-3 flex gap-2">
+                <div className="grid gap-2">
+                  <Label htmlFor="condition">Condition</Label>
+                  <div className="grid gap-2">
                     <Select>
-                      <SelectTrigger className="w-[180px]">
+                      <SelectTrigger>
                         <SelectValue placeholder="Select field" />
                       </SelectTrigger>
                       <SelectContent>
@@ -174,7 +168,7 @@ export default function AlertsPage() {
                       </SelectContent>
                     </Select>
                     <Select>
-                      <SelectTrigger className="w-[120px]">
+                      <SelectTrigger>
                         <SelectValue placeholder="Operator" />
                       </SelectTrigger>
                       <SelectContent>
@@ -183,248 +177,60 @@ export default function AlertsPage() {
                         <SelectItem value="eq">Equal To</SelectItem>
                       </SelectContent>
                     </Select>
-                    <Input type="number" placeholder="Value" className="w-[120px]" />
+                    <Input type="number" placeholder="Value" />
                   </div>
                 </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="severity" className="text-right">
-                    Severity
-                  </Label>
-                  <Select>
-                    <SelectTrigger id="severity" className="col-span-3">
-                      <SelectValue placeholder="Select severity" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="critical">Critical</SelectItem>
-                      <SelectItem value="high">High</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="low">Low</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="team" className="text-right">
-                    Assign to Team
-                  </Label>
-                  <Select>
-                    <SelectTrigger id="team" className="col-span-3">
-                      <SelectValue placeholder="Select team" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="core">Core</SelectItem>
-                      <SelectItem value="frontend">Frontend</SelectItem>
-                      <SelectItem value="backend">Backend</SelectItem>
-                      <SelectItem value="design">Design</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
               </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsCreateRuleOpen(false)}>
+              <DialogFooter className="flex flex-col gap-2 mt-6">
+                <Button className="w-full">Create Rule</Button>
+                <Button variant="outline" className="w-full" onClick={() => setIsCreateRuleOpen(false)}>
                   Cancel
                 </Button>
-                <Button onClick={() => setIsCreateRuleOpen(false)}>Create Rule</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
         </div>
       </PageHeader>
 
-      <div className="container py-6">
-        <Tabs defaultValue="all">
-          <div className="flex items-center justify-between">
-            <TabsList>
-              <TabsTrigger value="all">All Alerts</TabsTrigger>
-              <TabsTrigger value="open">Open</TabsTrigger>
-              <TabsTrigger value="resolved">Resolved</TabsTrigger>
+      <div className="flex-1 px-4 py-4 w-full max-w-full overflow-hidden">
+        <Tabs defaultValue="all" className="w-full">
+          <div className="flex flex-col gap-4 mb-4">
+            <h2 className="text-xl font-bold tracking-tight">Active Alerts</h2>
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="all" className="px-2 sm:px-4">All</TabsTrigger>
+              <TabsTrigger value="open" className="px-2 sm:px-4">Open</TabsTrigger>
+              <TabsTrigger value="resolved" className="px-2 sm:px-4">Resolved</TabsTrigger>
             </TabsList>
-            <div className="flex items-center gap-2">
-              <Input placeholder="Search alerts..." className="w-[250px]" />
-            </div>
           </div>
-          <TabsContent value="all" className="mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>All Alerts</CardTitle>
-                <CardDescription>View and manage all alerts across your repositories</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Rule</TableHead>
-                      <TableHead>Repository</TableHead>
-                      <TableHead>Team</TableHead>
-                      <TableHead>Severity</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Created</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {alerts.map((alert) => (
-                      <TableRow key={alert.id}>
-                        <TableCell className="font-medium">{alert.rule}</TableCell>
-                        <TableCell>{alert.repository}</TableCell>
-                        <TableCell>{alert.team}</TableCell>
-                        <TableCell>{getSeverityBadge(alert.severity)}</TableCell>
-                        <TableCell>{getStatusBadge(alert.status)}</TableCell>
-                        <TableCell>{alert.created}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Button variant="ghost" size="icon">
-                              <Check className="h-4 w-4" />
-                            </Button>
-                            <Button variant="ghost" size="icon">
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-              <CardFooter className="flex justify-between">
-                <Button variant="outline">Previous</Button>
-                <Button variant="outline">Next</Button>
-              </CardFooter>
-            </Card>
-          </TabsContent>
-          <TabsContent value="open" className="mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Open Alerts</CardTitle>
-                <CardDescription>View and manage open alerts that require attention</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Rule</TableHead>
-                      <TableHead>Repository</TableHead>
-                      <TableHead>Team</TableHead>
-                      <TableHead>Severity</TableHead>
-                      <TableHead>Created</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {alerts
-                      .filter((alert) => alert.status === "open")
-                      .map((alert) => (
-                        <TableRow key={alert.id}>
-                          <TableCell className="font-medium">{alert.rule}</TableCell>
-                          <TableCell>{alert.repository}</TableCell>
-                          <TableCell>{alert.team}</TableCell>
-                          <TableCell>{getSeverityBadge(alert.severity)}</TableCell>
-                          <TableCell>{alert.created}</TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <Button variant="ghost" size="icon">
-                                <Check className="h-4 w-4" />
-                              </Button>
-                              <Button variant="ghost" size="icon">
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </TabsContent>
-          <TabsContent value="resolved" className="mt-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Resolved Alerts</CardTitle>
-                <CardDescription>View previously resolved alerts</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Rule</TableHead>
-                      <TableHead>Repository</TableHead>
-                      <TableHead>Team</TableHead>
-                      <TableHead>Severity</TableHead>
-                      <TableHead>Created</TableHead>
-                      <TableHead>Resolved</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {alerts
-                      .filter((alert) => alert.status === "resolved")
-                      .map((alert) => (
-                        <TableRow key={alert.id}>
-                          <TableCell className="font-medium">{alert.rule}</TableCell>
-                          <TableCell>{alert.repository}</TableCell>
-                          <TableCell>{alert.team}</TableCell>
-                          <TableCell>{getSeverityBadge(alert.severity)}</TableCell>
-                          <TableCell>{alert.created}</TableCell>
-                          <TableCell>1 day ago</TableCell>
-                        </TableRow>
-                      ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
+
+          <TabsContent value="all" className="space-y-4">
+            <div className="grid gap-4">
+              {alerts.map((alert) => (
+                <div key={alert.id} className="rounded-lg border bg-card p-4 space-y-3 w-full break-words">
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="font-medium line-clamp-1 min-w-0">{alert.rule}</span>
+                      <div className="shrink-0">
+                        {getStatusBadge(alert.status)}
+                      </div>
+                    </div>
+                    <span className="text-sm text-muted-foreground line-clamp-1">{alert.repository}</span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="shrink-0">{getSeverityBadge(alert.severity)}</div>
+                    <span className="text-sm text-muted-foreground">{alert.created}</span>
+                    {alert.team && (
+                      <Badge variant="outline" className="text-xs shrink-0">
+                        {alert.team}
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-sm text-muted-foreground line-clamp-2 break-words">{alert.description}</p>
+                </div>
+              ))}
+            </div>
           </TabsContent>
         </Tabs>
-
-        <div className="mt-8">
-          <Card>
-            <CardHeader>
-              <CardTitle>Rule Simulator</CardTitle>
-              <CardDescription>Test your alert rules before deploying them</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div>
-                    <Label htmlFor="rule-select">Select Rule to Simulate</Label>
-                    <Select>
-                      <SelectTrigger id="rule-select" className="mt-1">
-                        <SelectValue placeholder="Select a rule" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="high_loc">High LOC PR</SelectItem>
-                        <SelectItem value="risky_import">Risky Import</SelectItem>
-                        <SelectItem value="cve_alert">CVE Alert</SelectItem>
-                        <SelectItem value="inactive_maintainer">Inactive Maintainer</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label htmlFor="repo-select">Select Repository</Label>
-                    <Select>
-                      <SelectTrigger id="repo-select" className="mt-1">
-                        <SelectValue placeholder="Select a repository" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="lodash">lodash/lodash</SelectItem>
-                        <SelectItem value="nextjs">vercel/next.js</SelectItem>
-                        <SelectItem value="react">facebook/react</SelectItem>
-                        <SelectItem value="tailwind">tailwindlabs/tailwindcss</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="flex justify-end">
-                  <Button>Run Simulation</Button>
-                </div>
-                <div className="rounded-lg border p-4">
-                  <h3 className="text-lg font-medium">Simulation Results</h3>
-                  <p className="mt-2 text-sm text-muted-foreground">
-                    Run a simulation to see how your rule would perform on historical data.
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
       </div>
     </div>
   )

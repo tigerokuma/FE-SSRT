@@ -15,25 +15,25 @@ export default function HomePage() {
         description="Monitor the health, risk, and activity of open-source repositories"
       >
         <div className="flex items-center gap-2">
-          <Button>
+          <Button className="w-full sm:w-auto">
             <Search className="mr-2 h-4 w-4" />
             Quick Search
           </Button>
         </div>
       </PageHeader>
 
-      <section className="container py-6 md:py-10">
-        <div className="mx-auto max-w-5xl space-y-6">
-          <div className="text-center space-y-4">
-            <h1 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl">
+      <section className="container py-4 sm:py-6 md:py-10">
+        <div className="mx-auto max-w-3xl lg:max-w-5xl space-y-4 sm:space-y-6">
+          <div className="text-center space-y-3 sm:space-y-4">
+            <h1 className="text-2xl font-bold tracking-tighter sm:text-3xl md:text-4xl lg:text-5xl px-2">
               Gain Insights Into Your Open Source Dependencies
             </h1>
-            <p className="mx-auto max-w-[700px] text-muted-foreground md:text-xl">
+            <p className="mx-auto max-w-[700px] text-muted-foreground text-sm sm:text-base md:text-lg px-4 sm:px-6">
               Track health, risk, and activity of repositories to make informed decisions about your dependencies.
             </p>
-            <div className="flex justify-center gap-4 pt-4">
-              <Button size="lg">Get Started</Button>
-              <Button size="lg" variant="outline">
+            <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4 pt-2 sm:pt-4 px-4">
+              <Button size="lg" className="w-full sm:w-auto">Get Started</Button>
+              <Button size="lg" variant="outline" className="w-full sm:w-auto">
                 Learn More
               </Button>
             </div>
@@ -41,14 +41,14 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="container py-12">
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4 lg:gap-8">
+      <section className="container py-8 sm:py-12">
+        <div className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-4 lg:gap-8 px-2 sm:px-0">
           <Card className="group relative overflow-hidden transition-all hover:shadow-lg dark:hover:shadow-2xl dark:hover:shadow-primary/10">
             <CardHeader className="space-y-1 pb-4">
               <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
                 <GitBranch className="h-6 w-6" />
               </div>
-              <CardTitle className="text-xl font-semibold pt-4">Track a Repository</CardTitle>
+              <CardTitle className="text-lg sm:text-xl font-semibold pt-4">Track a Repository</CardTitle>
               <CardDescription className="text-sm text-muted-foreground">
                 Monitor repository activity and track overall health metrics in real-time
               </CardDescription>
@@ -56,26 +56,22 @@ export default function HomePage() {
             <CardContent className="pt-0 pb-4">
               <div className="space-y-2 text-sm text-muted-foreground">
                 <div className="flex items-center">
-                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  <CheckCircle2 className="mr-2 h-4 w-4 shrink-0" />
                   <span>Real-time activity monitoring</span>
                 </div>
                 <div className="flex items-center">
-                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  <CheckCircle2 className="mr-2 h-4 w-4 shrink-0" />
                   <span>Health score tracking</span>
                 </div>
                 <div className="flex items-center">
-                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  <CheckCircle2 className="mr-2 h-4 w-4 shrink-0" />
                   <span>Automated issue detection</span>
                 </div>
               </div>
             </CardContent>
-            <CardFooter>
-              <Button asChild variant="default" className="w-full justify-center group-hover:bg-primary/90">
-                <Link href="/repository" className="flex items-center gap-2">
-                  Start Tracking
-                  <ArrowRight className="h-4 w-4" />
-                  <span className="sr-only">Track a Repository</span>
-                </Link>
+            <CardFooter className="pt-0">
+              <Button variant="ghost" className="w-full justify-between">
+                Learn More <ArrowRight className="h-4 w-4 ml-2" />
               </Button>
             </CardFooter>
           </Card>
@@ -85,7 +81,7 @@ export default function HomePage() {
               <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
                 <Package className="h-6 w-6" />
               </div>
-              <CardTitle className="text-xl font-semibold pt-4">Watch Dependencies</CardTitle>
+              <CardTitle className="text-lg sm:text-xl font-semibold pt-4">Watch Dependencies</CardTitle>
               <CardDescription className="text-sm text-muted-foreground">
                 Stay updated on dependency changes and security vulnerabilities
               </CardDescription>
@@ -93,26 +89,22 @@ export default function HomePage() {
             <CardContent className="pt-0 pb-4">
               <div className="space-y-2 text-sm text-muted-foreground">
                 <div className="flex items-center">
-                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  <CheckCircle2 className="mr-2 h-4 w-4 shrink-0" />
                   <span>Version update notifications</span>
                 </div>
                 <div className="flex items-center">
-                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  <CheckCircle2 className="mr-2 h-4 w-4 shrink-0" />
                   <span>Security vulnerability alerts</span>
                 </div>
                 <div className="flex items-center">
-                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  <CheckCircle2 className="mr-2 h-4 w-4 shrink-0" />
                   <span>Dependency health metrics</span>
                 </div>
               </div>
             </CardContent>
-            <CardFooter>
-              <Button asChild variant="default" className="w-full justify-center group-hover:bg-primary/90">
-                <Link href="/dependencies" className="flex items-center gap-2">
-                  Add Dependency
-                  <ArrowRight className="h-4 w-4" />
-                  <span className="sr-only">Watch Dependencies</span>
-                </Link>
+            <CardFooter className="pt-0">
+              <Button variant="ghost" className="w-full justify-between">
+                Learn More <ArrowRight className="h-4 w-4 ml-2" />
               </Button>
             </CardFooter>
           </Card>
@@ -122,7 +114,7 @@ export default function HomePage() {
               <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
                 <AlertTriangle className="h-6 w-6" />
               </div>
-              <CardTitle className="text-xl font-semibold pt-4">Security Alerts</CardTitle>
+              <CardTitle className="text-lg sm:text-xl font-semibold pt-4">Security Alerts</CardTitle>
               <CardDescription className="text-sm text-muted-foreground">
                 Monitor and respond to security alerts and vulnerabilities
               </CardDescription>
@@ -130,26 +122,22 @@ export default function HomePage() {
             <CardContent className="pt-0 pb-4">
               <div className="space-y-2 text-sm text-muted-foreground">
                 <div className="flex items-center">
-                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  <CheckCircle2 className="mr-2 h-4 w-4 shrink-0" />
                   <span>Real-time security notifications</span>
                 </div>
                 <div className="flex items-center">
-                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  <CheckCircle2 className="mr-2 h-4 w-4 shrink-0" />
                   <span>Vulnerability assessment</span>
                 </div>
                 <div className="flex items-center">
-                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  <CheckCircle2 className="mr-2 h-4 w-4 shrink-0" />
                   <span>Automated fix suggestions</span>
                 </div>
               </div>
             </CardContent>
-            <CardFooter>
-              <Button asChild variant="default" className="w-full justify-center group-hover:bg-primary/90">
-                <Link href="/alerts" className="flex items-center gap-2">
-                  View Alerts
-                  <ArrowRight className="h-4 w-4" />
-                  <span className="sr-only">Security Alerts</span>
-                </Link>
+            <CardFooter className="pt-0">
+              <Button variant="ghost" className="w-full justify-between">
+                Learn More <ArrowRight className="h-4 w-4 ml-2" />
               </Button>
             </CardFooter>
           </Card>
@@ -159,7 +147,7 @@ export default function HomePage() {
               <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
                 <BarChart3 className="h-6 w-6" />
               </div>
-              <CardTitle className="text-xl font-semibold pt-4">Insights & Graphs</CardTitle>
+              <CardTitle className="text-lg sm:text-xl font-semibold pt-4">Insights & Graphs</CardTitle>
               <CardDescription className="text-sm text-muted-foreground">
                 Generate visual insights and dependency graphs
               </CardDescription>
@@ -167,26 +155,22 @@ export default function HomePage() {
             <CardContent className="pt-0 pb-4">
               <div className="space-y-2 text-sm text-muted-foreground">
                 <div className="flex items-center">
-                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  <CheckCircle2 className="mr-2 h-4 w-4 shrink-0" />
                   <span>Interactive dependency graphs</span>
                 </div>
                 <div className="flex items-center">
-                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  <CheckCircle2 className="mr-2 h-4 w-4 shrink-0" />
                   <span>Trend analysis</span>
                 </div>
                 <div className="flex items-center">
-                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                  <CheckCircle2 className="mr-2 h-4 w-4 shrink-0" />
                   <span>Custom graph exports</span>
                 </div>
               </div>
             </CardContent>
-            <CardFooter>
-              <Button asChild variant="default" className="w-full justify-center group-hover:bg-primary/90">
-                <Link href="/graph-export" className="flex items-center gap-2">
-                  Create Graph
-                  <ArrowRight className="h-4 w-4" />
-                  <span className="sr-only">Insights & Graphs</span>
-                </Link>
+            <CardFooter className="pt-0">
+              <Button variant="ghost" className="w-full justify-between">
+                Learn More <ArrowRight className="h-4 w-4 ml-2" />
               </Button>
             </CardFooter>
           </Card>
