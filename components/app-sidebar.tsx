@@ -177,26 +177,28 @@ export function AppSidebar() {
       </SidebarContent>
       <SidebarFooter>
         <div className={cn(
-          "flex items-center gap-2 p-4",
-          isCollapsed && "justify-center p-2"
+          "flex flex-col gap-2 p-4",
+          isCollapsed && "items-center p-2"
         )}>
-          <Avatar className="h-8 w-8">
-            <AvatarImage src="/placeholder-user.jpg" alt="User" />
-            <AvatarFallback>JD</AvatarFallback>
-          </Avatar>
-          <div className={cn(
-            "flex flex-col transition-all duration-300",
-            isCollapsed && "hidden"
-          )}>
-            <span className="text-sm font-medium">Jane Doe</span>
-            <span className="text-xs text-muted-foreground">DevSecOps Lead</span>
+          <div className="flex items-center gap-2">
+            <Avatar className="h-8 w-8">
+              <AvatarImage src="/placeholder-user.jpg" alt="User" />
+              <AvatarFallback>JD</AvatarFallback>
+            </Avatar>
+            <div className={cn(
+              "flex flex-col transition-all duration-300",
+              isCollapsed && "hidden"
+            )}>
+              <span className="text-sm font-medium">Jane Doe</span>
+              <span className="text-xs text-muted-foreground">DevSecOps Lead</span>
+            </div>
           </div>
           <Button 
             variant="ghost" 
             size="icon" 
             className={cn(
-              "ml-auto",
-              isCollapsed && "ml-0"
+              "h-8 w-8",
+              !isCollapsed && "ml-2"
             )}
           >
             <Settings className="h-4 w-4" />
