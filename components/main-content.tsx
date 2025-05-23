@@ -5,7 +5,13 @@ import { Button } from "@/components/ui/button"
 import { useSidebar } from "@/components/ui/sidebar"
 import { cn } from "@/lib/utils"
 
-export function MainContent({ children }: { children: React.ReactNode }) {
+export function MainContent({ 
+  children,
+  className
+}: { 
+  children: React.ReactNode
+  className?: string
+}) {
   const { toggleSidebar, state } = useSidebar()
   const isCollapsed = state === "collapsed"
   
@@ -26,7 +32,8 @@ export function MainContent({ children }: { children: React.ReactNode }) {
           "flex flex-col",
           isCollapsed ? "md:pl-14" : "md:pl-4",
           "px-4 py-6 sm:px-6 lg:px-8",
-          "relative w-full"
+          "relative w-full",
+          className
         )}
       >
         <div className={cn(
