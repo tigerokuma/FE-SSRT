@@ -110,25 +110,29 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu className="space-y-1">
               {mainNavItems.map((item) => (
-                <SidebarMenuItem key={item.href} className="px-2">
+                <SidebarMenuItem key={item.href}>
                   <SidebarMenuButton 
                     asChild 
                     isActive={pathname === item.href} 
                     tooltip={isCollapsed ? item.title : undefined}
                     className={cn(
-                      "flex items-center gap-3 px-4 py-2.5 rounded-md",
-                      isCollapsed && "[&>a]:justify-center"
+                      "flex items-center rounded-md transition-colors w-full",
+                      isCollapsed ? "justify-center py-2.5" : "px-4 py-2.5",
+                      pathname === item.href && "bg-muted"
                     )}
                   >
                     <Link href={item.href} className="flex items-center gap-3">
-                      <item.icon className="h-4 w-4 shrink-0" />
-                      <div className={cn(
-                        "flex flex-col gap-1 min-w-0",
-                        isCollapsed && "hidden"
-                      )}>
-                        <span className="font-medium truncate leading-none">{item.title}</span>
-                        <span className="text-xs text-muted-foreground truncate leading-none">{item.description}</span>
-                      </div>
+                      <item.icon className={cn(
+                        "h-4 w-4 shrink-0",
+                        pathname === item.href && "text-foreground",
+                        pathname !== item.href && "text-muted-foreground"
+                      )} />
+                      {!isCollapsed && (
+                        <div className="flex flex-col gap-1 min-w-0">
+                          <span className="font-medium truncate leading-none">{item.title}</span>
+                          <span className="text-xs text-muted-foreground truncate leading-none">{item.description}</span>
+                        </div>
+                      )}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -145,39 +149,48 @@ export function AppSidebar() {
             <SidebarGroupLabel>Recent Repositories</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu className="space-y-1">
-                <SidebarMenuItem className="px-2">
+                <SidebarMenuItem>
                   <SidebarMenuButton 
                     asChild 
                     tooltip={isCollapsed ? "lodash/lodash" : undefined}
-                    className="flex items-center px-4 py-2.5 rounded-md"
+                    className={cn(
+                      "flex items-center rounded-md transition-colors w-full",
+                      isCollapsed ? "justify-center py-2.5" : "px-4 py-2.5"
+                    )}
                   >
                     <Link href="/repository?repo=lodash/lodash" className="flex items-center gap-3">
-                      <GitBranch className="h-4 w-4 shrink-0" />
-                      <span className="truncate">lodash/lodash</span>
+                      <GitBranch className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      {!isCollapsed && <span className="truncate">lodash/lodash</span>}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-                <SidebarMenuItem className="px-2">
+                <SidebarMenuItem>
                   <SidebarMenuButton 
                     asChild 
                     tooltip={isCollapsed ? "vercel/next.js" : undefined}
-                    className="flex items-center px-4 py-2.5 rounded-md"
+                    className={cn(
+                      "flex items-center rounded-md transition-colors w-full",
+                      isCollapsed ? "justify-center py-2.5" : "px-4 py-2.5"
+                    )}
                   >
                     <Link href="/repository?repo=vercel/next.js" className="flex items-center gap-3">
-                      <GitBranch className="h-4 w-4 shrink-0" />
-                      <span className="truncate">vercel/next.js</span>
+                      <GitBranch className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      {!isCollapsed && <span className="truncate">vercel/next.js</span>}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
-                <SidebarMenuItem className="px-2">
+                <SidebarMenuItem>
                   <SidebarMenuButton 
                     asChild 
                     tooltip={isCollapsed ? "facebook/react" : undefined}
-                    className="flex items-center px-4 py-2.5 rounded-md"
+                    className={cn(
+                      "flex items-center rounded-md transition-colors w-full",
+                      isCollapsed ? "justify-center py-2.5" : "px-4 py-2.5"
+                    )}
                   >
                     <Link href="/repository?repo=facebook/react" className="flex items-center gap-3">
-                      <GitBranch className="h-4 w-4 shrink-0" />
-                      <span className="truncate">facebook/react</span>
+                      <GitBranch className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      {!isCollapsed && <span className="truncate">facebook/react</span>}
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -187,32 +200,39 @@ export function AppSidebar() {
         </div>
       </SidebarContent>
       <SidebarFooter className="border-t">
-        <div className={cn(
-          "flex items-center gap-2 p-4",
-          isCollapsed && "justify-center p-2"
-        )}>
-          <Avatar className="h-8 w-8 shrink-0">
-            <AvatarImage src="/placeholder-user.jpg" alt="User" />
-            <AvatarFallback>JD</AvatarFallback>
-          </Avatar>
-          <div className={cn(
-            "flex flex-col min-w-0",
-            isCollapsed && "hidden"
-          )}>
-            <span className="text-sm font-medium truncate">Jane Doe</span>
-            <span className="text-xs text-muted-foreground truncate">DevSecOps Lead</span>
+        {isCollapsed ? (
+          <div className="flex flex-col items-center gap-2 py-4">
+            <Avatar className="h-8 w-8">
+              <AvatarImage src="/placeholder-user.jpg" alt="User" />
+              <AvatarFallback>JD</AvatarFallback>
+            </Avatar>
+            <Button 
+              variant="ghost" 
+              size="icon"
+              className="h-8 w-8"
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
           </div>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className={cn(
-              "h-8 w-8 ml-auto",
-              isCollapsed && "ml-0"
-            )}
-          >
-            <Settings className="h-4 w-4" />
-          </Button>
-        </div>
+        ) : (
+          <div className="flex items-center gap-2 p-4">
+            <Avatar className="h-8 w-8 shrink-0">
+              <AvatarImage src="/placeholder-user.jpg" alt="User" />
+              <AvatarFallback>JD</AvatarFallback>
+            </Avatar>
+            <div className="flex flex-col min-w-0">
+              <span className="text-sm font-medium truncate">Jane Doe</span>
+              <span className="text-xs text-muted-foreground truncate">DevSecOps Lead</span>
+            </div>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-8 w-8 ml-auto"
+            >
+              <Settings className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
       </SidebarFooter>
     </Sidebar>
   )
