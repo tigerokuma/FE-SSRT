@@ -209,7 +209,7 @@ export default function DependenciesPage() {
   }
 
   const formatNumber = (num?: number) => {
-    if (!num) return '0'
+    if (num == null || num === 0) return '0'
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`
     if (num >= 1000) return `${(num / 1000).toFixed(1)}k`
     return num.toString()
@@ -366,7 +366,19 @@ export default function DependenciesPage() {
                 <div className="max-h-96 overflow-y-auto space-y-2">
                   {searchResults.length > 0 && (
                     <div className="space-y-2">
-                      {searchResults.map((pkg) => (
+                      {searchResults.map((pkg) => {
+                        // Debug: Log package metadata
+                        console.log('Package metadata:', {
+                          name: pkg.package_name,
+                          stars: pkg.stars,
+                          downloads: pkg.downloads,
+                          contributors: pkg.contributors,
+                          stars_type: typeof pkg.stars,
+                          downloads_type: typeof pkg.downloads,
+                          contributors_type: typeof pkg.contributors
+                        })
+                        
+                        return (
                         <div 
                           key={pkg.package_id} 
                           className={`rounded-lg border p-4 space-y-3 cursor-pointer transition-colors ${
@@ -395,24 +407,18 @@ export default function DependenciesPage() {
                             </p>
                           </div>
                           <div className="flex flex-wrap gap-2 text-sm text-muted-foreground">
-                            {pkg.stars && (
-                              <div className="flex items-center gap-1 shrink-0">
-                                <Star className="h-4 w-4 text-yellow-400" />
-                                <span>{formatNumber(pkg.stars)} stars</span>
-                              </div>
-                            )}
-                            {pkg.downloads && (
-                              <div className="flex items-center gap-1 shrink-0">
-                                <ArrowDown className="h-4 w-4 text-green-400" />
-                                <span>{formatNumber(pkg.downloads)} downloads</span>
-                              </div>
-                            )}
-                            {pkg.contributors && (
-                              <div className="flex items-center gap-1 shrink-0">
-                                <Users className="h-4 w-4 text-blue-400" />
-                                <span>{pkg.contributors} contributors</span>
-                              </div>
-                            )}
+                            <div className="flex items-center gap-1 shrink-0">
+                              <Star className="h-4 w-4 text-yellow-400" />
+                              <span>{formatNumber(pkg.stars || 0)} stars</span>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <ArrowDown className="h-4 w-4 text-green-400" />
+                              <span>{formatNumber(pkg.downloads || 0)} downloads</span>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <Users className="h-4 w-4 text-blue-400" />
+                              <span>{pkg.contributors || 0} contributors</span>
+                            </div>
                           </div>
                           {pkg.last_updated && (
                             <div className="text-sm text-muted-foreground">
@@ -420,7 +426,8 @@ export default function DependenciesPage() {
                             </div>
                           )}
                         </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   )}
                   
