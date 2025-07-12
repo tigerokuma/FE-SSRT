@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { Search, Loader2, Package, Download, Plus } from "lucide-react"
+import { Search, Loader2, Download, Plus } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -19,37 +19,30 @@ import { usePackageSearch, useWatchlist, formatNumber } from '../../lib/watchlis
 
 interface PackageCardProps {
   pkg: PackageType
-  isSelected: boolean
-  onSelect: (pkg: PackageType) => void
   onPreview: (pkg: PackageType, type: 'npm' | 'github') => void
+  onAdd: (pkg: PackageType) => void
   searchQuery: string
+  isAdding?: boolean
 }
 
-function PackageCard({ pkg, isSelected, onSelect, onPreview, searchQuery }: PackageCardProps) {
+function PackageCard({ pkg, onPreview, onAdd, searchQuery, isAdding }: PackageCardProps) {
   const isExactMatch = pkg.name.toLowerCase() === searchQuery.toLowerCase().trim()
   
   return (
-    <div 
-      className={`rounded-lg border p-4 cursor-pointer transition-all duration-200 hover:shadow-md ${
-        isSelected 
-          ? 'border-primary bg-primary/5 shadow-sm' 
-          : 'hover:bg-muted/30'
-      }`}
-      onClick={() => onSelect(pkg)}
-    >
-      {/* Header with name and badges */}
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          <h3 className="font-semibold text-lg truncate">{pkg.name}</h3>
+    <div className="group rounded-lg border border-gray-800 p-4 hover:border-gray-700 hover:bg-gray-900/50 transition-all duration-200 bg-black-800">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-4 mb-3">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <h3 className="font-semibold text-lg text-white truncate">{pkg.name}</h3>
           {isExactMatch && (
-            <Badge variant="secondary" className="text-xs bg-gray-100 text-gray-600">
+            <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-800 text-gray-300 border border-gray-700">
               exact match
-            </Badge>
+            </span>
           )}
         </div>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground shrink-0">
-          <div className="flex items-center gap-1">
-            <Download className="h-4 w-4" />
+        <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-1 text-sm text-gray-300">
+            <Download className="h-4 w-4 text-gray-400" />
             <span className="font-medium">{formatNumber(pkg.downloads)}</span>
           </div>
         </div>
@@ -57,95 +50,102 @@ function PackageCard({ pkg, isSelected, onSelect, onPreview, searchQuery }: Pack
 
       {/* Description */}
       {pkg.description && (
-        <p className="text-sm text-muted-foreground mb-3 line-clamp-2 leading-relaxed">
+        <p className="text-sm text-gray-400 mb-3 line-clamp-2 leading-relaxed">
           {pkg.description}
         </p>
       )}
 
       {/* Keywords */}
       {pkg.keywords && pkg.keywords.length > 0 && (
-        <div className="flex flex-wrap gap-1 mb-3">
-          {pkg.keywords.slice(0, 3).map((keyword: string, idx: number) => (
-            <Badge key={idx} variant="outline" className="text-xs bg-gray-50 text-gray-600">
+        <div className="flex flex-wrap gap-1.5 mb-3">
+          {pkg.keywords.slice(0, 4).map((keyword: string, idx: number) => (
+            <span key={idx} className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-800 text-gray-300 hover:bg-gray-700 transition-colors">
               {keyword}
-            </Badge>
+            </span>
           ))}
-          {pkg.keywords.length > 3 && (
-            <Badge variant="outline" className="text-xs bg-gray-50 text-gray-600 opacity-60">
-              +{pkg.keywords.length - 3} more
-            </Badge>
+          {pkg.keywords.length > 4 && (
+            <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-800 text-gray-500">
+              +{pkg.keywords.length - 4}
+            </span>
           )}
         </div>
       )}
 
-      {/* Bottom row with maintainer info and metadata */}
-      <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
-        <div className="flex items-center gap-3">
-          {/* Maintainer info */}
+      {/* Metadata Row */}
+      <div className="flex items-center justify-between gap-4 mb-3 pt-3 border-t border-gray-800">
+        <div className="flex items-center gap-4 text-xs text-gray-500">
+          {/* Maintainer */}
           {pkg.maintainers && pkg.maintainers.length > 0 && (
-            <div className="flex items-center gap-1">
-              <div className="w-5 h-5 bg-gray-200 rounded-full flex items-center justify-center">
-                <span className="text-xs font-medium text-gray-600">
-                  {pkg.maintainers[0].charAt(0).toUpperCase()}
-                </span>
+            <div className="flex items-center gap-1.5">
+              <div className="w-5 h-5 bg-gray-700 rounded-full flex items-center justify-center text-white text-xs font-medium">
+                {pkg.maintainers[0].charAt(0).toUpperCase()}
               </div>
-              <span className="font-medium">{pkg.maintainers[0]}</span>
+              <span className="font-medium text-gray-300">{pkg.maintainers[0]}</span>
               {pkg.maintainers.length > 1 && (
-                <span className="text-gray-400">+{pkg.maintainers.length - 1}</span>
+                <span className="text-gray-500">+{pkg.maintainers.length - 1}</span>
               )}
             </div>
           )}
           
-          {/* Version and last updated */}
+          {/* Version & Last Updated */}
           <div className="flex items-center gap-3">
             {pkg.version && (
-              <span>{pkg.version}</span>
+              <span className="font-mono text-gray-400">v{pkg.version}</span>
             )}
             {pkg.last_updated && (
-              <span>{pkg.last_updated}</span>
+              <span className="text-gray-500">{pkg.last_updated}</span>
             )}
           </div>
         </div>
 
         {/* License */}
         {pkg.license && (
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 text-xs text-gray-500">
             <span className="text-xs">⚖️</span>
-            <span>{pkg.license}</span>
+            <span className="font-medium">{pkg.license}</span>
           </div>
         )}
       </div>
 
-      {/* Action Buttons - More subtle */}
-      <div className="flex gap-2 mt-3 pt-2 border-t border-gray-100">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-7 px-2 text-xs hover:bg-red-50 hover:text-red-700"
-          onClick={(e) => {
-            e.stopPropagation()
-            onPreview(pkg, 'npm')
-          }}
-          title="Preview NPM page"
-        >
-          <div className="w-2 h-2 rounded-full bg-red-500 mr-1.5" />
-          NPM
-        </Button>
-        {pkg.repo_url && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 px-2 text-xs hover:bg-gray-50 hover:text-gray-700"
-            onClick={(e) => {
-              e.stopPropagation()
-              onPreview(pkg, 'github')
-            }}
-            title="Preview GitHub repository"
+      {/* Action Buttons */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => onPreview(pkg, 'npm')}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-300 bg-gray-800 hover:bg-gray-700 rounded transition-colors"
           >
-            <div className="w-2 h-2 rounded-full bg-gray-700 mr-1.5" />
-            GitHub
-          </Button>
-        )}
+            <div className="w-2 h-2 rounded-full bg-gray-500" />
+            NPM
+          </button>
+          {pkg.repo_url && (
+            <button
+              onClick={() => onPreview(pkg, 'github')}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-300 bg-gray-800 hover:bg-gray-700 rounded transition-colors"
+            >
+              <div className="w-2 h-2 rounded-full bg-gray-500" />
+              GitHub
+            </button>
+          )}
+        </div>
+        
+        <Button
+          onClick={() => onAdd(pkg)}
+          disabled={isAdding}
+          size="sm"
+          className="h-8 px-4 text-sm font-medium bg-white text-black hover:bg-gray-200 rounded transition-colors disabled:opacity-50"
+        >
+          {isAdding ? (
+            <>
+              <Loader2 className="w-3 h-3 mr-1.5 animate-spin" />
+              Adding...
+            </>
+          ) : (
+            <>
+              <Plus className="w-3 h-3 mr-1.5" />
+              Add
+            </>
+          )}
+        </Button>
       </div>
     </div>
   )
@@ -164,7 +164,6 @@ export function WatchlistSearchDialog({
 }: WatchlistSearchDialogProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
-  const [selectedPackage, setSelectedPackage] = useState<PackageType | null>(null)
 
   const { isAdding, addItem } = useWatchlist()
   const {
@@ -177,22 +176,16 @@ export function WatchlistSearchDialog({
 
   // Auto-search with debouncing
   useEffect(() => {
-    // Clear selection when user starts typing new search
-    if (selectedPackage && searchQuery.trim() !== selectedPackage.name) {
-      setSelectedPackage(null)
-    }
-
     const timeoutId = setTimeout(() => {
       if (searchQuery.trim().length >= 2) {
         searchPackages(searchQuery)
       } else if (searchQuery.trim().length === 0) {
         clearSearch()
-        setSelectedPackage(null)
       }
     }, 300) // 300ms debounce
 
     return () => clearTimeout(timeoutId)
-  }, [searchQuery, selectedPackage, searchPackages, clearSearch])
+  }, [searchQuery, searchPackages, clearSearch])
 
   const handleAddToWatchlist = async (pkg: PackageType) => {
     try {
@@ -200,7 +193,6 @@ export function WatchlistSearchDialog({
       setIsOpen(false)
       setSearchQuery("")
       clearSearch()
-      setSelectedPackage(null)
     } catch (error) {
       console.error('Error adding to watchlist:', error)
       // Error is already handled by the hook
@@ -278,10 +270,10 @@ export function WatchlistSearchDialog({
                   <PackageCard
                     key={`${pkg.name}-${index}`}
                     pkg={pkg}
-                    isSelected={selectedPackage?.name === pkg.name}
-                    onSelect={setSelectedPackage}
                     onPreview={handlePackagePreview}
+                    onAdd={handleAddToWatchlist}
                     searchQuery={searchQuery}
+                    isAdding={isAdding}
                   />
                 ))}
               </div>
@@ -309,28 +301,11 @@ export function WatchlistSearchDialog({
         
         {/* Footer */}
         <DialogFooter className="flex items-center justify-between pt-4">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            {selectedPackage && (
-              <>
-                <Package className="h-4 w-4" />
-                <span className="font-medium">{selectedPackage.name}</span>
-                <span>selected</span>
-              </>
+          <div className="text-sm text-gray-500">
+            {searchResults.length > 0 && (
+              <span>Click "Add" on any package to add it to your watchlist</span>
             )}
           </div>
-          <Button 
-            disabled={!selectedPackage || isAdding}
-            onClick={() => selectedPackage && handleAddToWatchlist(selectedPackage)}
-          >
-            {isAdding ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Adding to Watchlist...
-              </>
-            ) : (
-              'Add to Watchlist'
-            )}
-          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

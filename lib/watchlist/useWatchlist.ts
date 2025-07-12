@@ -19,33 +19,34 @@ import {
 export const useWatchlist = (): UseWatchlistState & WatchlistOperations => {
   const [state, setState] = useState<UseWatchlistState>({
     items: [],
-    isLoading: true,
+    isLoading: false, // Don't show loading since we're not fetching yet
     isAdding: false,
     error: null,
   })
 
+  // TODO: Enable when watchlist API is ready
   // Load watchlist items on mount
-  useEffect(() => {
-    const loadItems = async () => {
-      try {
-        const items = await fetchWatchlistItems()
-        setState(prev => ({
-          ...prev,
-          items,
-          isLoading: false,
-        }))
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Failed to load watchlist items'
-        setState(prev => ({
-          ...prev,
-          isLoading: false,
-          error: errorMessage,
-        }))
-      }
-    }
+  // useEffect(() => {
+  //   const loadItems = async () => {
+  //     try {
+  //       const items = await fetchWatchlistItems()
+  //       setState(prev => ({
+  //         ...prev,
+  //         items,
+  //         isLoading: false,
+  //       }))
+  //     } catch (error) {
+  //       const errorMessage = error instanceof Error ? error.message : 'Failed to load watchlist items'
+  //       setState(prev => ({
+  //         ...prev,
+  //         isLoading: false,
+  //         error: errorMessage,
+  //       }))
+  //     }
+  //   }
 
-    loadItems()
-  }, [])
+  //   loadItems()
+  // }, [])
 
   /**
    * Add a package to the watchlist
@@ -54,7 +55,24 @@ export const useWatchlist = (): UseWatchlistState & WatchlistOperations => {
     setState(prev => ({ ...prev, isAdding: true, error: null }))
     
     try {
-      const newItem = await apiAddToWatchlist(pkg, type, state.items)
+      // TODO: Enable when watchlist API is ready
+      // const newItem = await apiAddToWatchlist(pkg, type, state.items)
+      
+      // For now, just add locally
+      const newItem = {
+        id: Math.max(0, ...state.items.map(item => item.id)) + 1,
+        name: pkg.name,
+        version: pkg.version || 'latest',
+        type,
+        risk: 'low' as const,
+        activity: 'high' as const,
+        lastUpdate: 'recently',
+        cves: 0,
+        maintainers: pkg.maintainers?.length || 0,
+        stars: String(pkg.downloads || 0),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
       
       setState(prev => ({
         ...prev,
@@ -79,8 +97,10 @@ export const useWatchlist = (): UseWatchlistState & WatchlistOperations => {
     setState(prev => ({ ...prev, isLoading: true, error: null }))
     
     try {
-      await apiRemoveFromWatchlist(id)
+      // TODO: Enable when watchlist API is ready
+      // await apiRemoveFromWatchlist(id)
       
+      // For now, just remove locally
       setState(prev => ({
         ...prev,
         items: prev.items.filter(item => item.id !== id),
@@ -104,10 +124,17 @@ export const useWatchlist = (): UseWatchlistState & WatchlistOperations => {
     setState(prev => ({ ...prev, isLoading: true, error: null }))
     
     try {
-      const updatedItem = await apiUpdateWatchlistItem(id, updates)
+      // TODO: Enable when watchlist API is ready
+      // const updatedItem = await apiUpdateWatchlistItem(id, updates)
+      
+      // For now, just update locally
       setState(prev => ({
         ...prev,
-        items: prev.items.map(item => item.id === id ? updatedItem : item),
+        items: prev.items.map(item => 
+          item.id === id 
+            ? { ...item, ...updates, updatedAt: new Date().toISOString() }
+            : item
+        ),
         isLoading: false,
       }))
     } catch (error) {
@@ -128,8 +155,11 @@ export const useWatchlist = (): UseWatchlistState & WatchlistOperations => {
     setState(prev => ({ ...prev, isLoading: true, error: null }))
     
     try {
-      const items = await fetchWatchlistItems()
-      setState(prev => ({ ...prev, items, isLoading: false }))
+      // TODO: Enable when watchlist API is ready
+      // const items = await fetchWatchlistItems()
+      
+      // For now, just clear loading state
+      setState(prev => ({ ...prev, isLoading: false }))
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to refresh watchlist items'
       setState(prev => ({
