@@ -15,7 +15,7 @@ const API_BASE_URL = 'http://localhost:3000'
  */
 export const searchPackages = async (query: string): Promise<SearchApiResponse> => {
   try {
-    const response = await fetch(`${API_BASE_URL}/packages/search?name=${encodeURIComponent(query)}`)
+    const response = await fetch(`/api/backend/packages/search?name=${encodeURIComponent(query)}`)
     
     if (!response.ok) {
       throw new Error(`Search failed: ${response.statusText}`)
@@ -42,8 +42,8 @@ export const searchPackages = async (query: string): Promise<SearchApiResponse> 
 export const getPackageDetails = async (name: string, view: 'summary' | 'details' = 'summary'): Promise<Package> => {
   try {
     const url = view === 'details' 
-      ? `${API_BASE_URL}/packages/${encodeURIComponent(name)}?view=details`
-      : `${API_BASE_URL}/packages/${encodeURIComponent(name)}`
+      ? `/api/backend/packages/${encodeURIComponent(name)}?view=details`
+      : `/api/backend/packages/${encodeURIComponent(name)}`
     
     const response = await fetch(url)
     

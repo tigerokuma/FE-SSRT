@@ -1,16 +1,19 @@
 import { useState } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Button } from "@/components/ui/button"
+import { Plus } from "lucide-react"
 
 import type { WatchlistItem } from '../../lib/watchlist/types'
 import { filterByType, sortWatchlistItems } from '../../lib/watchlist/utils'
 import { WatchlistItemGrid } from './WatchlistItemCard'
 import { AllDependenciesEmptyState, ProductionEmptyState, DevelopmentEmptyState } from './WatchlistEmptyState'
+import { WatchlistSearchDialog } from './WatchlistSearchDialog'
 
 interface WatchlistTabsProps {
   items: WatchlistItem[]
   onItemAction?: (item: WatchlistItem, action: 'view' | 'edit' | 'delete') => void
-  onAddDependency: () => void
+  onAddDependency?: () => void
   defaultTab?: string
   className?: string
 }
@@ -77,7 +80,20 @@ export function WatchlistTabs({
           onItemAction={onItemAction}
           emptyState={
             items.length === 0 ? (
-              <AllDependenciesEmptyState onAddDependency={onAddDependency} />
+              <AllDependenciesEmptyState 
+                onAddDependency={onAddDependency}
+                addDependencyButton={
+                  <WatchlistSearchDialog
+                    trigger={
+                      <Button size="sm">
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add Dependency
+                      </Button>
+                    }
+                    defaultType="production"
+                  />
+                }
+              />
             ) : null
           }
         />
@@ -88,7 +104,20 @@ export function WatchlistTabs({
           items={productionItems}
           onItemAction={onItemAction}
           emptyState={
-            <ProductionEmptyState onAddDependency={onAddDependency} />
+            <ProductionEmptyState 
+              onAddDependency={onAddDependency}
+              addDependencyButton={
+                <WatchlistSearchDialog
+                  trigger={
+                    <Button size="sm">
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add Production Dependency
+                    </Button>
+                  }
+                  defaultType="production"
+                />
+              }
+            />
           }
         />
       </TabsContent>
@@ -98,7 +127,20 @@ export function WatchlistTabs({
           items={developmentItems}
           onItemAction={onItemAction}
           emptyState={
-            <DevelopmentEmptyState onAddDependency={onAddDependency} />
+            <DevelopmentEmptyState 
+              onAddDependency={onAddDependency}
+              addDependencyButton={
+                <WatchlistSearchDialog
+                  trigger={
+                    <Button size="sm">
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add Development Dependency
+                    </Button>
+                  }
+                  defaultType="development"
+                />
+              }
+            />
           }
         />
       </TabsContent>

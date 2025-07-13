@@ -9,59 +9,18 @@ import { MainContent } from "@/components/main-content"
 
 // Import from the modularized watchlist
 import type { 
-  Package as PackageType, 
   WatchlistItem as DependencyData,
 } from '@/lib/watchlist'
 import { 
   useWatchlist,
   WatchlistSearchDialog,
   WatchlistTabs,
-  WatchlistPreviewPanel,
   WatchlistStats
 } from '@/lib/watchlist'
 
 export default function DependenciesPage() {
   // Use the modularized watchlist hook
   const { items: dependencies } = useWatchlist()
-  
-  // Local state for UI interactions
-  const [isAddDependencyOpen, setIsAddDependencyOpen] = useState(false)
-  const [previewPanel, setPreviewPanel] = useState<{
-    isOpen: boolean
-    package: PackageType | null
-    type: 'npm' | 'github'
-  }>({
-    isOpen: false,
-    package: null,
-    type: 'npm',
-  })
-
-  const handleAddDependency = () => {
-    setIsAddDependencyOpen(true)
-  }
-
-  const handlePackagePreview = (pkg: PackageType, type: 'npm' | 'github') => {
-    // Only show preview on desktop (screen width > 1024px)
-    if (window.innerWidth > 1024) {
-      setPreviewPanel({
-        isOpen: true,
-        package: pkg,
-        type,
-      })
-    } else {
-      // On mobile, open in new tab
-      const url = type === 'npm' ? pkg.npm_url : pkg.repo_url
-      if (url) window.open(url, '_blank')
-    }
-  }
-
-  const closePreviewPanel = () => {
-    setPreviewPanel({
-      isOpen: false,
-      package: null,
-      type: 'npm',
-    })
-  }
 
   const handleItemAction = (item: DependencyData, action: 'view' | 'edit' | 'delete') => {
     // TODO: Implement item actions when needed
@@ -82,7 +41,6 @@ export default function DependenciesPage() {
                 Add Dependency
               </Button>
             }
-            onPackagePreview={handlePackagePreview}
             defaultType="production"
           />
         </div>
@@ -98,16 +56,8 @@ export default function DependenciesPage() {
         <WatchlistTabs
           items={dependencies}
           onItemAction={handleItemAction}
-          onAddDependency={handleAddDependency}
+          onAddDependency={() => {}}
           defaultTab="all"
-        />
-
-        {/* Preview Panel - Desktop Only */}
-        <WatchlistPreviewPanel
-          isOpen={previewPanel.isOpen}
-          package={previewPanel.package}
-          type={previewPanel.type}
-          onClose={closePreviewPanel}
         />
       </MainContent>
     </div>

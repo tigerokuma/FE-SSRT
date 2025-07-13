@@ -9,6 +9,7 @@ interface WatchlistEmptyStateProps {
     label: string
     onClick: () => void
   }
+  customButton?: React.ReactNode
   className?: string
 }
 
@@ -17,6 +18,7 @@ export function WatchlistEmptyState({
   description, 
   icon, 
   action,
+  customButton,
   className 
 }: WatchlistEmptyStateProps) {
   return (
@@ -24,68 +26,74 @@ export function WatchlistEmptyState({
       {icon || <Package className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />}
       <h3 className="text-lg font-medium mb-2">{title}</h3>
       <p className="text-muted-foreground mb-4">{description}</p>
-      {action && (
+      {customButton || (action && (
         <Button onClick={action.onClick}>
           <Plus className="mr-2 h-4 w-4" />
           {action.label}
         </Button>
-      )}
+      ))}
     </div>
   )
 }
 
 interface ProductionEmptyStateProps {
-  onAddDependency: () => void
+  onAddDependency?: () => void
+  addDependencyButton?: React.ReactNode
   className?: string
 }
 
-export function ProductionEmptyState({ onAddDependency, className }: ProductionEmptyStateProps) {
+export function ProductionEmptyState({ onAddDependency, addDependencyButton, className }: ProductionEmptyStateProps) {
   return (
     <WatchlistEmptyState
       title="No production dependencies"
       description="Add production dependencies to your watchlist."
-      action={{
+      action={onAddDependency ? {
         label: "Add Dependency",
         onClick: onAddDependency
-      }}
+      } : undefined}
+      customButton={addDependencyButton}
       className={className}
     />
   )
 }
 
 interface DevelopmentEmptyStateProps {
-  onAddDependency: () => void
+  onAddDependency?: () => void
+  addDependencyButton?: React.ReactNode
   className?: string
 }
 
-export function DevelopmentEmptyState({ onAddDependency, className }: DevelopmentEmptyStateProps) {
+export function DevelopmentEmptyState({ onAddDependency, addDependencyButton, className }: DevelopmentEmptyStateProps) {
   return (
     <WatchlistEmptyState
       title="No development dependencies"
       description="Add development dependencies to your watchlist."
-      action={{
+      action={onAddDependency ? {
         label: "Add Dependency",
         onClick: onAddDependency
-      }}
+      } : undefined}
+      customButton={addDependencyButton}
       className={className}
     />
   )
 }
 
 interface AllDependenciesEmptyStateProps {
-  onAddDependency: () => void
+  onAddDependency?: () => void
+  addDependencyButton?: React.ReactNode
   className?: string
 }
 
-export function AllDependenciesEmptyState({ onAddDependency, className }: AllDependenciesEmptyStateProps) {
+export function AllDependenciesEmptyState({ onAddDependency, addDependencyButton, className }: AllDependenciesEmptyStateProps) {
   return (
     <WatchlistEmptyState
       title="No dependencies in watchlist"
       description="Start monitoring your project dependencies by adding them to your watchlist."
-      action={{
+      action={onAddDependency ? {
         label: "Add First Dependency",
         onClick: onAddDependency
-      }}
+      } : undefined}
+      customButton={addDependencyButton}
       className={className}
     />
   )
