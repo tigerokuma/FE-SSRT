@@ -3,7 +3,8 @@ import {
   WatchlistItem, 
   AddToWatchlistRequest, 
   WatchlistApiResponse,
-  SearchApiResponse 
+  SearchApiResponse,
+  ApiResult
 } from './types'
 import { packageToWatchlistItem, getNextId, deduplicatePackages } from './utils'
 
@@ -15,6 +16,7 @@ const API_BASE_URL = 'http://localhost:3000'
  */
 export const searchPackages = async (query: string): Promise<SearchApiResponse> => {
   try {
+    console.log('Searching for:', query)
     const response = await fetch(`/api/backend/packages/search?name=${encodeURIComponent(query)}`)
     
     if (!response.ok) {
@@ -22,10 +24,13 @@ export const searchPackages = async (query: string): Promise<SearchApiResponse> 
     }
     
     const data = await response.json()
+    console.log('Raw API response:', data)
     
     // Apply deduplication to prevent React key conflicts
     if (data.results) {
+      console.log('Results before deduplication:', data.results.map((r: any) => r.name))
       data.results = deduplicatePackages(data.results)
+      console.log('Results after deduplication:', data.results.map((r: any) => r.name))
       data.count = data.results.length
     }
     
@@ -38,8 +43,9 @@ export const searchPackages = async (query: string): Promise<SearchApiResponse> 
 
 /**
  * Get package details by name (default summary view)
+ * Returns a result object instead of throwing errors
  */
-export const getPackageDetails = async (name: string, view: 'summary' | 'details' = 'summary'): Promise<Package> => {
+export const getPackageDetails = async (name: string, view: 'summary' | 'details' = 'summary'): Promise<ApiResult<Package>> => {
   try {
     const url = view === 'details' 
       ? `/api/backend/packages/${encodeURIComponent(name)}?view=details`
@@ -48,21 +54,50 @@ export const getPackageDetails = async (name: string, view: 'summary' | 'details
     const response = await fetch(url)
     
     if (!response.ok) {
-      throw new Error(`Failed to get package details: ${response.statusText}`)
+      const errorType = response.status === 404 ? 'not_found' : 
+                       response.status >= 500 ? 'server_error' : 'network'
+      
+      return {
+        success: false,
+        error: `Failed to get package details: ${response.statusText}`,
+        errorType
+      }
     }
     
-    return await response.json()
+    const data = await response.json()
+    return {
+      success: true,
+      data
+    }
   } catch (error) {
     console.error('Error getting package details:', error)
-    throw new Error('Failed to get package details. Please try again.')
+    return {
+      success: false,
+      error: 'Failed to get package details. Please check your connection.',
+      errorType: 'network'
+    }
   }
 }
 
 /**
  * Get package details with full information
+ * Legacy wrapper that throws errors for backward compatibility
  */
 export const getPackageDetailsWithFull = async (name: string): Promise<Package> => {
-  return getPackageDetails(name, 'details')
+  const result = await getPackageDetails(name, 'details')
+  if (!result.success) {
+    throw new Error(result.error)
+  }
+  return result.data
+}
+
+/**
+ * Safe package details fetcher that returns null on failure
+ * Use this for non-critical operations where you want graceful degradation
+ */
+export const getPackageDetailsSafe = async (name: string, view: 'summary' | 'details' = 'summary'): Promise<Package | null> => {
+  const result = await getPackageDetails(name, view)
+  return result.success ? result.data : null
 }
 
 /**
@@ -72,18 +107,14 @@ export const getPackageForUseCase = async (
   name: string, 
   useCase: 'search' | 'preview' | 'analysis' | 'watchlist'
 ): Promise<Package> => {
-  switch (useCase) {
-    case 'search':
-    case 'watchlist':
-      // Use summary for lightweight operations
-      return getPackageDetails(name, 'summary')
-    case 'preview':
-    case 'analysis':
-      // Use details for rich information display
-      return getPackageDetails(name, 'details')
-    default:
-      return getPackageDetails(name, 'summary')
+  const view = (useCase === 'preview' || useCase === 'analysis') ? 'details' : 'summary'
+  const result = await getPackageDetails(name, view)
+  
+  if (!result.success) {
+    throw new Error(result.error)
   }
+  
+  return result.data
 }
 
 /**

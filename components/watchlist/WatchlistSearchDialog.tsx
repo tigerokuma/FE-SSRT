@@ -43,26 +43,29 @@ export function WatchlistSearchDialog({
     clearSearch,
   } = usePackageSearch()
 
-  // Auto-search with debouncing
+  // Clear search when query is empty
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (searchQuery.trim().length >= 2) {
-        searchPackages(searchQuery)
-      } else if (searchQuery.trim().length === 0) {
-        clearSearch()
-      }
-    }, 300)
+    if (searchQuery.trim().length === 0) {
+      clearSearch()
+    }
+  }, [searchQuery, clearSearch])
 
-    return () => clearTimeout(timeoutId)
-  }, [searchQuery, searchPackages, clearSearch])
+  const handleManualSearch = () => {
+    if (searchQuery.trim().length >= 2) {
+      searchPackages(searchQuery)
+    }
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleManualSearch()
+    }
+  }
 
   const handleAddToWatchlist = async (pkg: PackageType) => {
     try {
       await addItem(pkg, defaultType)
-      setIsOpen(false)
-      setSearchQuery("")
-      setSelectedPackage(null)
-      clearSearch()
+      setIsOpen(false) // This will trigger handleDialogOpenChange to reset state
     } catch (error) {
       console.error('Error adding to watchlist:', error)
     }
@@ -72,8 +75,18 @@ export function WatchlistSearchDialog({
     setSelectedPackage(pkg)
   }
 
+  const handleDialogOpenChange = (open: boolean) => {
+    setIsOpen(open)
+    if (!open) {
+      // Reset state when dialog is closed
+      setSearchQuery("")
+      setSelectedPackage(null)
+      clearSearch()
+    }
+  }
+
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={handleDialogOpenChange}>
       <DialogTrigger asChild>
         {trigger || (
           <Button size="sm">
@@ -101,12 +114,19 @@ export function WatchlistSearchDialog({
                   className="pr-10" 
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={handleKeyDown}
                 />
                 <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
                   {isSearching ? (
                     <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                   ) : (
-                    <Search className="h-4 w-4 text-muted-foreground" />
+                    <button
+                      onClick={handleManualSearch}
+                      disabled={searchQuery.trim().length < 2}
+                      className="hover:text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Search className="h-4 w-4 text-muted-foreground" />
+                    </button>
                   )}
                 </div>
               </div>
@@ -116,9 +136,11 @@ export function WatchlistSearchDialog({
                 <span>
                   {searchQuery.length > 0 && searchQuery.length < 2 
                     ? `Type ${2 - searchQuery.length} more character${2 - searchQuery.length > 1 ? 's' : ''} to search...`
-                    : searchResponseTime 
-                      ? `Search completed in ${searchResponseTime}`
-                      : "Search automatically as you type"
+                    : searchQuery.length >= 2
+                      ? "Press Enter or click search icon to search"
+                      : searchResponseTime 
+                        ? `Search completed in ${searchResponseTime}`
+                        : "Type package name to search"
                   }
                 </span>
                 {searchResults.length > 0 && (
@@ -159,7 +181,7 @@ export function WatchlistSearchDialog({
                 <div className="text-center py-12 text-muted-foreground">
                   <Search className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   <h3 className="text-lg font-medium mb-2">Search NPM packages</h3>
-                  <p className="text-sm">Start typing to find packages to add to your watchlist.</p>
+                  <p className="text-sm">Type package name and press Enter to find packages to add to your watchlist.</p>
                 </div>
               )}
             </ScrollArea>

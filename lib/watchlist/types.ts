@@ -22,6 +22,16 @@ export interface Package {
   homepage?: string
 }
 
+// API Result types for better error handling
+export type ApiResult<T> = {
+  success: true
+  data: T
+} | {
+  success: false
+  error: string
+  errorType: 'network' | 'not_found' | 'server_error' | 'unknown'
+}
+
 // Internal watchlist item representation
 export interface WatchlistItem {
   id: number

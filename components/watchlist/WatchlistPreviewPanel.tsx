@@ -38,13 +38,26 @@ export function WatchlistPreviewPanel({
         setIsLoadingDetails(true)
         setDetailsError(null)
         
-        // Fetch detailed view for rich preview
-        const detailed = await getPackageDetails(pkg.name, 'details')
-        setDetailedPackage(detailed)
+        // Use the new safer API that returns a result object
+        const result = await getPackageDetails(pkg.name, 'details')
+        
+        if (result.success) {
+          setDetailedPackage(result.data)
+        } else {
+          // Handle different error types with specific messages
+          const errorMessage = result.errorType === 'not_found' 
+            ? 'Package details not found - showing basic information'
+            : result.errorType === 'network'
+            ? 'Network error - check your connection'
+            : 'Unable to load detailed information'
+            
+          setDetailsError(errorMessage)
+          // Fall back to summary data
+          setDetailedPackage(pkg)
+        }
       } catch (error) {
-        console.error('Error fetching detailed package info:', error)
+        console.error('Unexpected error fetching detailed package info:', error)
         setDetailsError('Failed to load detailed information')
-        // Fall back to summary data
         setDetailedPackage(pkg)
       } finally {
         setIsLoadingDetails(false)
