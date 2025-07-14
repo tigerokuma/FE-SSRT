@@ -63,11 +63,17 @@ export function WatchlistItemGrid({
   className 
 }: WatchlistItemGridProps) {
   if (items.length === 0 && emptyState) {
-    return <>{emptyState}</>
+    return (
+      <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="col-span-full">
+          {emptyState}
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className={`grid gap-4 ${className}`}>
+    <div className={`grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 ${className}`}>
       {items.map((item) => (
         <WatchlistItemCard
           key={item.id}

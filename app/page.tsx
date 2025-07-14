@@ -5,7 +5,7 @@ import { WatchlistSearchDialog } from "@/components/watchlist/WatchlistSearchDia
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-800">
+    <div className="min-h-screen">
       <div className="container mx-auto px-4 py-16">
         {/* Hero Section */}
         <div className="text-center mb-16">
@@ -26,7 +26,7 @@ export default function Home() {
               }
               defaultType="production"
             />
-            <Button size="lg" variant="outline" className="border-gray-600 text-white hover:bg-gray-800">
+            <Button size="lg" variant="outline" className="border-gray-600 text-white hover:bg-gray-900">
               <Eye className="mr-2 h-5 w-5" />
               View Demo
             </Button>
@@ -41,11 +41,11 @@ export default function Home() {
           
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
             {/* Feature 1 */}
-            <Card className="bg-gray-800 border-gray-700">
+            <Card className="bg-gray-900/50 border-gray-800 backdrop-blur-sm">
               <CardHeader>
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-blue-900 rounded-lg">
-                    <Search className="h-6 w-6 text-blue-300" />
+                  <div className="p-2 bg-blue-900/30 rounded-lg border border-blue-800/50">
+                    <Search className="h-6 w-6 text-blue-400" />
                   </div>
                   <div>
                     <CardTitle className="text-white">Advanced Search</CardTitle>
@@ -63,11 +63,11 @@ export default function Home() {
             </Card>
 
             {/* Feature 2 */}
-            <Card className="bg-gray-800 border-gray-700">
+            <Card className="bg-gray-900/50 border-gray-800 backdrop-blur-sm">
               <CardHeader>
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-green-900 rounded-lg">
-                    <Eye className="h-6 w-6 text-green-300" />
+                  <div className="p-2 bg-green-900/30 rounded-lg border border-green-800/50">
+                    <Eye className="h-6 w-6 text-green-400" />
                   </div>
                   <div>
                     <CardTitle className="text-white">Detailed Preview</CardTitle>
@@ -85,11 +85,11 @@ export default function Home() {
             </Card>
 
             {/* Feature 3 */}
-            <Card className="bg-gray-800 border-gray-700">
+            <Card className="bg-gray-900/50 border-gray-800 backdrop-blur-sm">
               <CardHeader>
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-red-900 rounded-lg">
-                    <Shield className="h-6 w-6 text-red-300" />
+                  <div className="p-2 bg-red-900/30 rounded-lg border border-red-800/50">
+                    <Shield className="h-6 w-6 text-red-400" />
                   </div>
                   <div>
                     <CardTitle className="text-white">Risk Assessment</CardTitle>
@@ -107,11 +107,11 @@ export default function Home() {
             </Card>
 
             {/* Feature 4 */}
-            <Card className="bg-gray-800 border-gray-700">
+            <Card className="bg-gray-900/50 border-gray-800 backdrop-blur-sm">
               <CardHeader>
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-yellow-900 rounded-lg">
-                    <Star className="h-6 w-6 text-yellow-300" />
+                  <div className="p-2 bg-yellow-900/30 rounded-lg border border-yellow-800/50">
+                    <Star className="h-6 w-6 text-yellow-400" />
                   </div>
                   <div>
                     <CardTitle className="text-white">GitHub Integration</CardTitle>
@@ -129,11 +129,11 @@ export default function Home() {
             </Card>
 
             {/* Feature 5 */}
-            <Card className="bg-gray-800 border-gray-700">
+            <Card className="bg-gray-900/50 border-gray-800 backdrop-blur-sm">
               <CardHeader>
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-purple-900 rounded-lg">
-                    <Download className="h-6 w-6 text-purple-300" />
+                  <div className="p-2 bg-purple-900/30 rounded-lg border border-purple-800/50">
+                    <Download className="h-6 w-6 text-purple-400" />
                   </div>
                   <div>
                     <CardTitle className="text-white">Usage Analytics</CardTitle>
@@ -151,11 +151,11 @@ export default function Home() {
             </Card>
 
             {/* Feature 6 */}
-            <Card className="bg-gray-800 border-gray-700">
+            <Card className="bg-gray-900/50 border-gray-800 backdrop-blur-sm">
               <CardHeader>
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-cyan-900 rounded-lg">
-                    <Users className="h-6 w-6 text-cyan-300" />
+                  <div className="p-2 bg-cyan-900/30 rounded-lg border border-cyan-800/50">
+                    <Users className="h-6 w-6 text-cyan-400" />
                   </div>
                   <div>
                     <CardTitle className="text-white">Team Management</CardTitle>
@@ -193,7 +193,7 @@ export default function Home() {
               }
               defaultType="production"
             />
-            <Button size="lg" variant="outline" className="border-gray-600 text-white hover:bg-gray-800">
+            <Button size="lg" variant="outline" className="border-gray-600 text-white hover:bg-gray-900">
               <Calendar className="mr-2 h-5 w-5" />
               View Dependencies
             </Button>

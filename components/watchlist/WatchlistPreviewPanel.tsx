@@ -33,32 +33,34 @@ export function WatchlistPreviewPanel({
       return
     }
 
+    // Show search data immediately
+    setDetailedPackage(pkg)
+    setIsLoadingDetails(true)
+    setDetailsError(null)
+
     const fetchDetailedInfo = async () => {
       try {
-        setIsLoadingDetails(true)
-        setDetailsError(null)
-        
         // Use the new safer API that returns a result object
         const result = await getPackageDetails(pkg.name, 'details')
         
         if (result.success) {
+          // Enhance with detailed information
           setDetailedPackage(result.data)
         } else {
           // Handle different error types with specific messages
           const errorMessage = result.errorType === 'not_found' 
-            ? 'Package details not found - showing basic information'
+            ? 'Additional package details not available'
             : result.errorType === 'network'
-            ? 'Network error - check your connection'
-            : 'Unable to load detailed information'
+            ? 'Network error loading additional details'
+            : 'Unable to load additional information'
             
           setDetailsError(errorMessage)
-          // Fall back to summary data
-          setDetailedPackage(pkg)
+          // Keep using search data
         }
       } catch (error) {
         console.error('Unexpected error fetching detailed package info:', error)
-        setDetailsError('Failed to load detailed information')
-        setDetailedPackage(pkg)
+        setDetailsError('Failed to load additional details')
+        // Keep using search data
       } finally {
         setIsLoadingDetails(false)
       }

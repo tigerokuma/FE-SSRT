@@ -24,17 +24,20 @@ export function PackageDetailsPanel({ pkg, onClose, onAdd, isAdding }: PackageDe
 
   useEffect(() => {
     if (pkg) {
+      // Show the search data immediately
+      setDetailedPkg(pkg)
       setIsLoading(true)
       setError(null)
       
-      // Use the safe version that returns null on failure instead of throwing
+      // Fetch detailed info in the background
       getPackageDetailsSafe(pkg.name, 'details')
         .then((result) => {
           if (result) {
+            // Enhance with detailed information
             setDetailedPkg(result)
           } else {
-            setError('Unable to load detailed package information')
-            setDetailedPkg(pkg) // Fall back to basic info
+            setError('Unable to load additional package details')
+            // Keep using search data
           }
         })
         .finally(() => setIsLoading(false))
@@ -202,6 +205,12 @@ export function PackageDetailsPanel({ pkg, onClose, onAdd, isAdding }: PackageDe
                   <Badge variant="secondary" className="text-xs font-mono px-2 py-1">
                     v{displayPkg.version}
                   </Badge>
+                )}
+                {isLoading && (
+                  <div className="flex items-center gap-2 text-xs text-gray-400">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    <span>Loading details...</span>
+                  </div>
                 )}
               </div>
               <p className="text-gray-400 text-sm mb-3">

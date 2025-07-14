@@ -22,15 +22,17 @@ export function WatchlistEmptyState({
   className 
 }: WatchlistEmptyStateProps) {
   return (
-    <div className={`text-center py-12 ${className}`}>
-      {icon || <Package className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />}
-      <h3 className="text-lg font-medium mb-2">{title}</h3>
-      <p className="text-muted-foreground mb-4">{description}</p>
+    <div className={`flex flex-col items-center justify-center rounded-lg border bg-card p-8 ${className}`}>
+      {icon || <Package className="h-12 w-12 text-muted-foreground" />}
+      <h3 className="mt-4 text-lg font-medium">{title}</h3>
+      <p className="mt-2 text-sm text-muted-foreground text-center">{description}</p>
       {customButton || (action && (
-        <Button onClick={action.onClick}>
-          <Plus className="mr-2 h-4 w-4" />
-          {action.label}
-        </Button>
+        <div className="mt-4">
+          <Button onClick={action.onClick}>
+            <Plus className="mr-2 h-4 w-4" />
+            {action.label}
+          </Button>
+        </div>
       ))}
     </div>
   )

@@ -1,3 +1,4 @@
+
 import { useState } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -47,14 +48,14 @@ export function WatchlistTabs({
   return (
     <Tabs defaultValue={defaultTab} className={`w-full ${className}`}>
       {/* Tab Header with Controls */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
-        <TabsList>
-          <TabsTrigger value="all">All Dependencies</TabsTrigger>
-          <TabsTrigger value="production">Production</TabsTrigger>
-          <TabsTrigger value="development">Development</TabsTrigger>
-        </TabsList>
-        
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col gap-4 mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <TabsList className="grid grid-cols-3 max-w-md">
+            <TabsTrigger value="all">All Dependencies</TabsTrigger>
+            <TabsTrigger value="production">Production</TabsTrigger>
+            <TabsTrigger value="development">Development</TabsTrigger>
+          </TabsList>
+          
           <Select value={getSortValue()} onValueChange={handleSortChange}>
             <SelectTrigger className="w-40">
               <SelectValue placeholder="Sort by" />
