@@ -21,7 +21,7 @@ export function PackageCard({ pkg, onSelect, onAdd, searchQuery, isSelected, isA
     <div 
       className={`group rounded-lg border p-4 transition-all duration-200 cursor-pointer ${
         isSelected 
-          ? 'border-gray-600 bg-gray-800 ring-2 ring-gray-600' 
+          ? 'border-gray-600 bg-gray-800 ' 
           : 'border-gray-800 bg-black hover:border-gray-700 hover:bg-gray-900/50'
       }`}
       onClick={() => onSelect(pkg)}
