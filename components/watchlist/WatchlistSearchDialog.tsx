@@ -38,7 +38,6 @@ export function WatchlistSearchDialog({
   const {
     searchResults,
     isSearching,
-    searchResponseTime,
     searchPackages,
     clearSearch,
   } = usePackageSearch()
@@ -50,145 +49,119 @@ export function WatchlistSearchDialog({
     }
   }, [searchQuery, clearSearch])
 
-  const handleManualSearch = () => {
-    if (searchQuery.trim().length >= 2) {
-      searchPackages(searchQuery)
-    }
-  }
+  // Auto-search with debounce
+  useEffect(() => {
+    if (searchQuery.trim().length < 2) return
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleManualSearch()
-    }
+    const timeoutId = setTimeout(() => {
+      searchPackages(searchQuery, {
+        enrichWithGitHub: false,
+        maxConcurrentEnrichments: 0
+      })
+    }, 500)
+
+    return () => clearTimeout(timeoutId)
+  }, [searchQuery, searchPackages])
+
+  const handlePackageSelect = (pkg: PackageType) => {
+    setSelectedPackage(pkg)
+    onPackagePreview?.(pkg, 'npm')
   }
 
   const handleAddToWatchlist = async (pkg: PackageType) => {
     try {
       await addItem(pkg, defaultType)
-      setIsOpen(false) // This will trigger handleDialogOpenChange to reset state
+      setIsOpen(false)
+      setSearchQuery("")
+      setSelectedPackage(null)
+      clearSearch()
     } catch (error) {
       console.error('Error adding to watchlist:', error)
     }
   }
 
-  const handlePackageSelect = (pkg: PackageType) => {
-    setSelectedPackage(pkg)
-  }
-
-  const handleDialogOpenChange = (open: boolean) => {
-    setIsOpen(open)
-    if (!open) {
-      // Reset state when dialog is closed
-      setSearchQuery("")
-      setSelectedPackage(null)
-      clearSearch()
-    }
-  }
+  const hasResults = searchResults.length > 0
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleDialogOpenChange}>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         {trigger || (
-          <Button size="sm">
+          <Button>
             <Plus className="mr-2 h-4 w-4" />
-            Add Dependency
+            Add Package
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-w-[90vw] w-full h-[85vh] flex flex-col">
-        <DialogHeader className="space-y-2 pb-4">
-          <DialogTitle>Add Dependency to Watchlist</DialogTitle>
-          <DialogDescription>
-            Search for packages and view detailed information before adding to your watchlist.
-          </DialogDescription>
-        </DialogHeader>
-        
-        <div className="flex-1 flex gap-6 min-h-0">
+
+      <DialogContent className="max-w-6xl max-h-[90vh] p-0">
+        <div className="flex h-[80vh]">
           {/* Left Panel - Search */}
-          <div className="flex-1 flex flex-col min-w-0">
-            {/* Search Input */}
-            <div className="flex flex-col gap-2 mb-4">
+          <div className="w-1/2 border-r border-gray-800 flex flex-col min-h-0">
+            <DialogHeader className="p-6 pb-4 flex-shrink-0">
+              <DialogTitle>Search NPM Packages</DialogTitle>
+              <DialogDescription>
+                Find and add packages to your watchlist
+              </DialogDescription>
+            </DialogHeader>
+
+            {/* Search Controls */}
+            <div className="px-6 pb-4 flex-shrink-0">
               <div className="relative">
-                <Input 
-                  placeholder="Search packages..." 
-                  className="pr-10" 
+                <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Search packages..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={handleKeyDown}
+                  className="pl-10"
                 />
-                <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                  {isSearching ? (
-                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                  ) : (
-                    <button
-                      onClick={handleManualSearch}
-                      disabled={searchQuery.trim().length < 2}
-                      className="hover:text-foreground transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <Search className="h-4 w-4 text-muted-foreground" />
-                    </button>
-                  )}
-                </div>
-              </div>
-              
-              {/* Search Status */}
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>
-                  {searchQuery.length > 0 && searchQuery.length < 2 
-                    ? `Type ${2 - searchQuery.length} more character${2 - searchQuery.length > 1 ? 's' : ''} to search...`
-                    : searchQuery.length >= 2
-                      ? "Press Enter or click search icon to search"
-                      : searchResponseTime 
-                        ? `Search completed in ${searchResponseTime}`
-                        : "Type package name to search"
-                  }
-                </span>
-                {searchResults.length > 0 && (
-                  <span>{searchResults.length} result{searchResults.length !== 1 ? 's' : ''}</span>
-                )}
               </div>
             </div>
 
-            {/* Search Results */}
-            <ScrollArea className="flex-1">
-              {searchResults.length > 0 && (
-                <div className="space-y-2">
-                  {searchResults.map((pkg, index) => (
-                    <PackageCard
-                      key={`${pkg.name}-${index}`}
-                      pkg={pkg}
-                      onSelect={handlePackageSelect}
-                      onAdd={handleAddToWatchlist}
-                      searchQuery={searchQuery}
-                      isSelected={selectedPackage?.name === pkg.name}
-                      isAdding={isAdding}
-                    />
-                  ))}
-                </div>
-              )}
-              
-              {/* No Results State */}
-              {searchQuery.length >= 2 && searchResults.length === 0 && !isSearching && (
-                <div className="text-center py-12 text-muted-foreground">
-                  <Search className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <h3 className="text-lg font-medium mb-2">No packages found</h3>
-                  <p className="text-sm">Try a different search term or check your spelling.</p>
-                </div>
-              )}
-              
-              {/* Empty State */}
-              {searchQuery.length === 0 && (
-                <div className="text-center py-12 text-muted-foreground">
-                  <Search className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <h3 className="text-lg font-medium mb-2">Search NPM packages</h3>
-                  <p className="text-sm">Type package name and press Enter to find packages to add to your watchlist.</p>
-                </div>
-              )}
-            </ScrollArea>
+            {/* Results */}
+            <div className="flex-1 overflow-hidden">
+              <ScrollArea className="h-full px-6">
+                {isSearching ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="text-center">
+                      <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-500" />
+                      <p className="text-sm text-gray-400">Searching NPM packages...</p>
+                    </div>
+                  </div>
+                ) : hasResults ? (
+                  <div className="space-y-3 pb-6">
+                    {searchResults.map((pkg) => (
+                      <PackageCard
+                        key={pkg.name}
+                        pkg={pkg}
+                        onSelect={handlePackageSelect}
+                        onAdd={handleAddToWatchlist}
+                        searchQuery={searchQuery}
+                        isSelected={selectedPackage?.name === pkg.name}
+                        isAdding={isAdding}
+                      />
+                    ))}
+                  </div>
+                ) : searchQuery.trim().length >= 2 ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="text-center">
+                      <Search className="h-8 w-8 mx-auto mb-4 text-gray-400" />
+                      <p className="text-sm text-gray-400">No packages found</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="text-center">
+                      <Search className="h-8 w-8 mx-auto mb-4 text-gray-400" />
+                      <p className="text-sm text-gray-400">Start typing to search...</p>
+                    </div>
+                  </div>
+                )}
+              </ScrollArea>
+            </div>
           </div>
 
           {/* Right Panel - Package Details */}
-          <div className="w-[45%] border-l border-gray-800 pl-6 flex flex-col">
+          <div className="w-1/2 flex flex-col min-h-0">
             <PackageDetailsPanel
               pkg={selectedPackage}
               onClose={() => setSelectedPackage(null)}

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Search, Loader2, Download, Plus, Star, GitFork, Users, Calendar, Shield, ExternalLink, Globe, Package, AlertCircle, CheckCircle, XCircle, Eye, Github, Award, Activity, Clock, Link } from "lucide-react"
+import { Loader2, Download, Plus, Star, GitFork, Users, Calendar, Shield, ExternalLink, Globe, Package, AlertCircle, CheckCircle, XCircle, Eye, Github, Award, Activity, Clock, Link } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -48,13 +48,8 @@ export function PackageDetailsPanel({ pkg, onClose, onAdd, isAdding }: PackageDe
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center max-w-xs">
-          <div className="relative mb-8">
-            <div className="w-24 h-24 mx-auto rounded-2xl bg-gray-800 flex items-center justify-center">
-              <Eye className="h-12 w-12 text-gray-400" />
-            </div>
-            <div className="absolute -top-2 -right-2 w-8 h-8 bg-gray-700 rounded-xl flex items-center justify-center shadow-lg">
-              <Search className="h-4 w-4 text-white" />
-            </div>
+          <div className="w-24 h-24 mx-auto rounded-2xl bg-gray-800 flex items-center justify-center mb-8">
+            <Eye className="h-12 w-12 text-gray-400" />
           </div>
           <h3 className="text-xl font-semibold text-white mb-3">
             Select a Package
@@ -70,41 +65,9 @@ export function PackageDetailsPanel({ pkg, onClose, onAdd, isAdding }: PackageDe
   if (isLoading) {
     return (
       <div className="flex-1 flex items-center justify-center">
-                  <div className="text-center">
-            <div className="relative mb-8">
-              <div className="w-20 h-20 mx-auto rounded-2xl bg-gray-700 flex items-center justify-center shadow-lg">
-                <Package className="h-10 w-10 text-white" />
-              </div>
-              <div className="absolute inset-0 w-20 h-20 mx-auto">
-                <svg className="w-20 h-20 animate-spin" viewBox="0 0 50 50">
-                  <circle
-                    className="stroke-gray-600"
-                    cx="25"
-                    cy="25"
-                    r="20"
-                    fill="none"
-                    strokeWidth="2"
-                  />
-                  <circle
-                    className="stroke-gray-400"
-                    cx="25"
-                    cy="25"
-                    r="20"
-                    fill="none"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeDasharray="80"
-                    strokeDashoffset="60"
-                  />
-                </svg>
-              </div>
-            </div>
-            <h3 className="text-lg font-semibold text-white mb-2">
-              Loading Package Analytics
-            </h3>
-            <p className="text-gray-400 text-sm">
-            Gathering comprehensive package information...
-          </p>
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-500" />
+          <p className="text-sm text-gray-400">Loading package details...</p>
         </div>
       </div>
     )
@@ -271,7 +234,7 @@ export function PackageDetailsPanel({ pkg, onClose, onAdd, isAdding }: PackageDe
                 <div className="text-xs text-gray-400">Downloads</div>
               </div>
               
-              {displayPkg.stars !== undefined ? (
+              {displayPkg.stars !== undefined && displayPkg.stars !== null ? (
                 <div className="bg-gray-900 rounded-xl p-4 border border-gray-800">
                   <div className="flex items-center justify-between mb-3">
                     <div className="w-10 h-10 rounded-lg bg-gray-800 flex items-center justify-center">
@@ -296,12 +259,21 @@ export function PackageDetailsPanel({ pkg, onClose, onAdd, isAdding }: PackageDe
                       GitHub
                     </span>
                   </div>
-                  <div className="text-2xl font-bold text-gray-400 mb-1">N/A</div>
+                  <div className="text-2xl font-bold text-gray-400 mb-1 flex items-center gap-2">
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Loading...
+                      </>
+                    ) : (
+                      'N/A'
+                    )}
+                  </div>
                   <div className="text-xs text-gray-400">Stars</div>
                 </div>
               )}
               
-              {displayPkg.forks !== undefined ? (
+              {displayPkg.forks !== undefined && displayPkg.forks !== null ? (
                 <div className="bg-gray-900 rounded-xl p-4 border border-gray-800">
                   <div className="flex items-center justify-between mb-3">
                     <div className="w-10 h-10 rounded-lg bg-gray-800 flex items-center justify-center">
@@ -326,12 +298,21 @@ export function PackageDetailsPanel({ pkg, onClose, onAdd, isAdding }: PackageDe
                       Community
                     </span>
                   </div>
-                  <div className="text-2xl font-bold text-gray-400 mb-1">N/A</div>
+                  <div className="text-2xl font-bold text-gray-400 mb-1 flex items-center gap-2">
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Loading...
+                      </>
+                    ) : (
+                      'N/A'
+                    )}
+                  </div>
                   <div className="text-xs text-gray-400">Forks</div>
                 </div>
               )}
               
-              {displayPkg.contributors !== undefined ? (
+              {displayPkg.contributors !== undefined && displayPkg.contributors !== null ? (
                 <div className="bg-gray-900 rounded-xl p-4 border border-gray-800">
                   <div className="flex items-center justify-between mb-3">
                     <div className="w-10 h-10 rounded-lg bg-gray-800 flex items-center justify-center">
@@ -350,14 +331,23 @@ export function PackageDetailsPanel({ pkg, onClose, onAdd, isAdding }: PackageDe
                 <div className="bg-gray-900 rounded-xl p-4 border border-gray-800 opacity-60">
                   <div className="flex items-center justify-between mb-3">
                     <div className="w-10 h-10 rounded-lg bg-gray-800 flex items-center justify-center">
-                      <Users className="h-5 w-5 text-slate-400" />
+                      <Users className="h-5 w-5 text-gray-400" />
                     </div>
-                    <span className="text-xs font-medium text-slate-400 uppercase tracking-wide">
+                    <span className="text-xs font-medium text-gray-400 uppercase tracking-wide">
                       Active
                     </span>
                   </div>
-                  <div className="text-2xl font-bold text-slate-400 mb-1">N/A</div>
-                  <div className="text-xs text-slate-400">Contributors</div>
+                  <div className="text-2xl font-bold text-gray-400 mb-1 flex items-center gap-2">
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Loading...
+                      </>
+                    ) : (
+                      'N/A'
+                    )}
+                  </div>
+                  <div className="text-xs text-gray-400">Contributors</div>
                 </div>
               )}
             </div>
