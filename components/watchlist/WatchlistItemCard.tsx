@@ -12,7 +12,13 @@ interface WatchlistItemCardProps {
 
 export function WatchlistItemCard({ item, onAction, className }: WatchlistItemCardProps) {
   return (
-    <Card className={`hover:shadow-md transition-shadow ${className}`}>
+    <Card className={`
+      shadow-sm hover:shadow-md transition-shadow duration-200
+      focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-0
+      active:scale-[0.99] active:shadow-sm
+      cursor-pointer
+      ${className}
+    `}>
       <CardContent className="pt-6">
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           {/* Main Info */}

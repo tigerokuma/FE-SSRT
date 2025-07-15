@@ -19,11 +19,16 @@ export function PackageCard({ pkg, onSelect, onAdd, searchQuery, isSelected, isA
   
   return (
     <div 
-      className={`group rounded-lg border p-4 transition-all duration-200 cursor-pointer ${
-        isSelected 
-          ? 'border-gray-600 bg-gray-800 ' 
+      className={`
+        group rounded-lg border p-4 cursor-pointer
+        transition-colors duration-200
+        focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-0
+        active:scale-[0.99]
+        ${isSelected 
+          ? 'border-gray-600 bg-gray-800' 
           : 'border-gray-800 bg-black hover:border-gray-700 hover:bg-gray-900/50'
-      }`}
+        }
+      `}
       onClick={() => onSelect(pkg)}
     >
       {/* Header */}
