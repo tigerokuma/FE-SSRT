@@ -9,7 +9,11 @@ import {
 import { packageToWatchlistItem, getNextId, deduplicatePackages } from './utils'
 
 // API Base URL - configurable via environment
-const API_BASE_URL = 'http://localhost:3000'
+// Defaults to remote API, falls back to localhost if not set
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://34.94.83.163:3000'
+
+// API proxy path for Next.js rewrites
+const API_PROXY_PATH = process.env.NEXT_PUBLIC_API_PROXY_PATH || '/api/backend'
 
 /**
  * Search for NPM packages via the new API
@@ -18,7 +22,7 @@ const API_BASE_URL = 'http://localhost:3000'
 export const searchPackages = async (query: string): Promise<SearchApiResponse> => {
   try {
     console.log('Searching for:', query)
-    const response = await fetch(`/api/backend/packages/search?name=${encodeURIComponent(query)}`)
+    const response = await fetch(`${API_PROXY_PATH}/packages/search?name=${encodeURIComponent(query)}`)
     
     if (!response.ok) {
       throw new Error(`Search failed: ${response.statusText}`)
@@ -159,8 +163,8 @@ export const batchEnrichPackages = async (
 export const getPackageDetails = async (name: string, view: 'summary' | 'details' = 'summary'): Promise<ApiResult<Package>> => {
   try {
     const url = view === 'details' 
-      ? `/api/backend/packages/${encodeURIComponent(name)}?view=details`
-      : `/api/backend/packages/${encodeURIComponent(name)}`
+      ? `${API_PROXY_PATH}/packages/${encodeURIComponent(name)}?view=details`
+      : `${API_PROXY_PATH}/packages/${encodeURIComponent(name)}`
     
     const response = await fetch(url)
     
@@ -244,7 +248,7 @@ export const addToWatchlist = async (
       throw new Error(`${pkg.name} is already in your watchlist`)
     }
     
-    const response = await fetch(`${API_BASE_URL}/api/watchlist`, {
+    const response = await fetch(`${API_PROXY_PATH}/watchlist`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -277,7 +281,7 @@ export const addToWatchlist = async (
  */
 export const removeFromWatchlist = async (id: number): Promise<void> => {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/watchlist/${id}`, {
+    const response = await fetch(`${API_PROXY_PATH}/watchlist/${id}`, {
       method: 'DELETE',
     })
     
@@ -304,7 +308,7 @@ export const updateWatchlistItem = async (
   updates: Partial<WatchlistItem>
 ): Promise<WatchlistItem> => {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/watchlist/${id}`, {
+    const response = await fetch(`${API_PROXY_PATH}/watchlist/${id}`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
@@ -337,7 +341,7 @@ export const updateWatchlistItem = async (
  */
 export const fetchWatchlistItems = async (): Promise<WatchlistItem[]> => {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/watchlist`)
+    const response = await fetch(`${API_PROXY_PATH}/watchlist`)
     
     if (!response.ok) {
       throw new Error(`Failed to fetch watchlist: ${response.statusText}`)
