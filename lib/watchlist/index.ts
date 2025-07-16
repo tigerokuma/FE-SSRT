@@ -37,6 +37,9 @@ export {
   updateWatchlistItem,
   fetchWatchlistItems,
   refreshPackageData,
+  searchAndEnrichPackages,
+  batchEnrichPackages,
+  getPackageDetailsSafe,
 } from './api'
 
 // Hooks

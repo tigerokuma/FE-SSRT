@@ -16,7 +16,7 @@ export function MainContent({
   const isCollapsed = state === "collapsed"
   
   return (
-    <div className="flex-1 flex">
+    <div className="flex flex-col w-full overflow-x-hidden">
       <Button
         variant="ghost"
         size="icon"
@@ -40,11 +40,11 @@ export function MainContent({
           "w-full",
           "mx-auto",
           "max-w-[100%]",
-          "sm:max-w-[640px]",
-          "md:max-w-[768px]",
-          "lg:max-w-[960px]",
-          "xl:max-w-[1200px]",
-          "2xl:max-w-[1400px]",
+          "sm:max-w-[100%]",
+          "md:max-w-[100%]",
+          "lg:max-w-[1200px]",
+          "xl:max-w-[1400px]",
+          "2xl:max-w-[1600px]",
           "transition-all duration-300"
         )}>
           {children}
