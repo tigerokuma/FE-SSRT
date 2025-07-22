@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Plus, Package, Search, TrendingUp, Shield, Clock, Download, Star, Users, Loader2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -36,6 +37,7 @@ interface DisplayDependency {
 }
 
 export default function DependenciesPage() {
+  const router = useRouter()
   // Use the modularized watchlist hook
   const { items: userDependencies, isLoading } = useWatchlist()
   
@@ -228,7 +230,12 @@ export default function DependenciesPage() {
               
               <div className="flex items-center justify-between text-xs text-gray-400">
                 <span>{item.lastUpdate}</span>
-                <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 hover:text-white h-6 px-2 text-xs">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 hover:text-white h-6 px-2 text-xs"
+                  onClick={() => router.push(`/package-details?name=${encodeURIComponent(item.name)}`)}
+                >
                   {item.isGitHubDataLoaded ? 'View' : 'View Details'}
                 </Button>
               </div>
