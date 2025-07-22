@@ -14,10 +14,11 @@ interface PackageDetailsPanelProps {
   pkg: PackageType | null
   onClose: () => void
   onAdd: (pkg: PackageType) => void
+  onAddWithConfig?: (pkg: PackageType) => void
   isAdding?: boolean
 }
 
-export function PackageDetailsPanel({ pkg, onClose, onAdd, isAdding }: PackageDetailsPanelProps) {
+export function PackageDetailsPanel({ pkg, onClose, onAdd, onAddWithConfig, isAdding }: PackageDetailsPanelProps) {
   const [detailedPkg, setDetailedPkg] = useState<PackageType | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -66,7 +67,7 @@ export function PackageDetailsPanel({ pkg, onClose, onAdd, isAdding }: PackageDe
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-500" />
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-gray-400" />
           <p className="text-sm text-gray-400">Loading package details...</p>
         </div>
       </div>
@@ -416,7 +417,7 @@ export function PackageDetailsPanel({ pkg, onClose, onAdd, isAdding }: PackageDe
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4 border border-slate-200 dark:border-slate-600">
                   <div className="flex items-center gap-3 mb-2">
-                    <Package className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    <Package className="h-4 w-4 text-gray-400" />
                     <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Version</span>
                   </div>
                   <div className="font-mono text-sm text-slate-900 dark:text-slate-100">
@@ -465,7 +466,7 @@ export function PackageDetailsPanel({ pkg, onClose, onAdd, isAdding }: PackageDe
                   <div className="flex flex-wrap gap-2">
                     {displayPkg.maintainers.map((maintainer, idx) => (
                       <div key={idx} className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-slate-700 rounded-lg border border-slate-200 dark:border-slate-600">
-                        <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white text-xs font-semibold">
+                        <div className="w-6 h-6 bg-gradient-to-br from-gray-500 to-gray-600 rounded-full flex items-center justify-center text-white text-xs font-semibold">
                           {maintainer.charAt(0).toUpperCase()}
                         </div>
                         <span className="text-sm text-slate-700 dark:text-slate-300">{maintainer}</span>
@@ -584,20 +585,20 @@ export function PackageDetailsPanel({ pkg, onClose, onAdd, isAdding }: PackageDe
                   href={displayPkg.homepage}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="group flex items-center gap-4 p-4 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-900/30 rounded-xl border border-blue-200 dark:border-blue-800 hover:from-blue-100 hover:to-blue-200 dark:hover:from-blue-900/30 dark:hover:to-blue-900/40 transition-all"
+                  className="group flex items-center gap-4 p-4 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-900/20 dark:to-gray-900/30 rounded-xl border border-gray-200 dark:border-gray-800 hover:from-gray-100 hover:to-gray-200 dark:hover:from-gray-900/30 dark:hover:to-gray-900/40 transition-all"
                 >
-                  <div className="w-12 h-12 rounded-xl bg-blue-500 flex items-center justify-center shadow-lg">
+                  <div className="w-12 h-12 rounded-xl bg-gray-500 flex items-center justify-center shadow-lg">
                     <Globe className="h-6 w-6 text-white" />
                   </div>
                   <div className="flex-1">
-                    <div className="font-semibold text-blue-900 dark:text-blue-100 group-hover:text-blue-800 dark:group-hover:text-blue-50">
+                    <div className="font-semibold text-gray-900 dark:text-gray-100 group-hover:text-gray-800 dark:group-hover:text-gray-50">
                       Official Website
                     </div>
-                    <div className="text-sm text-blue-700 dark:text-blue-300">
+                    <div className="text-sm text-gray-700 dark:text-gray-300">
                       Documentation, guides, and project information
                     </div>
                   </div>
-                  <ExternalLink className="h-5 w-5 text-blue-600 dark:text-blue-400 group-hover:text-blue-700 dark:group-hover:text-blue-300" />
+                  <ExternalLink className="h-5 w-5 text-gray-600 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300" />
                 </a>
               ) : (
                 <div className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-600 opacity-60">
