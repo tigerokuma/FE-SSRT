@@ -19,7 +19,7 @@ import { usePackageSearch, useWatchlist } from '../../lib/watchlist/index'
 import { PackageCard } from './PackageCard'
 import { PackageDetailsPanel } from './PackageDetailsPanel'
 import { AlertConfigurationDialog } from "./AlertConfigurationDialog"
-import { addRepositoryToWatchlist } from "../../lib/watchlist/api"
+import { addToWatchlist } from "../../lib/watchlist/api"
 
 interface WatchlistSearchDialogProps {
   trigger?: React.ReactNode
@@ -117,7 +117,7 @@ export function WatchlistSearchDialog({
     
     setIsAdding(true)
     try {
-      await addRepositoryToWatchlist(config)
+      await addToWatchlist(config)
       setShowAlertConfig(false)
       setIsOpen(false)
       setSearchQuery("")

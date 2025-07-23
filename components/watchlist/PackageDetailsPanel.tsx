@@ -8,7 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import type { Package as PackageType } from '../../lib/watchlist/types'
 import { formatNumber } from '../../lib/watchlist/index'
-import { getPackageDetailsSafe } from '../../lib/watchlist/api'
+import { getPackageDetailsSafe } from '../../lib/packages/api'
 
 interface PackageDetailsPanelProps {
   pkg: PackageType | null

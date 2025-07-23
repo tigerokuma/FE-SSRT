@@ -26,21 +26,26 @@ export {
   sortWatchlistItems,
 } from './utils'
 
-// API Functions
+// Watchlist API Functions
+export {
+  addToWatchlist,
+  removeFromWatchlist,
+  updateWatchlistItem,
+  fetchWatchlistItems,
+  getUserWatchlist,
+} from './api'
+
+// Package API Functions
 export {
   searchPackages,
   getPackageDetails,
   getPackageDetailsWithFull,
   getPackageForUseCase,
-  addToWatchlist,
-  removeFromWatchlist,
-  updateWatchlistItem,
-  fetchWatchlistItems,
   refreshPackageData,
   searchAndEnrichPackages,
   batchEnrichPackages,
   getPackageDetailsSafe,
-} from './api'
+} from '../packages/api'
 
 // Hooks
 export {
@@ -49,11 +54,4 @@ export {
 } from './useWatchlist'
 
 // UI Components
-export * from '../../components/watchlist'
-
-// Re-export everything for convenience
-export * from './types'
-export * from './utils'
-export * from './api'
-export * from './useWatchlist'
 export * from '../../components/watchlist' 

@@ -6,14 +6,22 @@ import {
   WatchlistOperations 
 } from './types'
 import { 
-  addToWatchlist as apiAddToWatchlist,
-  removeFromWatchlist as apiRemoveFromWatchlist,
-  updateWatchlistItem as apiUpdateWatchlistItem,
-  fetchWatchlistItems,
-  searchPackages as apiSearchPackages,
-  searchAndEnrichPackages,
-  batchEnrichPackages
+  addToWatchlist, 
+  removeFromWatchlist, 
+  updateWatchlistItem, 
+  fetchWatchlistItems, 
+  getUserWatchlist 
 } from './api'
+import { 
+  searchAndEnrichPackages, 
+  searchPackages, 
+  batchEnrichPackages, 
+  getPackageDetails, 
+  getPackageDetailsSafe, 
+  getPackageDetailsWithFull, 
+  getPackageForUseCase, 
+  refreshPackageData 
+} from '../packages/api'
 
 /**
  * Custom hook for managing watchlist operations
@@ -26,6 +34,8 @@ export const useWatchlist = (): UseWatchlistState & WatchlistOperations => {
     error: null,
   })
 
+  const USER_ID = 'test_user'
+
   // Load watchlist items on mount
   useEffect(() => {
     loadItems()
@@ -34,7 +44,7 @@ export const useWatchlist = (): UseWatchlistState & WatchlistOperations => {
   const loadItems = useCallback(async () => {
     setState(prev => ({ ...prev, isLoading: true, error: null }))
     try {
-      const items = await fetchWatchlistItems()
+      const items = await fetchWatchlistItems(USER_ID)
       setState(prev => ({ ...prev, items, isLoading: false }))
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to load watchlist'
@@ -45,19 +55,19 @@ export const useWatchlist = (): UseWatchlistState & WatchlistOperations => {
   const addItem = useCallback(async (pkg: Package, type: WatchlistItem['type'] = 'production') => {
     setState(prev => ({ ...prev, isAdding: true, error: null }))
     try {
-      await apiAddToWatchlist(pkg, type, state.items)
+      await addToWatchlist(USER_ID, pkg.name)
       await loadItems() // Refresh the list
       setState(prev => ({ ...prev, isAdding: false }))
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to add item'
       setState(prev => ({ ...prev, error: errorMessage, isAdding: false }))
     }
-  }, [loadItems, state.items])
+  }, [loadItems])
 
   const removeItem = useCallback(async (id: number) => {
     setState(prev => ({ ...prev, isLoading: true, error: null }))
     try {
-      await apiRemoveFromWatchlist(id)
+      await removeFromWatchlist(String(id), USER_ID)
       await loadItems() // Refresh the list
       setState(prev => ({ ...prev, isLoading: false }))
     } catch (error) {
@@ -69,7 +79,11 @@ export const useWatchlist = (): UseWatchlistState & WatchlistOperations => {
   const updateItem = useCallback(async (id: number, updates: Partial<WatchlistItem>) => {
     setState(prev => ({ ...prev, isLoading: true, error: null }))
     try {
-      await apiUpdateWatchlistItem(id, updates)
+      // Only pass note and alertsEnabled fields as required by the new API
+      const apiUpdates: { note?: string; alertsEnabled?: boolean } = {}
+      if ('note' in updates) apiUpdates.note = (updates as any).note
+      if ('alertsEnabled' in updates) apiUpdates.alertsEnabled = (updates as any).alertsEnabled
+      await updateWatchlistItem(String(id), USER_ID, apiUpdates)
       await loadItems() // Refresh the list
       setState(prev => ({ ...prev, isLoading: false }))
     } catch (error) {
@@ -108,7 +122,7 @@ export const usePackageSearch = () => {
   }>({ total: 0, completed: 0, errors: [] })
   const [error, setError] = useState<string | null>(null)
 
-  const searchPackages = useCallback(async (query: string, options: {
+  const doSearchPackages = useCallback(async (query: string, options: {
     enrichWithGitHub?: boolean
     maxConcurrentEnrichments?: number
   } = {}) => {
@@ -125,19 +139,14 @@ export const usePackageSearch = () => {
 
     try {
       const startTime = Date.now()
-      
       if (options.enrichWithGitHub) {
-        // Use parallel strategy: fast search + GitHub enrichment
         const response = await searchAndEnrichPackages(query, options)
         const endTime = Date.now()
-
         setSearchResults(response.searchResults.results || [])
         setSearchResponseTime(response.searchResults.responseTime || `${endTime - startTime}ms`)
-        
         if (response.enrichedResults) {
           setEnrichedResults(response.enrichedResults)
         }
-        
         if (response.enrichmentErrors) {
           setEnrichmentProgress(prev => ({
             ...prev,
@@ -145,12 +154,10 @@ export const usePackageSearch = () => {
           }))
         }
       } else {
-        // Fast search only (NPM data)
-        const response = await apiSearchPackages(query)
+        const response = await searchPackages(query)
         const endTime = Date.now()
-
-        setSearchResults(response.results || [])
-        setSearchResponseTime(response.responseTime || `${endTime - startTime}ms`)
+        setSearchResults(response && (response as any).results ? (response as any).results : [])
+        setSearchResponseTime(response && (response as any).responseTime ? (response as any).responseTime : `${endTime - startTime}ms`)
         setEnrichedResults([])
       }
     } catch (error) {
@@ -206,7 +213,7 @@ export const usePackageSearch = () => {
     searchResponseTime,
     enrichmentProgress,
     error,
-    searchPackages,
+    searchPackages: doSearchPackages,
     enrichExistingResults,
     clearSearch,
     clearError,

@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import type { Package as PackageType } from '../../lib/watchlist/types'
 import { formatNumber, formatDate } from '../../lib/watchlist/utils'
-import { getPackageDetails } from '../../lib/watchlist/api'
+import { getPackageDetails } from '../../lib/packages/api'
 
 interface WatchlistPreviewPanelProps {
   isOpen: boolean
