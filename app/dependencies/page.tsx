@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Plus, Package, Search, TrendingUp, Shield, Clock, Download, Star, Users, Loader2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -35,102 +36,27 @@ interface DisplayDependency {
   contributors?: number | null
 }
 
-// Mock data for demonstration - mix of complete and partial data
-const mockDependencies: DisplayDependency[] = [
-  {
-    id: 1,
-    name: "react",
-    version: "^18.2.0",
-    type: "production",
-    risk: "low",
-    stars: "213k",
-    maintainers: 12,
-    lastUpdate: "2 days ago",
-    downloads: "20M/week",
-    description: "A JavaScript library for building user interfaces",
-    isGitHubDataLoaded: true,
-    forks: 43000,
-    contributors: 1500
-  },
-  {
-    id: 2,
-    name: "lodash",
-    version: "^4.17.21",
-    type: "production", 
-    risk: "medium",
-    stars: null, // GitHub data still loading
-    maintainers: 8,
-    lastUpdate: "1 week ago",
-    downloads: null, // GitHub data still loading
-    description: "A modern JavaScript utility library delivering modularity",
-    isGitHubDataLoaded: false,
-    forks: null,
-    contributors: null
-  },
-  {
-    id: 3,
-    name: "express",
-    version: "^4.18.2",
-    type: "production",
-    risk: "low", 
-    stars: "63k",
-    maintainers: 15,
-    lastUpdate: "3 days ago",
-    downloads: "18M/week",
-    description: "Fast, unopinionated, minimalist web framework for Node.js",
-    isGitHubDataLoaded: true,
-    forks: 10200,
-    contributors: 280
-  },
-  {
-    id: 4,
-    name: "axios",
-    version: "^1.4.0",
-    type: "production",
-    risk: "low",
-    stars: "102k", 
-    maintainers: 6,
-    lastUpdate: "5 days ago",
-    downloads: "45M/week",
-    description: "Promise based HTTP client for the browser and node.js",
-    isGitHubDataLoaded: true,
-    forks: 10800,
-    contributors: 380
-  },
-  {
-    id: 5,
-    name: "webpack",
-    version: "^5.88.0",
-    type: "development",
-    risk: "high",
-    stars: null, // GitHub data still loading
-    maintainers: 25,
-    lastUpdate: "2 weeks ago", 
-    downloads: null, // GitHub data still loading
-    description: "A bundler for javascript and friends",
-    isGitHubDataLoaded: false,
-    forks: null,
-    contributors: null
-  }
-]
-
 export default function DependenciesPage() {
+  const router = useRouter()
   // Use the modularized watchlist hook
-  const { items: userDependencies } = useWatchlist()
+  const { items: userDependencies, isLoading } = useWatchlist()
   
-  // Combine user dependencies with mock data for demonstration
-  const allDependencies: DisplayDependency[] = [
-    ...userDependencies.map(item => ({
-      ...item,
-      stars: item.stars ? item.stars.toString() : null,
-      downloads: item.stars ? `${Math.floor(Math.random() * 50)}M/week` : null,
-      description: `${item.type} dependency`,
-      isGitHubDataLoaded: !!item.stars, // Assume loaded if we have stars
-      forks: item.stars ? Math.floor(Math.random() * 10000) : null,
-      contributors: item.stars ? Math.floor(Math.random() * 500) : null
-    })),
-    ...mockDependencies
-  ]
+  // Transform user dependencies to display format
+  const allDependencies: DisplayDependency[] = userDependencies.map(item => ({
+    id: item.id,
+    name: item.name,
+    version: item.version,
+    type: item.type,
+    risk: item.risk,
+    stars: item.stars,
+    maintainers: item.maintainers,
+    lastUpdate: item.lastUpdate,
+    downloads: null, // Not available from backend yet
+    description: `${item.type} dependency`,
+    isGitHubDataLoaded: !!item.stars && item.stars !== '0', // Assume loaded if we have stars
+    forks: null, // Not available from backend yet
+    contributors: item.maintainers
+  }))
 
   const getRiskBadge = (risk: string) => {
     switch (risk) {
@@ -252,8 +178,18 @@ export default function DependenciesPage() {
             defaultType="production"
           />
 
+          {/* Loading State */}
+          {isLoading && (
+            <div className="col-span-full flex items-center justify-center py-12">
+              <div className="text-center">
+                <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-gray-400" />
+                <p className="text-sm text-gray-400">Loading dependencies...</p>
+              </div>
+            </div>
+          )}
+
           {/* Dependency Cards */}
-          {allDependencies.map((item) => (
+          {!isLoading && allDependencies.map((item) => (
             <div key={item.id} className="bg-gray-900/50 border-gray-800 backdrop-blur-sm rounded-lg border p-4 space-y-3 group hover:border-gray-700 transition-colors">
               <div className="flex flex-col gap-1">
                 <div className="flex items-start justify-between gap-2">
@@ -294,12 +230,43 @@ export default function DependenciesPage() {
               
               <div className="flex items-center justify-between text-xs text-gray-400">
                 <span>{item.lastUpdate}</span>
-                <Button variant="ghost" size="sm" className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 hover:text-white h-6 px-2 text-xs">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 hover:text-white h-6 px-2 text-xs"
+                  onClick={() => router.push(`/package-details?name=${encodeURIComponent(item.name)}`)}
+                >
                   {item.isGitHubDataLoaded ? 'View' : 'View Details'}
                 </Button>
               </div>
             </div>
           ))}
+
+          {/* Empty State */}
+          {!isLoading && allDependencies.length === 0 && (
+            <div className="col-span-full flex items-center justify-center py-12">
+              <div className="text-center max-w-sm">
+                <div className="w-16 h-16 mx-auto rounded-2xl bg-gray-800 flex items-center justify-center mb-6">
+                  <Package className="h-8 w-8 text-gray-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-white mb-2">
+                  No Dependencies Yet
+                </h3>
+                <p className="text-gray-400 text-sm mb-6">
+                  Start by adding your first dependency to monitor
+                </p>
+                <WatchlistSearchDialog
+                  trigger={
+                    <Button>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add First Dependency
+                    </Button>
+                  }
+                  defaultType="production"
+                />
+              </div>
+            </div>
+          )}
         </div>
       </FullWidthContainer>
     </FullWidthPage>

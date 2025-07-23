@@ -277,6 +277,99 @@ export const addToWatchlist = async (
 }
 
 /**
+ * Get user's watchlist from the backend
+ */
+export const getUserWatchlist = async (userId: string = 'user-123'): Promise<any[]> => {
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/watchlist?userId=${userId}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error fetching user watchlist:', error);
+    throw error;
+  }
+}
+
+/**
+ * Add a repository to the watchlist with alert configuration
+ * Calls the activity service endpoint
+ */
+export const addRepositoryToWatchlist = async (
+  config: {
+    repo_url: string
+    added_by: string
+    notes?: string
+    alerts: {
+      ai_powered_anomaly_detection: {
+        enabled: boolean
+      }
+      lines_added_deleted: {
+        enabled: boolean
+        contributor_variance: number
+        repository_variance: number
+        hardcoded_threshold: number
+      }
+      files_changed: {
+        enabled: boolean
+        contributor_variance: number
+        repository_variance: number
+        hardcoded_threshold: number
+      }
+      high_churn: {
+        enabled: boolean
+        multiplier: number
+        hardcoded_threshold: number
+      }
+      ancestry_breaks: {
+        enabled: boolean
+      }
+      unusual_author_activity: {
+        enabled: boolean
+        percentage_outside_range: number
+      }
+    }
+  }
+): Promise<any> => {
+  try {
+    console.log('Adding repository to watchlist with config:', config)
+    
+    const response = await fetch(`${API_PROXY_PATH}/activity/user-watchlist-added`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(config),
+    })
+    
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Failed to add repository: ${response.statusText} - ${errorText}`)
+    }
+    
+    const data = await response.json()
+    console.log('Repository added successfully:', data)
+    
+    return data
+  } catch (error) {
+    console.error('Error adding repository to watchlist:', error)
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('Failed to add repository to watchlist. Please try again.')
+  }
+}
+
+/**
  * Remove a package from the watchlist
  */
 export const removeFromWatchlist = async (id: number): Promise<void> => {
@@ -341,17 +434,34 @@ export const updateWatchlistItem = async (
  */
 export const fetchWatchlistItems = async (): Promise<WatchlistItem[]> => {
   try {
-    const response = await fetch(`${API_PROXY_PATH}/watchlist`)
+    // Use the new backend API to fetch user's watchlist
+    const userWatchlist = await getUserWatchlist('user-123')
     
-    if (!response.ok) {
-      throw new Error(`Failed to fetch watchlist: ${response.statusText}`)
-    }
+    console.log('Raw user watchlist data:', userWatchlist)
     
-    const data = await response.json()
-    return data.items || []
+    // Transform the backend data to match the frontend WatchlistItem format
+    const transformedItems = userWatchlist.map((item: any) => ({
+      id: parseInt(item.id) || Math.random(), // Use item.id if available, otherwise generate
+      name: item.name,
+      version: item.version || 'latest',
+      type: 'production' as const, // Default to production for now
+      risk: (item.risk_score ? (item.risk_score >= 70 ? 'low' : item.risk_score >= 40 ? 'medium' : 'high') : 'medium') as 'low' | 'medium' | 'high',
+      activity: 'medium' as const, // Default to medium for now
+      lastUpdate: item.last_updated || new Date().toISOString(),
+      cves: 0, // Default to 0 for now
+      maintainers: item.contributors || 0,
+      stars: item.stars ? item.stars.toString() : '0',
+      createdAt: item.added_at,
+      updatedAt: item.last_updated
+    }))
+    
+    console.log('Transformed watchlist items:', transformedItems)
+    
+    return transformedItems
   } catch (error) {
     console.error('Error fetching watchlist items:', error)
-    throw new Error('Failed to fetch watchlist items. Please try again.')
+    // Return empty array if there's an error, so the UI doesn't break
+    return []
   }
 }
 
