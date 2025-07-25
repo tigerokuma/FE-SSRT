@@ -35,6 +35,7 @@ export type ApiResult<T> = {
 // Internal watchlist item representation
 export interface WatchlistItem {
   id: number
+  watchlist_id?: string // Backend watchlist ID for status checking
   name: string
   version: string
   type: 'production' | 'development' | 'peer' | 'optional'
@@ -46,6 +47,28 @@ export interface WatchlistItem {
   stars: string
   createdAt?: string
   updatedAt?: string
+  // Additional fields from backend
+  repo_url?: string
+  description?: string
+  downloads?: number
+  forks?: number
+  contributors?: number
+  risk_score?: number
+  last_updated?: string
+  notes?: string
+  alerts?: any
+  added_at?: string
+  status?: string
+  
+  // New fields for enhanced card display
+  activity_score?: number // 0-100 activity score
+  bus_factor?: number // number of key contributors
+  health_score?: number // health score from HealthData
+  health_trend?: 'improving' | 'declining' | 'stable' // health trend direction
+  notification_count?: number // number of new alerts
+  tracking_duration?: string // how long been tracking (e.g., "3 months")
+  version_status?: 'latest' | 'behind' | 'pre-release' // version status
+  is_processing?: boolean // whether package is being analyzed
 }
 
 // Legacy alias for backward compatibility

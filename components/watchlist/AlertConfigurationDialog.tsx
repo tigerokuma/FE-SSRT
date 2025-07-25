@@ -107,8 +107,24 @@ export function AlertConfigurationDialog({
   }
 
   const handleAdd = () => {
+    // For NPM packages, we need to construct the GitHub URL properly
+    // Most NPM packages follow the pattern: https://github.com/owner/package-name
+    let repoUrl = pkg.repo_url
+    
+    if (!repoUrl && pkg.name) {
+      // Try to construct GitHub URL from package name
+      // For scoped packages like @types/react, we need to handle differently
+      if (pkg.name.startsWith('@')) {
+        // For scoped packages, use the package name as-is
+        repoUrl = `https://github.com/${pkg.name}`
+      } else {
+        // For regular packages, assume it's the same as the package name
+        repoUrl = `https://github.com/${pkg.name}/${pkg.name}`
+      }
+    }
+    
     const config: AlertConfig = {
-      repo_url: pkg.repo_url || `https://github.com/${pkg.name}`,
+      repo_url: repoUrl || `https://github.com/${pkg.name}`,
       added_by: "user-123", // TODO: Get actual user ID
       notes: notes.trim() || undefined,
       alerts

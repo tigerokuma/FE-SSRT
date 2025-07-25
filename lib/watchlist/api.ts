@@ -9,8 +9,8 @@ import {
 import { packageToWatchlistItem, getNextId, deduplicatePackages } from './utils'
 
 // API Base URL - configurable via environment
-// Defaults to remote API, falls back to localhost if not set
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://34.94.83.163:3000'
+// Defaults to local API, falls back to remote if not set
+const API_BASE_URL = 'http://localhost:3000'
 
 // API proxy path for Next.js rewrites
 const API_PROXY_PATH = process.env.NEXT_PUBLIC_API_PROXY_PATH || '/api/backend'
@@ -22,7 +22,7 @@ const API_PROXY_PATH = process.env.NEXT_PUBLIC_API_PROXY_PATH || '/api/backend'
 export const searchPackages = async (query: string): Promise<SearchApiResponse> => {
   try {
     console.log('Searching for:', query)
-    const response = await fetch(`${API_PROXY_PATH}/packages/search?name=${encodeURIComponent(query)}`)
+    const response = await fetch(`${API_BASE_URL}/packages/search?name=${encodeURIComponent(query)}`)
     
     if (!response.ok) {
       throw new Error(`Search failed: ${response.statusText}`)
@@ -163,8 +163,8 @@ export const batchEnrichPackages = async (
 export const getPackageDetails = async (name: string, view: 'summary' | 'details' = 'summary'): Promise<ApiResult<Package>> => {
   try {
     const url = view === 'details' 
-      ? `${API_PROXY_PATH}/packages/${encodeURIComponent(name)}?view=details`
-      : `${API_PROXY_PATH}/packages/${encodeURIComponent(name)}`
+      ? `${API_BASE_URL}/packages/${encodeURIComponent(name)}?view=details`
+      : `${API_BASE_URL}/packages/${encodeURIComponent(name)}`
     
     const response = await fetch(url)
     
@@ -248,7 +248,7 @@ export const addToWatchlist = async (
       throw new Error(`${pkg.name} is already in your watchlist`)
     }
     
-    const response = await fetch(`${API_PROXY_PATH}/watchlist`, {
+    const response = await fetch(`${API_BASE_URL}/watchlist`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -281,7 +281,7 @@ export const addToWatchlist = async (
  */
 export const getUserWatchlist = async (userId: string = 'user-123'): Promise<any[]> => {
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/watchlist?userId=${userId}`, {
+    const response = await fetch(`${API_BASE_URL}/watchlist?userId=${userId}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -343,7 +343,7 @@ export const addRepositoryToWatchlist = async (
   try {
     console.log('Adding repository to watchlist with config:', config)
     
-    const response = await fetch(`${API_PROXY_PATH}/activity/user-watchlist-added`, {
+    const response = await fetch(`${API_BASE_URL}/activity/user-watchlist-added`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -374,7 +374,7 @@ export const addRepositoryToWatchlist = async (
  */
 export const removeFromWatchlist = async (id: number): Promise<void> => {
   try {
-    const response = await fetch(`${API_PROXY_PATH}/watchlist/${id}`, {
+    const response = await fetch(`${API_BASE_URL}/watchlist/${id}`, {
       method: 'DELETE',
     })
     
@@ -401,7 +401,7 @@ export const updateWatchlistItem = async (
   updates: Partial<WatchlistItem>
 ): Promise<WatchlistItem> => {
   try {
-    const response = await fetch(`${API_PROXY_PATH}/watchlist/${id}`, {
+    const response = await fetch(`${API_BASE_URL}/watchlist/${id}`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
@@ -442,17 +442,27 @@ export const fetchWatchlistItems = async (): Promise<WatchlistItem[]> => {
     // Transform the backend data to match the frontend WatchlistItem format
     const transformedItems = userWatchlist.map((item: any) => ({
       id: parseInt(item.id) || Math.random(), // Use item.id if available, otherwise generate
+      watchlist_id: item.watchlist_id, // KEEP THE WATCHLIST_ID!
       name: item.name,
       version: item.version || 'latest',
       type: 'production' as const, // Default to production for now
       risk: (item.risk_score ? (item.risk_score >= 70 ? 'low' : item.risk_score >= 40 ? 'medium' : 'high') : 'medium') as 'low' | 'medium' | 'high',
-      activity: 'medium' as const, // Default to medium for now
+      activity: (item.activity_score ? 
+        (item.activity_score >= 70 ? 'high' : item.activity_score >= 40 ? 'medium' : 'low') : 'medium') as 'low' | 'medium' | 'high',
       lastUpdate: item.last_updated || new Date().toISOString(),
-      cves: 0, // Default to 0 for now
-      maintainers: item.contributors || 0,
-      stars: item.stars ? item.stars.toString() : '0',
+      cves: item.notification_count || 0, // Use real alert count from backend
+      maintainers: item.contributors || 0, // This is correct - backend returns contributors
+      stars: item.stars ? item.stars.toString() : '0', // This is correct
+      downloads: item.downloads || 0, // Add the missing downloads field
       createdAt: item.added_at,
-      updatedAt: item.last_updated
+      updatedAt: item.last_updated,
+      status: item.status, // Include the status from the backend!
+      // New enriched data fields
+      activity_score: item.activity_score || null,
+      bus_factor: item.bus_factor || null,
+      health_score: item.health_score || null,
+      tracking_duration: item.tracking_duration || '0 days',
+      notification_count: item.notification_count || 0
     }))
     
     console.log('Transformed watchlist items:', transformedItems)
@@ -462,6 +472,44 @@ export const fetchWatchlistItems = async (): Promise<WatchlistItem[]> => {
     console.error('Error fetching watchlist items:', error)
     // Return empty array if there's an error, so the UI doesn't break
     return []
+  }
+}
+
+/**
+ * Check repository processing status
+ */
+export const checkRepositoryStatus = async (watchlistId: string): Promise<{
+  status: 'processing' | 'ready' | 'error'
+  message?: string
+}> => {
+  try {
+    console.log(`🔍 Checking status for watchlist: ${watchlistId}`)
+    
+    const response = await fetch(`${API_BASE_URL}/activity/watchlist/${watchlistId}/status`)
+    
+    if (!response.ok) {
+      console.log(`❌ Status check failed for ${watchlistId}: ${response.status}`)
+      if (response.status === 404) {
+        console.log(`⚠️ 404 - Watchlist not found, assuming ready`)
+        return { status: 'ready', message: 'Repository is ready' }
+      }
+      console.log(`❌ HTTP error: ${response.status}`)
+      return { status: 'error', message: 'Failed to check status' }
+    }
+    
+    const data = await response.json()
+    console.log(`✅ Status response for ${watchlistId}:`, data)
+    
+    const status = data.status || 'ready'
+    console.log(`📊 Final status for ${watchlistId}: ${status}`)
+    
+    return {
+      status: status,
+      message: data.message || 'Status retrieved successfully'
+    }
+  } catch (error) {
+    console.error('💥 Error checking repository status:', error)
+    return { status: 'ready', message: 'Repository is ready' }
   }
 }
 

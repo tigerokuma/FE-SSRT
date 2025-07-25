@@ -19,18 +19,20 @@ import { usePackageSearch, useWatchlist } from '../../lib/watchlist/index'
 import { PackageCard } from './PackageCard'
 import { PackageDetailsPanel } from './PackageDetailsPanel'
 import { AlertConfigurationDialog } from "./AlertConfigurationDialog"
-import { addRepositoryToWatchlist } from "../../lib/watchlist/api"
+import { addRepositoryToWatchlist, fetchWatchlistItems } from "../../lib/watchlist/api"
 
 interface WatchlistSearchDialogProps {
   trigger?: React.ReactNode
   onPackagePreview?: (pkg: PackageType, type: 'npm' | 'github') => void
   defaultType?: WatchlistItem['type']
+  onRepositoryAdded?: () => void
 }
 
 export function WatchlistSearchDialog({ 
   trigger, 
   onPackagePreview,
-  defaultType = 'production' 
+  defaultType = 'production',
+  onRepositoryAdded
 }: WatchlistSearchDialogProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
@@ -38,7 +40,7 @@ export function WatchlistSearchDialog({
   const [showAlertConfig, setShowAlertConfig] = useState(false)
   const [isAdding, setIsAdding] = useState(false)
 
-  const { isAdding: isAddingToWatchlist, addItem } = useWatchlist()
+  const { isAdding: isAddingToWatchlist, addItem, refreshItems } = useWatchlist()
   const {
     searchResults,
     isSearching,
@@ -117,14 +119,30 @@ export function WatchlistSearchDialog({
     
     setIsAdding(true)
     try {
-      await addRepositoryToWatchlist(config)
+      console.log('🔄 Adding repository to watchlist:', config.repo_url)
+      
+      // Use addRepositoryToWatchlist which calls the correct /activity/user-watchlist-added endpoint
+      const result = await addRepositoryToWatchlist(config)
+      console.log('✅ Repository added successfully:', result)
+      
       setShowAlertConfig(false)
       setIsOpen(false)
       setSearchQuery("")
       setSelectedPackage(null)
       clearSearch()
+      
+      // Notify parent component that a repository was added - this should trigger refresh
+      console.log('🔄 Notifying parent to refresh watchlist...')
+      onRepositoryAdded?.()
+      
+      // Also force a page refresh after a short delay as backup
+      setTimeout(() => {
+        console.log('🔄 Force refreshing page as backup...')
+        window.location.reload()
+      }, 2000)
+      
     } catch (error) {
-      console.error('Error adding repository to watchlist:', error)
+      console.error('❌ Error adding repository to watchlist:', error)
     } finally {
       setIsAdding(false)
     }
