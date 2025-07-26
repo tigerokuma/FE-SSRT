@@ -85,7 +85,7 @@ export const analyzeRisk = (pkg: Package): WatchlistItem['risk'] => {
  */
 export const packageToWatchlistItem = (
   pkg: Package, 
-  id: number, 
+  id: string, 
   type: WatchlistItem['type'] = 'production'
 ): WatchlistItem => {
   return {
@@ -120,10 +120,11 @@ export const deduplicatePackages = (packages: Package[]): Package[] => {
 
 /**
  * Generate next available ID for watchlist items
+ * Note: This is now deprecated since we use UUIDs from the backend
  */
-export const getNextId = (items: WatchlistItem[]): number => {
-  if (items.length === 0) return 1
-  return Math.max(...items.map(item => item.id)) + 1
+export const getNextId = (items: WatchlistItem[]): string => {
+  // Generate a simple timestamp-based ID for local use
+  return Date.now().toString()
 }
 
 /**

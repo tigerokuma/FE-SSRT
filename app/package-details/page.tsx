@@ -24,7 +24,8 @@ import {
   FileText,
   Plus,
   Minus,
-  Eye
+  Eye,
+  Package
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -49,7 +50,13 @@ interface PackageDetails {
   healthScore: number
   activityScore: number
   busFactor: number
+  repoUrl?: string
+  npmUrl?: string
   aiOverview: string
+  aiSummary?: string
+  aiConfidence?: number
+  aiModelUsed?: string
+  aiCreatedAt?: string
   maintainers: Array<{
     name: string
     avatar?: string
@@ -71,6 +78,7 @@ interface PackageDetails {
   healthHistory: Array<{
     date: string
     score: number
+    commitSha?: string
   }>
   alerts: Array<{
     id: number
@@ -127,13 +135,27 @@ interface PackageDetails {
         url: string
       }
     }>
-  }
+  } | Array<{
+    date: string
+    score: number
+    commitSha?: string
+    checks: Array<{
+      name: string
+      score: number
+      reason: string
+      details: string[] | null
+      documentation: {
+        short: string
+        url: string
+      }
+    }>
+  }>
 }
 
 export default function PackageDetailsPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
-  const packageName = searchParams.get("name") || "lodash"
+  const userWatchlistId = searchParams.get("id")
   const [packageData, setPackageData] = useState<PackageDetails | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isSummarizing, setIsSummarizing] = useState(false)
@@ -142,27 +164,39 @@ export default function PackageDetailsPage() {
   const [activeTab, setActiveTab] = useState("overview")
   const [alertFilter, setAlertFilter] = useState<"all" | "open" | "resolved">("all")
 
-  // Mock data - replace with actual API calls
+  // Fetch package details from API
   useEffect(() => {
     const fetchPackageDetails = async () => {
       setIsLoading(true)
       try {
-        // TODO: Replace with actual API call
-        // const response = await fetch(`/api/packages/${packageName}/details`)
-        // const data = await response.json()
+        // Fetch data from the new API endpoint
+        const response = await fetch(`http://localhost:3000/watchlist/${userWatchlistId}/details`)
+        if (!response.ok) {
+          throw new Error('Failed to fetch package details')
+        }
+        const data = await response.json()
         
-        // Mock data for now
-        const mockData: PackageDetails = {
-          name: packageName,
-          description: "A modern JavaScript utility library delivering modularity, performance, & extras.",
-          version: "4.17.21",
-          stars: 52400,
-          forks: 6800,
-          lastUpdated: "2 days ago",
-          language: "JavaScript",
-          healthScore: 85,
-          activityScore: 92,
-          busFactor: 78,
+        // Transform the API data to match our PackageDetails interface
+        // Use real data where available, fallback to mock data for now
+        const transformedData: PackageDetails = {
+          name: data.name || "Unknown Package",
+          description: data.description || "No description available",
+          version: data.version || "Unknown",
+          stars: data.stars || 0,
+          forks: data.forks || 0,
+          lastUpdated: data.last_updated || "Unknown",
+          language: "JavaScript", // This would come from the package data
+          healthScore: data.health_score || 0,
+          activityScore: data.activity_score || 0,
+          busFactor: data.bus_factor || 0,
+          // Store the URLs for the buttons
+          repoUrl: data.repo_url,
+          npmUrl: data.npm_url,
+          // Store AI summary data
+          aiSummary: data.ai_summary,
+          aiConfidence: data.ai_confidence,
+          aiModelUsed: data.ai_model_used,
+          aiCreatedAt: data.ai_created_at,
           aiOverview: "This package shows excellent maintainability with consistent commit activity and a healthy contributor base. The bus factor indicates good distribution of responsibility among maintainers. Recent activity suggests active development with regular updates and bug fixes.",
           maintainers: [
             { name: "John Dalton", avatar: "/placeholder-user.jpg", initials: "JD" },
@@ -222,19 +256,19 @@ export default function PackageDetailsPage() {
               suspiciousReason: "",
             },
           ],
-          healthHistory: [
-            { date: "2024-01-15", score: 78 },
-            { date: "2024-02-15", score: 82 },
-            { date: "2024-03-15", score: 85 },
-            { date: "2024-04-15", score: 83 },
-            { date: "2024-05-15", score: 87 },
-            { date: "2024-06-15", score: 89 },
-            { date: "2024-07-15", score: 91 },
-            { date: "2024-08-15", score: 88 },
-            { date: "2024-09-15", score: 92 },
-            { date: "2024-10-15", score: 90 },
-            { date: "2024-11-15", score: 93 },
-            { date: "2024-12-15", score: 95 },
+          healthHistory: data.health_history || [
+            { date: "2024-01-15", score: 7.8 },
+            { date: "2024-02-15", score: 8.2 },
+            { date: "2024-03-15", score: 8.5 },
+            { date: "2024-04-15", score: 8.3 },
+            { date: "2024-05-15", score: 8.7 },
+            { date: "2024-06-15", score: 8.9 },
+            { date: "2024-07-15", score: 9.1 },
+            { date: "2024-08-15", score: 8.8 },
+            { date: "2024-09-15", score: 9.2 },
+            { date: "2024-10-15", score: 9.0 },
+            { date: "2024-11-15", score: 9.3 },
+            { date: "2024-12-15", score: 9.5 },
           ],
           alerts: [
             {
@@ -324,7 +358,7 @@ export default function PackageDetailsPage() {
             ]
           },
           // New scorecard health data
-          scorecardHealth: {
+          scorecardHealth: data.scorecard_health || {
             date: "2025-07-21",
             score: 4.2,
             checks: [
@@ -522,7 +556,7 @@ export default function PackageDetailsPage() {
           }
         }
         
-        setPackageData(mockData)
+        setPackageData(transformedData)
       } catch (error) {
         console.error("Error fetching package details:", error)
       } finally {
@@ -530,8 +564,10 @@ export default function PackageDetailsPage() {
       }
     }
 
-    fetchPackageDetails()
-  }, [packageName])
+    if (userWatchlistId) {
+      fetchPackageDetails()
+    }
+  }, [userWatchlistId])
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
@@ -547,8 +583,9 @@ export default function PackageDetailsPage() {
   }
 
   const getScoreColor = (score: number) => {
-    if (score >= 80) return "text-green-400"
-    if (score >= 60) return "text-yellow-400"
+    // Note: Backend returns health scores on 0-10 scale, not 0-100
+    if (score >= 8) return "text-green-400"
+    if (score >= 6) return "text-yellow-400"
     return "text-red-400"
   }
 
@@ -620,7 +657,7 @@ export default function PackageDetailsPage() {
     }
   }
 
-  const handleHealthDataSelect = (data: { date: string; score: number }) => {
+  const handleHealthDataSelect = (data: { date: string; score: number; commitSha?: string }) => {
     setSelectedHealthData(data)
   }
 
@@ -630,6 +667,27 @@ export default function PackageDetailsPage() {
     if (graphTab) {
       graphTab.click()
     }
+  }
+
+  if (!userWatchlistId) {
+    return (
+      <FullWidthPage>
+        <FullWidthContainer>
+          <div className="text-center py-12">
+            <p className="text-gray-400">No package ID provided</p>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => router.back()}
+              className="mt-4 text-gray-400 hover:text-white"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Go Back
+            </Button>
+          </div>
+        </FullWidthContainer>
+      </FullWidthPage>
+    )
   }
 
   if (isLoading) {
@@ -680,10 +738,26 @@ export default function PackageDetailsPage() {
               <p className="text-gray-400 mb-4">{packageData.description}</p>
             </div>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm">
-                <GithubIcon className="h-4 w-4 mr-2" />
-                GitHub
-              </Button>
+              {packageData.repoUrl && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => window.open(packageData.repoUrl, '_blank')}
+                >
+                  <GithubIcon className="h-4 w-4 mr-2" />
+                  GitHub
+                </Button>
+              )}
+              {packageData.npmUrl && (
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => window.open(packageData.npmUrl, '_blank')}
+                >
+                  <Package className="h-4 w-4 mr-2" />
+                  NPM
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -710,9 +784,19 @@ export default function PackageDetailsPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-gray-300 leading-relaxed">
-                      {packageData.aiOverview}
-                    </p>
+                    {packageData.aiSummary ? (
+                      <p className="text-gray-300 leading-relaxed">
+                        {packageData.aiSummary}
+                      </p>
+                    ) : (
+                      <div className="text-center py-8">
+                        <Brain className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                        <p className="text-gray-400 mb-2">No AI analysis available</p>
+                        <p className="text-sm text-gray-500">
+                          AI analysis will be generated automatically as the repository is processed.
+                        </p>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
 
@@ -795,17 +879,21 @@ export default function PackageDetailsPage() {
                   </Card>
                 )}
 
-                {/* Health Score History - Full Width */}
+                {/* Scorecard Stats - Full Width */}
                 <Card className="bg-gray-900/50 border-gray-800">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-white">
                       <TrendingUp className="h-5 w-5" />
-                      Health Score History
+                      Scorecard Stats
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <HealthScoreChart 
-                      data={packageData.healthHistory} 
+                      data={packageData.healthHistory.map(item => ({
+                        date: item.date,
+                        score: item.score,
+                        commitSha: (item as any).commitSha
+                      }))} 
                       onDataPointSelect={handleHealthDataSelect}
                       scorecardData={packageData.scorecardHealth}
                     />

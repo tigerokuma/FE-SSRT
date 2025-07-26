@@ -34,7 +34,7 @@ export type ApiResult<T> = {
 
 // Internal watchlist item representation
 export interface WatchlistItem {
-  id: number
+  id: string
   watchlist_id?: string // Backend watchlist ID for status checking
   name: string
   version: string
@@ -105,8 +105,8 @@ export interface UseWatchlistState {
 // Watchlist operations
 export interface WatchlistOperations {
   addItem: (pkg: Package, type?: WatchlistItem['type']) => Promise<void>
-  removeItem: (id: number) => Promise<void>
-  updateItem: (id: number, updates: Partial<WatchlistItem>) => Promise<void>
+  removeItem: (id: string) => Promise<void>
+  updateItem: (id: string, updates: Partial<WatchlistItem>) => Promise<void>
   refreshItems: () => Promise<void>
   clearError: () => void
 } 

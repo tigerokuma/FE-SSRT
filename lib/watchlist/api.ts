@@ -372,7 +372,7 @@ export const addRepositoryToWatchlist = async (
 /**
  * Remove a package from the watchlist
  */
-export const removeFromWatchlist = async (id: number): Promise<void> => {
+export const removeFromWatchlist = async (id: string): Promise<void> => {
   try {
     const response = await fetch(`${API_BASE_URL}/watchlist/${id}`, {
       method: 'DELETE',
@@ -397,7 +397,7 @@ export const removeFromWatchlist = async (id: number): Promise<void> => {
  * Update a watchlist item
  */
 export const updateWatchlistItem = async (
-  id: number, 
+  id: string, 
   updates: Partial<WatchlistItem>
 ): Promise<WatchlistItem> => {
   try {
@@ -441,7 +441,7 @@ export const fetchWatchlistItems = async (): Promise<WatchlistItem[]> => {
     
     // Transform the backend data to match the frontend WatchlistItem format
     const transformedItems = userWatchlist.map((item: any) => ({
-      id: parseInt(item.id) || Math.random(), // Use item.id if available, otherwise generate
+      id: item.id, // Use the UUID string directly - it's the user watchlist ID
       watchlist_id: item.watchlist_id, // KEEP THE WATCHLIST_ID!
       name: item.name,
       version: item.version || 'latest',

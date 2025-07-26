@@ -37,7 +37,7 @@ const formatNumber = (num: number | string | null | undefined): string => {
 
 // Extended type for display - now handles partial data
 interface DisplayDependency {
-  id: number
+  id: string
   name: string
   version: string
   type: string
@@ -256,10 +256,11 @@ export default function DependenciesPage() {
   }
 
   // Helper function to get health color and label
+  // Note: Backend returns health scores on 0-10 scale, not 0-100
   const getHealthDisplay = (score: number | null | undefined) => {
     if (!score) return { color: 'text-gray-400', borderColor: 'border-gray-600', label: 'Unknown' }
-    if (score >= 80) return { color: 'text-green-400', borderColor: 'border-green-500/30', label: 'Good Health' }
-    if (score >= 60) return { color: 'text-yellow-400', borderColor: 'border-yellow-500/30', label: 'Fair Health' }
+    if (score >= 7.5) return { color: 'text-green-400', borderColor: 'border-green-500/30', label: 'Good Health' }
+    if (score >= 4) return { color: 'text-yellow-400', borderColor: 'border-yellow-500/30', label: 'Fair Health' }
     return { color: 'text-red-400', borderColor: 'border-red-500/30', label: 'Poor Health' }
   }
 
@@ -358,7 +359,7 @@ export default function DependenciesPage() {
                 }`}
                 onClick={() => {
                   if (item.status !== 'processing') {
-                    router.push(`/package-details?name=${encodeURIComponent(item.name)}`)
+                    router.push(`/package-details?id=${item.id}`)
                   }
                 }}
               >
@@ -434,7 +435,7 @@ export default function DependenciesPage() {
                       variant="ghost" 
                       size="sm" 
                       className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 hover:text-white h-6 px-2 text-xs"
-                      onClick={() => router.push(`/package-details?name=${encodeURIComponent(item.name)}`)}
+                      onClick={() => router.push(`/package-details?id=${item.id}`)}
                     >
                       View
                     </Button>

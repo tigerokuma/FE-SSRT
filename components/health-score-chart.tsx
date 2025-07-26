@@ -19,6 +19,15 @@ import { TrendingUp } from 'lucide-react'
 const CustomDot = ({ cx, cy, payload, isSelected }: any) => {
   if (!cx || !cy) return null
   
+  // Get the color based on the score
+  const getScoreColor = (score: number) => {
+    if (score >= 7.5) return "#10b981" // Green
+    if (score >= 4) return "#f97316" // Orange
+    return "#ef4444" // Red
+  }
+  
+  const scoreColor = getScoreColor(payload.score)
+  
   return (
     <g>
       {/* Background circle for selected state */}
@@ -27,7 +36,7 @@ const CustomDot = ({ cx, cy, payload, isSelected }: any) => {
           cx={cx}
           cy={cy}
           r={8}
-          fill="rgba(16, 185, 129, 0.2)"
+          fill={`${scoreColor}20`} // 20% opacity
           stroke="none"
         />
       )}
@@ -36,8 +45,8 @@ const CustomDot = ({ cx, cy, payload, isSelected }: any) => {
         cx={cx}
         cy={cy}
         r={isSelected ? 6 : 4}
-        fill={isSelected ? '#ffffff' : '#10b981'}
-        stroke={isSelected ? '#10b981' : '#ffffff'}
+        fill={isSelected ? '#ffffff' : scoreColor}
+        stroke={isSelected ? scoreColor : '#ffffff'}
         strokeWidth={isSelected ? 3 : 2}
         style={{ cursor: 'pointer' }}
       />
@@ -48,6 +57,7 @@ const CustomDot = ({ cx, cy, payload, isSelected }: any) => {
 interface HealthScoreData {
   date: string
   score: number
+  commitSha?: string
 }
 
 interface ScorecardCheck {
@@ -65,6 +75,7 @@ interface ScorecardData {
   date: string
   score: number
   checks: ScorecardCheck[]
+  commitSha?: string
 }
 
 interface HealthScoreChartProps {
@@ -73,20 +84,33 @@ interface HealthScoreChartProps {
   height?: number
   onDataPointSelect?: (data: HealthScoreData) => void
   selectedDate?: string
-  scorecardData?: ScorecardData
+  scorecardData?: ScorecardData | ScorecardData[]
 }
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload
+    
+    // Get color based on score
+    const getScoreColor = (score: number) => {
+      if (score >= 7.5) return "text-green-400"
+      if (score >= 4) return "text-orange-400"
+      return "text-red-400"
+    }
+    
     return (
       <div className="bg-gray-900/95 border border-gray-700 rounded-lg p-3 shadow-lg backdrop-blur-sm">
         <div className="text-sm text-gray-300 mb-1">
           {format(parseISO(data.date), 'MMM dd, yyyy')}
         </div>
-        <div className="text-lg font-semibold text-green-400">
+        <div className={`text-lg font-semibold ${getScoreColor(data.score)}`}>
           {data.score} Health Score
         </div>
+        {data.commitSha && (
+          <div className="text-xs text-gray-400 mt-1">
+            Commit: {data.commitSha.substring(0, 8)}
+          </div>
+        )}
       </div>
     )
   }
@@ -94,7 +118,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 }
 
 const CustomXAxisTick = ({ x, y, payload }: any) => {
-  const date = parseISO(payload.value)
+  const date = new Date(payload.value)
   return (
     <g transform={`translate(${x},${y})`}>
       <text
@@ -103,10 +127,9 @@ const CustomXAxisTick = ({ x, y, payload }: any) => {
         dy={16}
         textAnchor="middle"
         fill="#9CA3AF"
-        fontSize={11}
-        className="font-medium"
+        fontSize={12}
       >
-        {format(date, 'MMM dd')}
+        {format(date, 'MMM dd, yyyy')}
       </text>
     </g>
   )
@@ -121,8 +144,7 @@ const CustomYAxisTick = ({ x, y, payload }: any) => {
         dy={4}
         textAnchor="end"
         fill="#9CA3AF"
-        fontSize={11}
-        className="font-medium"
+        fontSize={12}
       >
         {payload.value}
       </text>
@@ -155,15 +177,31 @@ export function HealthScoreChart({
     return "bg-gray-500" // -1 or below
   }
 
+  // Get color for graph based on score
+  const getGraphColor = (score: number) => {
+    if (score >= 7.5) return "#10b981" // Green
+    if (score >= 4) return "#f97316" // Orange
+    return "#ef4444" // Red
+  }
+
   // Sort data by date to ensure proper ordering
   const sortedData = [...data].sort((a, b) => 
     new Date(a.date).getTime() - new Date(b.date).getTime()
   )
 
-  // Calculate min and max for better Y-axis scaling
+  // Transform data to use timestamps for proper time-based scaling
+  const timeBasedData = sortedData.map(item => ({
+    ...item,
+    timestamp: new Date(item.date).getTime()
+  }))
+
+  // Debug: Log the data being passed to the chart
+  console.log('HealthScoreChart data:', sortedData)
+
+  // Calculate min and max for better Y-axis scaling (0-10 scale)
   const scores = sortedData.map(d => d.score)
-  const minScore = Math.max(0, Math.min(...scores) - 5)
-  const maxScore = Math.min(100, Math.max(...scores) + 5)
+  const minScore = Math.max(0, Math.min(...scores) - 1)
+  const maxScore = Math.min(10, Math.max(...scores) + 1)
 
   // Set default selected date to the most recent if not provided
   const [currentSelectedDate, setCurrentSelectedDate] = useState<string>(
@@ -187,14 +225,27 @@ export function HealthScoreChart({
   }, [selectedDate, currentSelectedDate])
 
   // Get the currently selected data point
-  const selectedDataPoint = sortedData.find(d => d.date === currentSelectedDate)
+  const selectedDataPoint = timeBasedData.find(d => d.date === currentSelectedDate)
+
+  // Get the scorecard data for the selected date
+  let selectedScorecardData: ScorecardData | null = null
+  
+  if (scorecardData && selectedDataPoint) {
+    if (Array.isArray(scorecardData)) {
+      // Find the scorecard data that matches the selected date
+      selectedScorecardData = scorecardData.find(sc => sc.date === selectedDataPoint.date) || null
+    } else {
+      // Single scorecard data object
+      selectedScorecardData = scorecardData
+    }
+  }
 
   return (
     <div className={`w-full ${className}`}>
       <div style={{ height: `${height}px`, width: '100%' }}>
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart
-            data={sortedData}
+            data={timeBasedData}
             margin={{
               top: 20,
               right: 20,
@@ -212,10 +263,11 @@ export function HealthScoreChart({
           >
             <defs>
               <linearGradient id="healthGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="#10b981" stopOpacity={0.05} />
+                <stop offset="5%" stopColor={selectedDataPoint ? getGraphColor(selectedDataPoint.score) : "#10b981"} stopOpacity={0.3} />
+                <stop offset="95%" stopColor={selectedDataPoint ? getGraphColor(selectedDataPoint.score) : "#10b981"} stopOpacity={0.05} />
               </linearGradient>
             </defs>
+
             
             <CartesianGrid 
               strokeDasharray="3 3" 
@@ -225,12 +277,15 @@ export function HealthScoreChart({
             />
             
             <XAxis
-              dataKey="date"
+              dataKey="timestamp"
               tick={<CustomXAxisTick />}
               axisLine={false}
               tickLine={false}
               tickMargin={10}
               interval="preserveStartEnd"
+              type="number"
+              scale="time"
+              domain={['dataMin', 'dataMax']}
             />
             
             <YAxis
@@ -247,7 +302,7 @@ export function HealthScoreChart({
             <Area
               type="monotone"
               dataKey="score"
-              stroke="#10b981"
+              stroke={selectedDataPoint ? getGraphColor(selectedDataPoint.score) : "#10b981"}
               strokeWidth={3}
               fill="url(#healthGradient)"
               dot={(props) => (
@@ -264,47 +319,32 @@ export function HealthScoreChart({
       {/* Selected Data Point Display */}
       {selectedDataPoint && (
         <div className="mt-4 space-y-4">
-          {/* Health Score Data */}
-          <div className="p-4 bg-gray-900/30 border border-gray-800 rounded-lg">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-semibold text-white">
-                  {format(parseISO(selectedDataPoint.date), 'MMMM d, yyyy')} Health Data
-                </h3>
-                <p className="text-sm text-gray-400">
-                  Health Score: <span className="text-green-400 font-semibold">{selectedDataPoint.score}</span>
-                </p>
-              </div>
-              <div className="text-right">
-                <div className="text-2xl font-bold text-green-400">
-                  {selectedDataPoint.score}
-                </div>
-                <div className="text-xs text-gray-500">Health Score</div>
-              </div>
-            </div>
-          </div>
-
           {/* Scorecard Health Data */}
-          {scorecardData && (
+          {selectedScorecardData && (
             <div className="p-4 bg-gray-900/30 border border-gray-800 rounded-lg">
               <div className="mb-4">
                 <h3 className="text-lg font-semibold text-white mb-2">
                   Scorecard Health Assessment
                 </h3>
                 <p className="text-sm text-gray-400 mb-3">
-                  OpenSSF Scorecard from {format(parseISO(scorecardData.date), 'MMMM d, yyyy')}
+                  OpenSSF Scorecard from {format(parseISO(selectedScorecardData.date), 'MMMM d, yyyy')}
+                  {selectedScorecardData.commitSha && (
+                    <span className="ml-2 text-xs text-gray-500">
+                      (Commit: {selectedScorecardData.commitSha.substring(0, 8)})
+                    </span>
+                  )}
                 </p>
                 <div className="flex items-center justify-between">
                   <div>
                     <div className="text-3xl font-bold text-white">
-                      {scorecardData.score}
+                      {selectedScorecardData.score}
                     </div>
                     <div className="text-sm text-gray-400">out of 10</div>
                   </div>
                   <div className="w-32 bg-gray-700 rounded-full h-3">
                     <div 
-                      className={`h-3 rounded-full ${getScorecardScoreBgColor(scorecardData.score)}`}
-                      style={{ width: `${Math.max(0, scorecardData.score) * 10}%` }}
+                      className={`h-3 rounded-full ${getScorecardScoreBgColor(selectedScorecardData.score)}`}
+                      style={{ width: `${Math.max(0, selectedScorecardData.score) * 10}%` }}
                     />
                   </div>
                 </div>
@@ -314,7 +354,7 @@ export function HealthScoreChart({
               <div className="space-y-3">
                 <h4 className="text-sm font-medium text-white">All Checks</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {scorecardData.checks.map((check, index) => (
+                  {selectedScorecardData.checks.map((check, index) => (
                     <div key={index} className="p-3 bg-gray-800/50 rounded-lg border border-gray-700">
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-xs font-medium text-white truncate">{check.name}</span>

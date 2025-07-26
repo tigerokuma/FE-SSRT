@@ -22,7 +22,8 @@ export function WatchlistItemCard({ item, onAction, className }: WatchlistItemCa
   const version = item.version || 'latest'
 
   // Determine health trend based on health score (simplified logic)
-  const healthTrend = healthScore >= 80 ? 'improving' : healthScore >= 60 ? 'stable' : 'declining'
+  // Note: Backend returns health scores on 0-10 scale, not 0-100
+  const healthTrend = healthScore >= 8 ? 'improving' : healthScore >= 6 ? 'stable' : 'declining'
 
   return (
     <Card className={`

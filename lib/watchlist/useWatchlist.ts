@@ -54,7 +54,7 @@ export const useWatchlist = (): UseWatchlistState & WatchlistOperations => {
     }
   }, [loadItems, state.items])
 
-  const removeItem = useCallback(async (id: number) => {
+  const removeItem = useCallback(async (id: string) => {
     setState(prev => ({ ...prev, isLoading: true, error: null }))
     try {
       await apiRemoveFromWatchlist(id)
@@ -66,7 +66,7 @@ export const useWatchlist = (): UseWatchlistState & WatchlistOperations => {
     }
   }, [loadItems])
 
-  const updateItem = useCallback(async (id: number, updates: Partial<WatchlistItem>) => {
+  const updateItem = useCallback(async (id: string, updates: Partial<WatchlistItem>) => {
     setState(prev => ({ ...prev, isLoading: true, error: null }))
     try {
       await apiUpdateWatchlistItem(id, updates)
