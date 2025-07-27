@@ -108,6 +108,7 @@ interface PackageDetails {
       linesChanged: number
       filesChanged: number
       percentage: number
+      avgLinesPerCommit: number
       avatar?: string
       initials: string
     }>
@@ -321,39 +322,37 @@ export default function PackageDetailsPage() {
             developmentConsistency: 22
           },
           // New bus factor details
-          busFactorDetails: {
-            level: 2,
-            risk: 'CRITICAL',
-            description: 'High risk: Bus factor of 2. Top contributor has 48% of commits.',
-            topContributors: [
-              {
-                name: "John Dalton",
-                commits: 1247,
-                linesChanged: 45678,
-                filesChanged: 234,
-                percentage: 48,
-                avatar: "/placeholder-user.jpg",
-                initials: "JD"
-              },
-              {
-                name: "Mathias Bynens",
-                commits: 892,
-                linesChanged: 23456,
-                filesChanged: 156,
-                percentage: 34,
-                avatar: "/placeholder-user.jpg",
-                initials: "MB"
-              },
-              {
-                name: "Sarah Johnson",
-                commits: 456,
-                linesChanged: 12345,
-                filesChanged: 89,
-                percentage: 18,
-                avatar: "/placeholder-user.jpg",
-                initials: "SJ"
-              }
-            ]
+          busFactorDetails: data.bus_factor_details ? (() => {
+            const contributors = data.bus_factor_details.topContributors ? data.bus_factor_details.topContributors.map((contributor: any) => ({
+              name: contributor.author || 'Unknown',
+              commits: contributor.totalCommits || 0,
+              linesChanged: (contributor.totalLinesAdded || 0) + (contributor.totalLinesDeleted || 0),
+              filesChanged: contributor.totalFilesChanged || 0,
+              percentage: 0, // Will calculate below
+              avgLinesPerCommit: contributor.averageLinesPerCommit || 0,
+              avatar: "/placeholder-user.jpg",
+              initials: (contributor.author || 'U').split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
+            })) : [];
+            
+            // Calculate percentages
+            const totalCommits = contributors.reduce((sum: number, c: { commits: number }) => sum + c.commits, 0);
+            if (totalCommits > 0) {
+              contributors.forEach((contributor: { commits: number; percentage: number }) => {
+                contributor.percentage = Math.round((contributor.commits / totalCommits) * 100);
+              });
+            }
+            
+            return {
+              level: data.bus_factor_details.level || 0,
+              risk: data.bus_factor_details.risk || 'LOW',
+              description: data.bus_factor_details.description || 'No bus factor analysis available.',
+              topContributors: contributors
+            };
+          })() : {
+            level: 0,
+            risk: 'LOW',
+            description: 'No bus factor analysis available.',
+            topContributors: []
           },
           // New activity data
           activityData: {
@@ -1125,11 +1124,26 @@ export default function PackageDetailsPage() {
                 </Card>
 
                 {/* Bus Factor - Full Width */}
-                <Card className={`bg-gray-900/50 border-gray-800 ${getBusFactorRiskBgColor(packageData.busFactorDetails.risk)}`}>
+                <Card className="bg-gray-900/50 border-gray-800">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-white">
                       <Users className="h-5 w-5" />
                       Bus Factor
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-4 w-4 p-0 text-gray-400 hover:text-white">
+                              ?
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs">
+                            <p className="text-sm">
+                              Bus factor measures knowledge concentration risk. It's the minimum number of contributors 
+                              who would need to leave before the project can't continue due to knowledge loss.
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
@@ -1137,10 +1151,10 @@ export default function PackageDetailsPage() {
                       {/* Bus Factor Score */}
                       <div className="flex items-center justify-between">
                         <div>
-                          <div className="text-4xl font-bold text-white mb-2">
+                          <div className={`text-4xl font-bold mb-2 ${getBusFactorRiskColor(packageData.busFactorDetails.risk)}`}>
                             {packageData.busFactorDetails.level}
                           </div>
-                          <div className="text-gray-400">on a scale of 1-8</div>
+                          <div className="text-gray-400">contributors needed for 50% of commits</div>
                         </div>
                         <div className="text-right">
                           <Badge className={`text-lg px-4 py-2 ${getBusFactorRiskColor(packageData.busFactorDetails.risk)} bg-transparent border`}>
@@ -1175,21 +1189,50 @@ export default function PackageDetailsPage() {
                                 </div>
                               </div>
                               <div className="text-right">
-                                <div className="flex items-center gap-4 text-sm">
-                                  <div className="flex items-center gap-1">
-                                    <GitCommit className="h-3 w-3 text-gray-400" />
-                                    <span className="text-gray-300">{contributor.commits}</span>
+                                                                  <div className="flex items-center gap-4 text-sm">
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <div className="flex items-center gap-1 cursor-help">
+                                            <GitCommit className="h-3 w-3 text-gray-400" />
+                                            <span className="text-gray-300">{contributor.commits}</span>
+                                          </div>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>Total commits</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                    
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <div className="flex items-center gap-1 cursor-help">
+                                            <Plus className="h-3 w-3 text-green-400" />
+                                            <Minus className="h-3 w-3 text-red-400" />
+                                            <span className="text-gray-300">{contributor.linesChanged.toLocaleString()}</span>
+                                          </div>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>Total lines added + deleted</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                    
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <div className="flex items-center gap-1 cursor-help">
+                                            <BarChart3 className="h-3 w-3 text-gray-400" />
+                                            <span className="text-gray-300">~{Math.round(contributor.avgLinesPerCommit)}/commit</span>
+                                          </div>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>Average lines changed per commit</p>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
                                   </div>
-                                  <div className="flex items-center gap-1">
-                                    <Plus className="h-3 w-3 text-green-400" />
-                                    <Minus className="h-3 w-3 text-red-400" />
-                                    <span className="text-gray-300">{contributor.linesChanged.toLocaleString()}</span>
-                                  </div>
-                                  <div className="flex items-center gap-1">
-                                    <FileText className="h-3 w-3 text-gray-400" />
-                                    <span className="text-gray-300">{contributor.filesChanged}</span>
-                                  </div>
-                                </div>
                               </div>
                             </div>
                           ))}
