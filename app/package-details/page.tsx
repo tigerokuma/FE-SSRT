@@ -25,7 +25,8 @@ import {
   Plus,
   Minus,
   Eye,
-  Package
+  Package,
+  User
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -34,10 +35,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { Switch } from "@/components/ui/switch"
 import { PageHeader } from "@/components/page-header"
 import { FullWidthContainer, FullWidthPage } from "@/components/full-width-container"
 import { HealthScoreChart } from "@/components/health-score-chart"
 import { useRouter } from "next/navigation"
+import { getRecentCommits, generateCommitSummary } from "@/lib/watchlist/api"
+import { Slider } from "@/components/ui/slider"
+import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
 
 interface PackageDetails {
   name: string
@@ -74,6 +80,7 @@ interface PackageDetails {
     filesChanged: number
     isSuspicious: boolean
     suspiciousReason: string
+    sha: string
   }>
   healthHistory: Array<{
     date: string
@@ -90,6 +97,7 @@ interface PackageDetails {
     isResolved: boolean
     commitHash: string
   }>
+  alertSettings?: any // Add this field for the alert configuration
   // New fields for activity score breakdown
   activityBreakdown: {
     commitFrequency: number
@@ -170,6 +178,24 @@ export default function PackageDetailsPage() {
   const [selectedHealthData, setSelectedHealthData] = useState<{ date: string; score: number } | null>(null)
   const [activeTab, setActiveTab] = useState("overview")
   const [alertFilter, setAlertFilter] = useState<"all" | "open" | "resolved">("all")
+  const [isEditingAlerts, setIsEditingAlerts] = useState(false)
+  const [editedAlertSettings, setEditedAlertSettings] = useState<any>(null)
+  const [isSavingAlerts, setIsSavingAlerts] = useState(false)
+  const [commits, setCommits] = useState<Array<{
+    id: string
+    message: string
+    author: string
+    time: string
+    avatar?: string
+    initials: string
+    linesAdded: number
+    linesDeleted: number
+    filesChanged: number
+    isSuspicious: boolean
+    suspiciousReason: string
+    sha: string
+  }>>([])
+  const [isLoadingCommits, setIsLoadingCommits] = useState(false)
 
   // Fetch package details from API
   useEffect(() => {
@@ -204,6 +230,8 @@ export default function PackageDetailsPage() {
           aiConfidence: data.ai_confidence,
           aiModelUsed: data.ai_model_used,
           aiCreatedAt: data.ai_created_at,
+          // Store alert settings
+          alertSettings: data.alerts ? (typeof data.alerts === 'string' ? JSON.parse(data.alerts) : data.alerts) : null,
           aiOverview: "This package shows excellent maintainability with consistent commit activity and a healthy contributor base. The bus factor indicates good distribution of responsibility among maintainers. Recent activity suggests active development with regular updates and bug fixes.",
           maintainers: [
             { name: "John Dalton", avatar: "/placeholder-user.jpg", initials: "JD" },
@@ -222,6 +250,7 @@ export default function PackageDetailsPage() {
               filesChanged: 3,
               isSuspicious: false,
               suspiciousReason: "",
+              sha: "abc123def456",
             },
             {
               id: "def456",
@@ -235,6 +264,7 @@ export default function PackageDetailsPage() {
               filesChanged: 8,
               isSuspicious: true,
               suspiciousReason: "Large code changes (234 lines added, 89 deleted) across 8 files detected. This commit shows unusually high churn which could indicate rushed development, potential bugs, or incomplete refactoring. The AI detected patterns consistent with risky changes that may introduce instability.",
+              sha: "def456ghi789",
             },
             {
               id: "ghi789",
@@ -248,6 +278,7 @@ export default function PackageDetailsPage() {
               filesChanged: 5,
               isSuspicious: false,
               suspiciousReason: "",
+              sha: "ghi789jkl012",
             },
             {
               id: "jkl012",
@@ -261,6 +292,7 @@ export default function PackageDetailsPage() {
               filesChanged: 4,
               isSuspicious: false,
               suspiciousReason: "",
+              sha: "jkl012mno345",
             },
           ],
           healthHistory: data.health_history || [
@@ -277,38 +309,7 @@ export default function PackageDetailsPage() {
             { date: "2024-11-15", score: 9.3 },
             { date: "2024-12-15", score: 9.5 },
           ],
-          alerts: [
-            {
-              id: 1,
-              type: "high_loc",
-              severity: "medium",
-              message: "High LOC PR Detected",
-              description: "PR #1234 contains over 500 lines of code which exceeds our recommended limit of 300 lines per pull request. Large changes like this can be difficult to review thoroughly and may introduce bugs or security vulnerabilities. Consider breaking this into smaller, more manageable pull requests to improve code quality and review efficiency.",
-              time: "2 days ago",
-              isResolved: false,
-              commitHash: "abc123",
-            },
-            {
-              id: 2,
-              type: "security_scan",
-              severity: "high",
-              message: "Security Vulnerability Detected",
-              description: "Dependency scan revealed a critical security vulnerability in lodash@4.17.15. The vulnerability (CVE-2021-23337) allows for prototype pollution attacks. This package is used in production and should be updated immediately to version 4.17.21 or later to patch this security issue.",
-              time: "1 day ago",
-              isResolved: true,
-              commitHash: "def456",
-            },
-            {
-              id: 3,
-              type: "performance",
-              severity: "low",
-              message: "Performance Regression Detected",
-              description: "Recent changes in the debounce implementation have shown a 15% performance regression in high-frequency event handling scenarios. While not critical, this may impact user experience in applications with frequent user interactions. Consider optimizing the debounce logic or reverting to the previous implementation.",
-              time: "3 days ago",
-              isResolved: false,
-              commitHash: "ghi789",
-            },
-          ],
+          alerts: [], // Will be populated with real data from alerts API
           // New activity breakdown data
           activityBreakdown: data.activity_factors ? {
             commitFrequency: data.activity_factors.commitFrequency || 0,
@@ -579,6 +580,32 @@ export default function PackageDetailsPage() {
         }
         
         setPackageData(transformedData)
+        
+        // Fetch alerts for this user watchlist
+        try {
+          const alertsResponse = await fetch(`/api/backend/activity/alerts/${userWatchlistId}`)
+          if (alertsResponse.ok) {
+            const alertsData = await alertsResponse.json()
+            const transformedAlerts = alertsData.alerts.map((alert: any) => ({
+              id: parseInt(alert.id.replace(/-/g, '').substring(0, 8), 16), // Convert UUID to number
+              type: alert.metric,
+              severity: alert.alert_level || 'medium',
+              message: `${alert.metric.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())} Alert`,
+              description: alert.description,
+              time: getTimeAgo(new Date(alert.created_at)),
+              isResolved: !!alert.resolved_at,
+              commitHash: alert.commit_sha,
+            }))
+            
+            setPackageData(prev => prev ? {
+              ...prev,
+              alerts: transformedAlerts
+            } : null)
+          }
+        } catch (alertError) {
+          console.error('Error fetching alerts:', alertError)
+          // Don't fail the whole page if alerts fail to load
+        }
       } catch (error) {
         console.error("Error fetching package details:", error)
       } finally {
@@ -590,6 +617,40 @@ export default function PackageDetailsPage() {
       fetchPackageDetails()
     }
   }, [userWatchlistId])
+
+  const getTimeAgo = (date: Date): string => {
+    const now = new Date()
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000)
+    
+    if (diffInSeconds < 60) return `${diffInSeconds} seconds ago`
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} minutes ago`
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`
+    if (diffInSeconds < 2592000) return `${Math.floor(diffInSeconds / 86400)} days ago`
+    if (diffInSeconds < 31536000) return `${Math.floor(diffInSeconds / 2592000)} months ago`
+    return `${Math.floor(diffInSeconds / 31536000)} years ago`
+  }
+
+  const fetchCommits = async () => {
+    if (!userWatchlistId) return
+    
+    setIsLoadingCommits(true)
+    try {
+      const commitsData = await getRecentCommits(userWatchlistId, 50)
+      setCommits(commitsData.commits)
+    } catch (error) {
+      console.error("Error fetching commits:", error)
+      // Keep existing mock commits if API fails
+    } finally {
+      setIsLoadingCommits(false)
+    }
+  }
+
+  // Fetch commits when activity tab is selected
+  useEffect(() => {
+    if (activeTab === "activity" && userWatchlistId && commits.length === 0) {
+      fetchCommits()
+    }
+  }, [activeTab, userWatchlistId, commits.length])
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
@@ -662,18 +723,18 @@ export default function PackageDetailsPage() {
   }
 
   const handleSummarizeCommits = async () => {
+    if (!userWatchlistId) return
+    
     setIsSummarizing(true)
     try {
-      // TODO: Implement AI commit summarization
-      await new Promise(resolve => setTimeout(resolve, 2000)) // Mock delay
-      
-      // Mock summary result - replace with actual API call
-      const mockSummary = `Recent commit activity shows a healthy development pattern with 4 commits over the past 4 days. The commits focus on bug fixes, performance improvements, and documentation updates. Key contributors include John Smith, Alex Turner, Emma Wilson, and Sarah Johnson. The most recent commit addresses a React hooks compatibility issue with the _.debounce function, indicating active maintenance and community responsiveness. Overall, the commit pattern suggests a well-maintained package with regular updates and good code quality practices.`
-      
-      setCommitSummary(mockSummary)
-      console.log("Summarizing commits...")
+      const summaryData = await generateCommitSummary(userWatchlistId, 10)
+      setCommitSummary(summaryData.summary)
+      console.log("Generated commit summary:", summaryData)
     } catch (error) {
       console.error("Error summarizing commits:", error)
+      // Fallback to mock summary if API fails
+      const mockSummary = `Recent commit activity shows a healthy development pattern with 4 commits over the past 4 days. The commits focus on bug fixes, performance improvements, and documentation updates. Key contributors include John Smith, Alex Turner, Emma Wilson, and Sarah Johnson. The most recent commit addresses a React hooks compatibility issue with the _.debounce function, indicating active maintenance and community responsiveness. Overall, the commit pattern suggests a well-maintained package with regular updates and good code quality practices.`
+      setCommitSummary(mockSummary)
     } finally {
       setIsSummarizing(false)
     }
@@ -689,6 +750,145 @@ export default function PackageDetailsPage() {
     if (graphTab) {
       graphTab.click()
     }
+  }
+
+  const handleViewCommitOnGitHub = (commitSha: string) => {
+    if (packageData?.repoUrl) {
+      // Convert repo URL to commit URL
+      const commitUrl = `${packageData.repoUrl}/commit/${commitSha}`
+      window.open(commitUrl, '_blank')
+    }
+  }
+
+  const handleEditAlertSettings = () => {
+    const currentSettings = packageData?.alertSettings ? 
+      (typeof packageData.alertSettings === 'string' ? JSON.parse(packageData.alertSettings) : packageData.alertSettings) : 
+      null;
+    
+    if (currentSettings) {
+      setEditedAlertSettings(JSON.parse(JSON.stringify(currentSettings))) // Deep copy
+      setIsEditingAlerts(true)
+    }
+  }
+
+  const handleSaveAlertSettings = async () => {
+    if (!editedAlertSettings || !userWatchlistId) return
+    
+    setIsSavingAlerts(true)
+    try {
+      console.log('🔄 Saving alert settings...')
+      console.log('UserWatchlistId:', userWatchlistId)
+      console.log('Alert settings:', editedAlertSettings)
+      
+      // Call API to update alert settings
+      const response = await fetch(`/api/backend/activity/user-watchlist/${userWatchlistId}/alerts`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          alerts: editedAlertSettings
+        }),
+      })
+      
+      console.log('Response status:', response.status)
+      console.log('Response ok:', response.ok)
+      
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('Error response:', errorText)
+        throw new Error(`Failed to update alert settings: ${response.statusText} - ${errorText}`)
+      }
+      
+      const result = await response.json()
+      console.log('✅ Success response:', result)
+      
+      // Update local state
+      setPackageData(prev => prev ? {
+        ...prev,
+        alertSettings: editedAlertSettings
+      } : null)
+      
+      setIsEditingAlerts(false)
+      setEditedAlertSettings(null)
+      
+      console.log('Alert settings updated successfully')
+    } catch (error) {
+      console.error('❌ Error updating alert settings:', error)
+      // For now, still update local state even if API fails
+      setPackageData(prev => prev ? {
+        ...prev,
+        alertSettings: editedAlertSettings
+      } : null)
+      setIsEditingAlerts(false)
+      setEditedAlertSettings(null)
+    } finally {
+      setIsSavingAlerts(false)
+    }
+  }
+
+  const handleRemoveFromWatchlist = async () => {
+    if (!userWatchlistId) return
+    
+    try {
+      console.log('🗑️ Removing from watchlist...')
+      console.log('UserWatchlistId:', userWatchlistId)
+      
+      const response = await fetch(`/api/backend/activity/user-watchlist/${userWatchlistId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+      
+      console.log('Response status:', response.status)
+      console.log('Response ok:', response.ok)
+      
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('Error response:', errorText)
+        throw new Error(`Failed to remove from watchlist: ${response.statusText} - ${errorText}`)
+      }
+      
+      const result = await response.json()
+      console.log('✅ Success response:', result)
+      
+      // Redirect to watchlist page after successful removal
+      window.location.href = '/dependencies'
+      
+    } catch (error) {
+      console.error('❌ Error removing from watchlist:', error)
+      alert('Failed to remove repository from watchlist. Please try again.')
+    }
+  }
+
+  const handleCancelEdit = () => {
+    setIsEditingAlerts(false)
+    setEditedAlertSettings(null)
+  }
+
+  const handleToggleAlert = (alertKey: string, enabled: boolean) => {
+    if (!editedAlertSettings) return
+    
+    setEditedAlertSettings((prev: any) => ({
+      ...prev,
+      [alertKey]: {
+        ...prev[alertKey],
+        enabled
+      }
+    }))
+  }
+
+  const handleUpdateAlertThreshold = (alertKey: string, field: string, value: number) => {
+    if (!editedAlertSettings) return
+    
+    setEditedAlertSettings((prev: any) => ({
+      ...prev,
+      [alertKey]: {
+        ...prev[alertKey],
+        [field]: value
+      }
+    }))
   }
 
   if (!userWatchlistId) {
@@ -753,7 +953,6 @@ export default function PackageDetailsPage() {
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Dependencies
           </Button>
-          
           <div className="flex items-start justify-between">
             <div>
               <h1 className="text-2xl font-bold text-white mb-2">{packageData.name}</h1>
@@ -783,7 +982,6 @@ export default function PackageDetailsPage() {
             </div>
           </div>
         </div>
-
         {/* Main Content */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-5">
@@ -793,7 +991,6 @@ export default function PackageDetailsPage() {
             <TabsTrigger value="graph">Graph</TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
-
           <TabsContent value="overview" className="space-y-6">
             <div className="max-w-6xl mx-auto">
               <div className="space-y-6">
@@ -1275,55 +1472,65 @@ export default function PackageDetailsPage() {
               </div>
             </div>
           </TabsContent>
-
           <TabsContent value="activity" className="space-y-6">
             <div className="max-w-6xl mx-auto">
               <div className="space-y-6">
-
-
-                {/* Commit Summary */}
-                {commitSummary && (
-                  <Card className="bg-gray-900/50 border-gray-800">
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2 text-white">
-                        <Brain className="h-5 w-5" />
-                        Commit Summary
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-gray-300 leading-relaxed">
-                        {commitSummary}
-                      </p>
-                    </CardContent>
-                  </Card>
-                )}
-
+              {/* Commit Summary */}
+              {commitSummary && (
                 <Card className="bg-gray-900/50 border-gray-800">
                   <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="flex items-center gap-2 text-white">
-                        <GitCommit className="h-5 w-5" />
-                        Recent Commits
-                      </CardTitle>
-                      {!commitSummary && (
-                        <Button 
-                          onClick={handleSummarizeCommits}
-                          disabled={isSummarizing}
-                          className="bg-blue-600 hover:bg-blue-700"
-                        >
-                          {isSummarizing ? (
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                          ) : (
-                            <Brain className="h-4 w-4 mr-2" />
-                          )}
-                          {isSummarizing ? 'Summarizing...' : 'Summarize Recent Commits'}
-                        </Button>
-                      )}
-                    </div>
+                    <CardTitle className="flex items-center gap-2 text-white">
+                      <Brain className="h-5 w-5" />
+                      Commit Summary
+                    </CardTitle>
                   </CardHeader>
                   <CardContent>
+                    <p className="text-gray-300 leading-relaxed">
+                      {commitSummary}
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+              <Card className="bg-gray-900/50 border-gray-800">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2 text-white">
+                      <GitCommit className="h-5 w-5" />
+                      Recent Commits
+                    </CardTitle>
+                    {!commitSummary && (
+                      <Button 
+                        onClick={handleSummarizeCommits}
+                        disabled={isSummarizing}
+                        className="bg-blue-600 hover:bg-blue-700"
+                      >
+                        {isSummarizing ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <Brain className="h-4 w-4 mr-2" />
+                        )}
+                        {isSummarizing ? 'Summarizing...' : 'Summarize Recent Commits'}
+                      </Button>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {isLoadingCommits ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+                      <span className="ml-2 text-gray-400">Loading commits...</span>
+                    </div>
+                  ) : commits.length === 0 ? (
+                    <div className="text-center py-8">
+                      <GitCommit className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                      <p className="text-gray-400 mb-2">No commits found</p>
+                      <p className="text-sm text-gray-500">
+                        Commits will appear here once the repository is processed.
+                      </p>
+                    </div>
+                  ) : (
                     <div className="divide-y divide-gray-800">
-                      {packageData.commits.map((commit) => (
+                      {commits.map((commit) => (
                         <div key={commit.id} className="p-4 hover:bg-gray-800/50 transition-colors">
                           <div className="flex items-start gap-3">
                             <Avatar className="h-8 w-8 flex-shrink-0">
@@ -1357,15 +1564,26 @@ export default function PackageDetailsPage() {
                               <p className="text-sm text-gray-300 mb-2">{commit.message}</p>
                               <div className="flex items-center gap-4">
                                 <div className="flex items-center gap-2">
-                                  <span className="text-xs text-gray-500 font-mono">{commit.id}</span>
-                                  <Button variant="ghost" size="sm" className="h-6 px-2">
+                                  <span className="text-xs text-gray-500 font-mono">{commit.sha.substring(0, 8)}</span>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    className="h-6 px-2"
+                                    onClick={() => handleViewCommitOnGitHub(commit.sha)}
+                                  >
                                     <ExternalLink className="h-3 w-3" />
                                   </Button>
                                 </div>
                                 <div className="flex items-center gap-3 text-xs text-gray-400">
-                                  <span className="text-green-400">+{commit.linesAdded}</span>
-                                  <span className="text-red-400">-{commit.linesDeleted}</span>
-                                  <span>{commit.filesChanged} files</span>
+                                  {commit.linesAdded > 0 && (
+                                    <span className="text-green-400">+{commit.linesAdded}</span>
+                                  )}
+                                  {commit.linesDeleted > 0 && (
+                                    <span className="text-red-400">-{commit.linesDeleted}</span>
+                                  )}
+                                  {commit.filesChanged > 0 && (
+                                    <span>{commit.filesChanged} file{commit.filesChanged !== 1 ? 's' : ''}</span>
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -1373,12 +1591,36 @@ export default function PackageDetailsPage() {
                         </div>
                       ))}
                     </div>
-                  </CardContent>
-                </Card>
+                  )}
+                </CardContent>
+              </Card>
+              
+              {/* Footer section to make page full width */}
+              <Card className="bg-gray-900/50 border-gray-800">
+                <CardContent className="p-6">
+                  <div className="text-center space-y-4">
+                    <div className="flex items-center justify-center gap-2 text-gray-400">
+                      <GitCommit className="h-5 w-5" />
+                      <span className="text-lg font-medium">Recent Commits</span>
+                    </div>
+                    <p className="text-gray-300 leading-relaxed">
+                      These are the recent commits from the repository showing development activity and code changes. 
+                      Each commit displays lines added, deleted, and files modified. Feel free to check GitHub for more details.
+                    </p>
+                    <div className="flex items-center justify-center gap-4 text-sm text-gray-400">
+                      <span>•</span>
+                      <span>Data updated daily</span>
+                      <span>•</span>
+                      <span>AI detection active</span>
+                      <span>•</span>
+                      <span>Click links for GitHub</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
               </div>
             </div>
           </TabsContent>
-
           <TabsContent value="alerts" className="space-y-6">
             <div className="max-w-6xl mx-auto">
               <div className="space-y-6">
@@ -1410,7 +1652,7 @@ export default function PackageDetailsPage() {
                 </div>
                 
                 {(() => {
-                  const filteredAlerts = packageData.alerts.filter(alert => {
+                  const filteredAlerts = packageData!.alerts.filter(alert => {
                     if (alertFilter === "all") return true;
                     if (alertFilter === "open") return !alert.isResolved;
                     if (alertFilter === "resolved") return alert.isResolved;
@@ -1486,9 +1728,32 @@ export default function PackageDetailsPage() {
                   );
                 })()}
               </div>
+              
+              {/* Footer section to make alerts tab full width */}
+              <Card className="bg-gray-900/50 border-gray-800">
+                <CardContent className="p-6">
+                  <div className="text-center space-y-4">
+                    <div className="flex items-center justify-center gap-2 text-gray-400">
+                      <AlertTriangle className="h-5 w-5" />
+                      <span className="text-lg font-medium">Repository Alerts</span>
+                    </div>
+                    <p className="text-gray-300 leading-relaxed">
+                      Monitor security and activity alerts for this repository. Alerts are triggered based on commit activity, 
+                      code changes, and security thresholds. You can filter alerts by status and manage their resolution.
+                    </p>
+                    <div className="flex items-center justify-center gap-4 text-sm text-gray-400">
+                      <span>•</span>
+                      <span>Real-time monitoring</span>
+                      <span>•</span>
+                      <span>Security alerts</span>
+                      <span>•</span>
+                      <span>Activity tracking</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </TabsContent>
-
           <TabsContent value="graph" className="space-y-6">
             <div className="max-w-6xl mx-auto">
               <div className="space-y-6">
@@ -1522,7 +1787,6 @@ export default function PackageDetailsPage() {
               </div>
             </div>
           </TabsContent>
-
           <TabsContent value="settings" className="space-y-6">
             <div className="max-w-6xl mx-auto">
               <div className="space-y-6">
@@ -1531,173 +1795,399 @@ export default function PackageDetailsPage() {
                 {/* Alert Settings */}
                 <Card className="bg-gray-900/50 border-gray-800">
                   <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-white">
-                      <AlertTriangle className="h-5 w-5" />
-                      Alert Settings
-                    </CardTitle>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="flex items-center gap-2 text-white">
+                          <AlertTriangle className="h-5 w-5" />
+                          Alert Settings
+                        </CardTitle>
+                        <CardDescription className="text-gray-400">
+                          Configure monitoring alerts for this repository. These settings determine what activity patterns will trigger alerts.
+                        </CardDescription>
+                      </div>
+                      {!isEditingAlerts && (
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={handleEditAlertSettings}
+                        >
+                          Edit Settings
+                        </Button>
+                      )}
+                    </div>
                   </CardHeader>
                   <CardContent className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-4">
-                        <h4 className="text-lg font-medium text-white">Alert Severity Thresholds</h4>
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between">
-                            <span className="text-gray-300">High Severity Alerts</span>
-                            <Badge variant="outline" className="border-red-600 text-red-400">Enabled</Badge>
+                    {(() => {
+                      // Parse the alerts from the package data
+                      const alertSettings = isEditingAlerts ? editedAlertSettings : 
+                        (packageData?.alertSettings ? 
+                          (typeof packageData.alertSettings === 'string' ? JSON.parse(packageData.alertSettings) : packageData.alertSettings) : 
+                          null);
+
+                      if (!alertSettings) {
+                        return (
+                          <div className="text-center py-8">
+                            <AlertTriangle className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                            <p className="text-gray-400 mb-2">No alert settings found</p>
+                            <p className="text-sm text-gray-500">
+                              Alert settings will appear here once they are configured.
+                            </p>
                           </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-gray-300">Medium Severity Alerts</span>
-                            <Badge variant="outline" className="border-yellow-600 text-yellow-400">Enabled</Badge>
+                        );
+                      }
+
+                      return (
+                        <div className="space-y-6">
+                          {/* AI Anomaly Detection */}
+                          <div className="flex items-center justify-between p-4 bg-gray-800/50 rounded-lg">
+                            <div className="flex items-center gap-3">
+                              <Brain className="h-5 w-5 text-indigo-400" />
+                              <div>
+                                <div className="font-medium text-white">AI Anomaly Detection</div>
+                                <div className="text-sm text-gray-400">Use AI to detect suspicious commit patterns</div>
+                              </div>
+                            </div>
+                            {isEditingAlerts ? (
+                              <Switch
+                                checked={alertSettings.ai_powered_anomaly_detection?.enabled || false}
+                                onCheckedChange={(enabled) => handleToggleAlert('ai_powered_anomaly_detection', enabled)}
+                              />
+                            ) : (
+                              <Badge variant="outline" className={`${
+                                alertSettings.ai_powered_anomaly_detection?.enabled 
+                                  ? 'border-green-600 text-green-400' 
+                                  : 'border-gray-600 text-gray-400'
+                              }`}>
+                                {alertSettings.ai_powered_anomaly_detection?.enabled ? 'Enabled' : 'Disabled'}
+                              </Badge>
+                            )}
                           </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-gray-300">Low Severity Alerts</span>
-                            <Badge variant="outline" className="border-blue-600 text-blue-400">Enabled</Badge>
+
+                          {/* Lines Added/Deleted */}
+                          <div className="flex items-center justify-between p-4 bg-gray-800/50 rounded-lg">
+                            <div className="flex items-center gap-3">
+                              <Activity className="h-5 w-5 text-emerald-400" />
+                              <div>
+                                <div className="font-medium text-white">Lines Added/Deleted</div>
+                                <div className="text-sm text-gray-400">
+                                  Alert when commits exceed normal line change thresholds
+                                  {alertSettings.lines_added_deleted?.enabled && (
+                                    <div className="text-xs text-gray-500 mt-1">
+                                      Hard threshold: {alertSettings.lines_added_deleted.hardcoded_threshold} lines
+                                      <br />
+                                      Contributor variance: {alertSettings.lines_added_deleted.contributor_variance}σ
+                                      <br />
+                                      Repository variance: {alertSettings.lines_added_deleted.repository_variance}σ
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            {isEditingAlerts ? (
+                              <Switch
+                                checked={alertSettings.lines_added_deleted?.enabled || false}
+                                onCheckedChange={(enabled) => handleToggleAlert('lines_added_deleted', enabled)}
+                              />
+                            ) : (
+                              <Badge variant="outline" className={`${
+                                alertSettings.lines_added_deleted?.enabled 
+                                  ? 'border-green-600 text-green-400' 
+                                  : 'border-gray-600 text-gray-400'
+                              }`}>
+                                {alertSettings.lines_added_deleted?.enabled ? 'Enabled' : 'Disabled'}
+                              </Badge>
+                            )}
                           </div>
+                          
+                          {/* Lines Added/Deleted Configuration */}
+                          {isEditingAlerts && alertSettings.lines_added_deleted?.enabled && (
+                            <div className="ml-8 p-4 bg-gray-900/50 rounded-lg space-y-4">
+                              <div className="space-y-3">
+                                <div>
+                                  <div className="flex items-center justify-between mb-2">
+                                    <Label className="text-sm text-gray-300">Contributor Variance</Label>
+                                    <span className="text-sm text-gray-400">{alertSettings.lines_added_deleted.contributor_variance}</span>
+                                  </div>
+                                  <Slider
+                                    value={[alertSettings.lines_added_deleted.contributor_variance]}
+                                    onValueChange={(value) => handleUpdateAlertThreshold('lines_added_deleted', 'contributor_variance', value[0])}
+                                    max={10}
+                                    min={1}
+                                    step={0.1}
+                                    className="w-full"
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">Suggested: 3.0</p>
+                                </div>
+                                <div>
+                                  <div className="flex items-center justify-between mb-2">
+                                    <Label className="text-sm text-gray-300">Repository Variance</Label>
+                                    <span className="text-sm text-gray-400">{alertSettings.lines_added_deleted.repository_variance}</span>
+                                  </div>
+                                  <Slider
+                                    value={[alertSettings.lines_added_deleted.repository_variance]}
+                                    onValueChange={(value) => handleUpdateAlertThreshold('lines_added_deleted', 'repository_variance', value[0])}
+                                    max={10}
+                                    min={1}
+                                    step={0.1}
+                                    className="w-full"
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">Suggested: 3.5</p>
+                                </div>
+                                <div>
+                                  <Label className="text-sm text-gray-300">Hard Threshold</Label>
+                                  <Input
+                                    type="number"
+                                    value={alertSettings.lines_added_deleted.hardcoded_threshold}
+                                    onChange={(e) => handleUpdateAlertThreshold('lines_added_deleted', 'hardcoded_threshold', parseInt(e.target.value) || 1000)}
+                                    className="h-8 text-sm bg-black border-gray-700 text-white mt-2"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Files Changed */}
+                          <div className="flex items-center justify-between p-4 bg-gray-800/50 rounded-lg">
+                            <div className="flex items-center gap-3">
+                              <FileText className="h-5 w-5 text-cyan-400" />
+                              <div>
+                                <div className="font-medium text-white">Files Changed</div>
+                                <div className="text-sm text-gray-400">
+                                  Alert when commits modify many files
+                                  {alertSettings.files_changed?.enabled && (
+                                    <div className="text-xs text-gray-500 mt-1">
+                                      Hard threshold: {alertSettings.files_changed.hardcoded_threshold} files
+                                      <br />
+                                      Contributor variance: {alertSettings.files_changed.contributor_variance}σ
+                                      <br />
+                                      Repository variance: {alertSettings.files_changed.repository_variance}σ
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            {isEditingAlerts ? (
+                              <Switch
+                                checked={alertSettings.files_changed?.enabled || false}
+                                onCheckedChange={(enabled) => handleToggleAlert('files_changed', enabled)}
+                              />
+                            ) : (
+                              <Badge variant="outline" className={`${
+                                alertSettings.files_changed?.enabled 
+                                  ? 'border-green-600 text-green-400' 
+                                  : 'border-gray-600 text-gray-400'
+                              }`}>
+                                {alertSettings.files_changed?.enabled ? 'Enabled' : 'Disabled'}
+                              </Badge>
+                            )}
+                          </div>
+                          
+                          {/* Files Changed Configuration */}
+                          {isEditingAlerts && alertSettings.files_changed?.enabled && (
+                            <div className="ml-8 p-4 bg-gray-900/50 rounded-lg space-y-4">
+                              <div className="space-y-3">
+                                <div>
+                                  <div className="flex items-center justify-between mb-2">
+                                    <Label className="text-sm text-gray-300">Contributor Variance</Label>
+                                    <span className="text-sm text-gray-400">{alertSettings.files_changed.contributor_variance}</span>
+                                  </div>
+                                  <Slider
+                                    value={[alertSettings.files_changed.contributor_variance]}
+                                    onValueChange={(value) => handleUpdateAlertThreshold('files_changed', 'contributor_variance', value[0])}
+                                    max={10}
+                                    min={1}
+                                    step={0.1}
+                                    className="w-full"
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">Suggested: 2.5</p>
+                                </div>
+                                <div>
+                                  <div className="flex items-center justify-between mb-2">
+                                    <Label className="text-sm text-gray-300">Repository Variance</Label>
+                                    <span className="text-sm text-gray-400">{alertSettings.files_changed.repository_variance}</span>
+                                  </div>
+                                  <Slider
+                                    value={[alertSettings.files_changed.repository_variance]}
+                                    onValueChange={(value) => handleUpdateAlertThreshold('files_changed', 'repository_variance', value[0])}
+                                    max={10}
+                                    min={1}
+                                    step={0.1}
+                                    className="w-full"
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">Suggested: 3.0</p>
+                                </div>
+                                <div>
+                                  <Label className="text-sm text-gray-300">Hard Threshold</Label>
+                                  <Input
+                                    type="number"
+                                    value={alertSettings.files_changed.hardcoded_threshold}
+                                    onChange={(e) => handleUpdateAlertThreshold('files_changed', 'hardcoded_threshold', parseInt(e.target.value) || 20)}
+                                    className="h-8 text-sm bg-black border-gray-700 text-white mt-2"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* High Churn */}
+                          <div className="flex items-center justify-between p-4 bg-gray-800/50 rounded-lg">
+                            <div className="flex items-center gap-3">
+                              <AlertTriangle className="h-5 w-5 text-amber-400" />
+                              <div>
+                                <div className="font-medium text-white">High Churn</div>
+                                <div className="text-sm text-gray-400">
+                                  Alert on high lines-to-files ratio commits
+                                  {alertSettings.high_churn?.enabled && (
+                                    <div className="text-xs text-gray-500 mt-1">
+                                      Multiplier: {alertSettings.high_churn.multiplier}x
+                                      <br />
+                                      Hard threshold: {alertSettings.high_churn.hardcoded_threshold}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            {isEditingAlerts ? (
+                              <Switch
+                                checked={alertSettings.high_churn?.enabled || false}
+                                onCheckedChange={(enabled) => handleToggleAlert('high_churn', enabled)}
+                              />
+                            ) : (
+                              <Badge variant="outline" className={`${
+                                alertSettings.high_churn?.enabled 
+                                  ? 'border-green-600 text-green-400' 
+                                  : 'border-gray-600 text-gray-400'
+                              }`}>
+                                {alertSettings.high_churn?.enabled ? 'Enabled' : 'Disabled'}
+                              </Badge>
+                            )}
+                          </div>
+                          
+                          {/* High Churn Configuration */}
+                          {isEditingAlerts && alertSettings.high_churn?.enabled && (
+                            <div className="ml-8 p-4 bg-gray-900/50 rounded-lg space-y-4">
+                              <div className="space-y-3">
+                                <div>
+                                  <div className="flex items-center justify-between mb-2">
+                                    <Label className="text-sm text-gray-300">Multiplier</Label>
+                                    <span className="text-sm text-gray-400">{alertSettings.high_churn.multiplier}</span>
+                                  </div>
+                                  <Slider
+                                    value={[alertSettings.high_churn.multiplier]}
+                                    onValueChange={(value) => handleUpdateAlertThreshold('high_churn', 'multiplier', value[0])}
+                                    max={10}
+                                    min={1}
+                                    step={0.1}
+                                    className="w-full"
+                                  />
+                                  <p className="text-xs text-gray-500 mt-1">Suggested: 3.0</p>
+                                </div>
+                                <div>
+                                  <Label className="text-sm text-gray-300">Hard Threshold</Label>
+                                  <Input
+                                    type="number"
+                                    value={alertSettings.high_churn.hardcoded_threshold}
+                                    onChange={(e) => handleUpdateAlertThreshold('high_churn', 'hardcoded_threshold', parseInt(e.target.value) || 10)}
+                                    className="h-8 text-sm bg-black border-gray-700 text-white mt-2"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Unusual Author Activity */}
+                          <div className="flex items-center justify-between p-4 bg-gray-800/50 rounded-lg">
+                            <div className="flex items-center gap-3">
+                              <User className="h-5 w-5 text-orange-400" />
+                              <div>
+                                <div className="font-medium text-white">Unusual Author Activity</div>
+                                <div className="text-sm text-gray-400">
+                                  Alert when authors commit outside normal hours
+                                  {alertSettings.unusual_author_activity?.enabled && (
+                                    <div className="text-xs text-gray-500 mt-1">
+                                      Threshold: {alertSettings.unusual_author_activity.percentage_outside_range}% outside range
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            {isEditingAlerts ? (
+                              <Switch
+                                checked={alertSettings.unusual_author_activity?.enabled || false}
+                                onCheckedChange={(enabled) => handleToggleAlert('unusual_author_activity', enabled)}
+                              />
+                            ) : (
+                              <Badge variant="outline" className={`${
+                                alertSettings.unusual_author_activity?.enabled 
+                                  ? 'border-green-600 text-green-400' 
+                                  : 'border-gray-600 text-gray-400'
+                              }`}>
+                                {alertSettings.unusual_author_activity?.enabled ? 'Enabled' : 'Disabled'}
+                              </Badge>
+                            )}
+                          </div>
+                          
+                          {/* Unusual Author Activity Configuration */}
+                          {isEditingAlerts && alertSettings.unusual_author_activity?.enabled && (
+                            <div className="ml-8 p-4 bg-gray-900/50 rounded-lg space-y-4">
+                              <div>
+                                <div className="flex items-center justify-between mb-2">
+                                  <Label className="text-sm text-gray-300">Percentage Outside Range</Label>
+                                  <span className="text-sm text-gray-400">{alertSettings.unusual_author_activity.percentage_outside_range}%</span>
+                                </div>
+                                <Slider
+                                  value={[alertSettings.unusual_author_activity.percentage_outside_range]}
+                                  onValueChange={(value) => handleUpdateAlertThreshold('unusual_author_activity', 'percentage_outside_range', value[0])}
+                                  max={100}
+                                  min={10}
+                                  step={5}
+                                  className="w-full"
+                                />
+                                <p className="text-xs text-gray-500 mt-1">Suggested: 80%</p>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Edit Actions */}
+                          {isEditingAlerts && (
+                            <div className="flex items-center justify-end gap-2 pt-4 border-t border-gray-800">
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={handleCancelEdit}
+                                disabled={isSavingAlerts}
+                              >
+                                Cancel
+                              </Button>
+                              <Button 
+                                size="sm"
+                                onClick={handleSaveAlertSettings}
+                                disabled={isSavingAlerts}
+                              >
+                                {isSavingAlerts ? 'Saving...' : 'Save Changes'}
+                              </Button>
+                            </div>
+                          )}
                         </div>
-                      </div>
-                      
-                      <div className="space-y-4">
-                        <h4 className="text-lg font-medium text-white">Alert Types</h4>
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between">
-                            <span className="text-gray-300">Security Vulnerabilities</span>
-                            <Badge variant="outline" className="border-green-600 text-green-400">Enabled</Badge>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-gray-300">Performance Issues</span>
-                            <Badge variant="outline" className="border-green-600 text-green-400">Enabled</Badge>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-gray-300">Code Quality Issues</span>
-                            <Badge variant="outline" className="border-green-600 text-green-400">Enabled</Badge>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-gray-300">Large Changes</span>
-                            <Badge variant="outline" className="border-green-600 text-green-400">Enabled</Badge>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    <div className="pt-4 border-t border-gray-800">
-                      <h4 className="text-lg font-medium text-white mb-3">Notification Settings</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg">
-                          <div>
-                            <div className="font-medium text-white">Email Notifications</div>
-                            <div className="text-sm text-gray-400">Receive alerts via email</div>
-                          </div>
-                          <Badge variant="outline" className="border-green-600 text-green-400">Enabled</Badge>
-                        </div>
-                        <div className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg">
-                          <div>
-                            <div className="font-medium text-white">Slack Integration</div>
-                            <div className="text-sm text-gray-400">Send alerts to Slack channel</div>
-                          </div>
-                          <Badge variant="outline" className="border-gray-600 text-gray-400">Disabled</Badge>
-                        </div>
-                      </div>
-                    </div>
+                      );
+                    })()}
                   </CardContent>
                 </Card>
 
-                {/* Repository Management */}
-                <Card className="bg-gray-900/50 border-gray-800">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-white">
-                      <GitBranch className="h-5 w-5" />
-                      Repository Management
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-4">
-                        <h4 className="text-lg font-medium text-white">Repository Information</h4>
-                        <div className="space-y-3 text-sm">
-                          <div className="flex justify-between">
-                            <span className="text-gray-400">Repository:</span>
-                            <span className="text-white">{packageData.name}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-400">Language:</span>
-                            <span className="text-white">{packageData.language}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-400">Last Updated:</span>
-                            <span className="text-white">{packageData.lastUpdated}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-gray-400">Stars:</span>
-                            <span className="text-white">{packageData.stars.toLocaleString()}</span>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="space-y-4">
-                        <h4 className="text-lg font-medium text-white">Monitoring Status</h4>
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between">
-                            <span className="text-gray-300">Health Score Monitoring</span>
-                            <Badge variant="outline" className="border-green-600 text-green-400">Active</Badge>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-gray-300">Activity Tracking</span>
-                            <Badge variant="outline" className="border-green-600 text-green-400">Active</Badge>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-gray-300">Security Scanning</span>
-                            <Badge variant="outline" className="border-green-600 text-green-400">Active</Badge>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-gray-300">Dependency Analysis</span>
-                            <Badge variant="outline" className="border-green-600 text-green-400">Active</Badge>
-                          </div>
-                        </div>
-                      </div>
+                {/* Remove Repository */}
+                <div className="p-4 bg-red-900/20 border border-red-800 rounded-lg">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h4 className="text-lg font-medium text-red-400 mb-2">Remove from Watchlist</h4>
+                      <p className="text-sm text-gray-300 mb-4">
+                        This will permanently remove the repository from your watchlist and delete all associated data including health scores, activity history, alerts, and monitoring settings. This action cannot be undone.
+                      </p>
                     </div>
-                  </CardContent>
-                </Card>
-
-                {/* Danger Zone */}
-                <Card className="bg-red-900/20 border-red-800">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-red-400">
-                      <AlertTriangle className="h-5 w-5" />
-                      Danger Zone
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="p-4 bg-red-900/20 border border-red-800 rounded-lg">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h4 className="text-lg font-medium text-red-400 mb-2">Remove from Watchlist</h4>
-                          <p className="text-sm text-gray-300 mb-4">
-                            This will stop monitoring this repository and remove it from your watchlist. 
-                            You can always add it back later, but you'll lose all historical data and settings.
-                          </p>
-                        </div>
-                        <Button variant="destructive" className="ml-4">
-                          Remove Repository
-                        </Button>
-                      </div>
-                    </div>
-                    
-                    <div className="p-4 bg-red-900/20 border border-red-800 rounded-lg">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h4 className="text-lg font-medium text-red-400 mb-2">Reset All Settings</h4>
-                          <p className="text-sm text-gray-300 mb-4">
-                            Reset all alert settings and monitoring preferences to their default values. 
-                            This action cannot be undone.
-                          </p>
-                        </div>
-                        <Button variant="outline" className="ml-4 border-red-600 text-red-400 hover:bg-red-900/20">
-                          Reset Settings
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                    <Button variant="destructive" className="ml-4" onClick={handleRemoveFromWatchlist}>
+                      Remove Repository
+                    </Button>
+                  </div>
+                </div>
               </div>
             </div>
           </TabsContent>

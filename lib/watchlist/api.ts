@@ -524,4 +524,83 @@ export const refreshPackageData = async (name: string): Promise<Package> => {
     console.error('Error refreshing package data:', error)
     throw new Error('Failed to refresh package data. Please try again.')
   }
+}
+
+/**
+ * Get recent commits for a watchlist
+ */
+export const getRecentCommits = async (
+  watchlistId: string, 
+  limit: number = 50
+): Promise<{
+  watchlist_id: string
+  commits: Array<{
+    id: string
+    message: string
+    author: string
+    time: string
+    avatar: string
+    initials: string
+    linesAdded: number
+    linesDeleted: number
+    filesChanged: number
+    isSuspicious: boolean
+    suspiciousReason: string
+    sha: string
+  }>
+  total_count: number
+  repository_name: string
+}> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/activity/watchlist/${watchlistId}/commits?limit=${limit}`)
+    
+    if (!response.ok) {
+      throw new Error(`Failed to get recent commits: ${response.statusText}`)
+    }
+    
+    const data = await response.json()
+    return data
+  } catch (error) {
+    console.error('Error getting recent commits:', error)
+    throw new Error('Failed to get recent commits. Please try again.')
+  }
+}
+
+/**
+ * Generate AI summary of recent commits
+ */
+export const generateCommitSummary = async (
+  watchlistId: string,
+  commitCount: number = 10
+): Promise<{
+  summary: string
+  commitCount: number
+  dateRange: string
+  totalLinesAdded: number
+  totalLinesDeleted: number
+  totalFilesChanged: number
+  authors: string[]
+  generatedAt: string
+}> => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/activity/watchlist/${watchlistId}/commit-summary`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        commitCount,
+      }),
+    })
+    
+    if (!response.ok) {
+      throw new Error(`Failed to generate commit summary: ${response.statusText}`)
+    }
+    
+    const data = await response.json()
+    return data
+  } catch (error) {
+    console.error('Error generating commit summary:', error)
+    throw new Error('Failed to generate commit summary. Please try again.')
+  }
 } 
