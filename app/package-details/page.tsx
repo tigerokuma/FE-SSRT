@@ -93,9 +93,9 @@ interface PackageDetails {
   // New fields for activity score breakdown
   activityBreakdown: {
     commitFrequency: number
-    issueResponse: number
-    prActivity: number
-    documentation: number
+    contributorDiversity: number
+    codeChurn: number
+    developmentConsistency: number
   }
   // New fields for bus factor details
   busFactorDetails: {
@@ -150,6 +150,12 @@ interface PackageDetails {
       }
     }>
   }>
+  // New field for activity heatmap
+  activity_heatmap?: {
+    dayOfWeek: {
+      [key: string]: number; // e.g., "0": 10, "1": 8, "2": 12
+    };
+  };
 }
 
 export default function PackageDetailsPage() {
@@ -303,11 +309,16 @@ export default function PackageDetailsPage() {
             },
           ],
           // New activity breakdown data
-          activityBreakdown: {
+          activityBreakdown: data.activity_factors ? {
+            commitFrequency: data.activity_factors.commitFrequency || 0,
+            contributorDiversity: data.activity_factors.contributorDiversity || 0,
+            codeChurn: data.activity_factors.codeChurn || 0,
+            developmentConsistency: data.activity_factors.developmentConsistency || 0
+          } : {
             commitFrequency: 23,
-            issueResponse: 25,
-            prActivity: 22,
-            documentation: 22
+            contributorDiversity: 25,
+            codeChurn: 22,
+            developmentConsistency: 22
           },
           // New bus factor details
           busFactorDetails: {
@@ -346,15 +357,15 @@ export default function PackageDetailsPage() {
           },
           // New activity data
           activityData: {
-            commitsPerWeek: 12,
+            commitsPerWeek: data.weekly_commit_rate ? Number(data.weekly_commit_rate) : 12,
             activeDays: [
-              { day: "Monday", hour: 14, intensity: 8 },
-              { day: "Tuesday", hour: 16, intensity: 6 },
-              { day: "Wednesday", hour: 10, intensity: 9 },
-              { day: "Thursday", hour: 18, intensity: 7 },
-              { day: "Friday", hour: 12, intensity: 5 },
-              { day: "Saturday", hour: 20, intensity: 3 },
-              { day: "Sunday", hour: 22, intensity: 2 }
+              { day: "Sunday", hour: 14, intensity: 15 },
+              { day: "Monday", hour: 14, intensity: 42 },
+              { day: "Tuesday", hour: 16, intensity: 38 },
+              { day: "Wednesday", hour: 10, intensity: 55 },
+              { day: "Thursday", hour: 18, intensity: 48 },
+              { day: "Friday", hour: 12, intensity: 32 },
+              { day: "Saturday", hour: 10, intensity: 12 }
             ]
           },
           // New scorecard health data
@@ -553,7 +564,19 @@ export default function PackageDetailsPage() {
                 }
               }
             ]
-          }
+          },
+                     // New activity heatmap data
+           activity_heatmap: data.activity_heatmap || {
+             dayOfWeek: {
+               "0": 15,  // Sunday
+               "1": 42,  // Monday
+               "2": 38,  // Tuesday
+               "3": 55,  // Wednesday
+               "4": 48,  // Thursday
+               "5": 32,  // Friday
+               "6": 12   // Saturday
+             }
+           }
         }
         
         setPackageData(transformedData)
@@ -910,87 +933,190 @@ export default function PackageDetailsPage() {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-6">
-                      {/* Main Activity Score */}
-                      <div className="text-center">
-                        <div className="text-6xl font-bold text-blue-400 mb-2">
+                      {/* Activity Score */}
+                      <div className="text-center mb-6">
+                        <div className={`text-6xl font-bold mb-2 ${
+                          packageData.activityScore >= 65 ? 'text-green-400' :
+                          packageData.activityScore >= 30 ? 'text-yellow-400' : 'text-red-400'
+                        }`}>
                           {packageData.activityScore}
                         </div>
-                        <div className="text-gray-400 text-lg">out of 100</div>
+                        <div className="text-gray-400">out of 100</div>
                       </div>
 
                       {/* Activity Breakdown */}
-                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div className="text-center p-4 bg-gray-800/50 rounded-lg">
-                          <div className="text-2xl font-bold text-green-400 mb-1">
-                            {packageData.activityBreakdown.commitFrequency}
-                          </div>
-                          <div className="text-sm text-gray-400">Commit Frequency</div>
-                          <div className="text-xs text-gray-500 mt-1">out of 25</div>
-                        </div>
-                        <div className="text-center p-4 bg-gray-800/50 rounded-lg">
-                          <div className="text-2xl font-bold text-blue-400 mb-1">
-                            {packageData.activityBreakdown.issueResponse}
-                          </div>
-                          <div className="text-sm text-gray-400">Issue Response</div>
-                          <div className="text-xs text-gray-500 mt-1">out of 25</div>
-                        </div>
-                        <div className="text-center p-4 bg-gray-800/50 rounded-lg">
-                          <div className="text-2xl font-bold text-purple-400 mb-1">
-                            {packageData.activityBreakdown.prActivity}
-                          </div>
-                          <div className="text-sm text-gray-400">PR Activity</div>
-                          <div className="text-xs text-gray-500 mt-1">out of 25</div>
-                        </div>
-                        <div className="text-center p-4 bg-gray-800/50 rounded-lg">
-                          <div className="text-2xl font-bold text-yellow-400 mb-1">
-                            {packageData.activityBreakdown.documentation}
-                          </div>
-                          <div className="text-sm text-gray-400">Documentation</div>
-                          <div className="text-xs text-gray-500 mt-1">out of 25</div>
-                        </div>
+                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="text-center p-4 bg-gray-800/50 rounded-lg cursor-help">
+                                <div className={`text-2xl font-bold mb-1 ${
+                                  packageData.activityBreakdown.commitFrequency >= 20 ? 'text-green-400' :
+                                  packageData.activityBreakdown.commitFrequency >= 10 ? 'text-yellow-400' : 'text-red-400'
+                                }`}>
+                                  {packageData.activityBreakdown.commitFrequency}
+                                </div>
+                                <div className="text-sm text-gray-400">Commit Frequency</div>
+                                <div className="text-xs text-gray-500 mt-1">out of 25</div>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Recent commit activity in the last 3 months</p>
+                              <p className="text-xs text-gray-300">15+ commits/month = max score</p>
+                            </TooltipContent>
+                          </Tooltip>
+
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="text-center p-4 bg-gray-800/50 rounded-lg cursor-help">
+                                <div className={`text-2xl font-bold mb-1 ${
+                                  packageData.activityBreakdown.contributorDiversity >= 20 ? 'text-green-400' :
+                                  packageData.activityBreakdown.contributorDiversity >= 10 ? 'text-yellow-400' : 'text-red-400'
+                                }`}>
+                                  {packageData.activityBreakdown.contributorDiversity}
+                                </div>
+                                <div className="text-sm text-gray-400">Contributor Diversity</div>
+                                <div className="text-xs text-gray-500 mt-1">out of 25</div>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Number of unique contributors in the last 3 months</p>
+                              <p className="text-xs text-gray-300">5+ contributors = max score</p>
+                            </TooltipContent>
+                          </Tooltip>
+
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="text-center p-4 bg-gray-800/50 rounded-lg cursor-help">
+                                <div className={`text-2xl font-bold mb-1 ${
+                                  packageData.activityBreakdown.codeChurn >= 20 ? 'text-green-400' :
+                                  packageData.activityBreakdown.codeChurn >= 10 ? 'text-yellow-400' : 'text-red-400'
+                                }`}>
+                                  {packageData.activityBreakdown.codeChurn}
+                                </div>
+                                <div className="text-sm text-gray-400">Code Churn</div>
+                                <div className="text-xs text-gray-500 mt-1">out of 25</div>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Average lines changed per commit in the last 3 months</p>
+                              <p className="text-xs text-gray-300">50+ lines/commit = max score</p>
+                            </TooltipContent>
+                          </Tooltip>
+
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="text-center p-4 bg-gray-800/50 rounded-lg cursor-help">
+                                <div className={`text-2xl font-bold mb-1 ${
+                                  packageData.activityBreakdown.developmentConsistency >= 20 ? 'text-green-400' :
+                                  packageData.activityBreakdown.developmentConsistency >= 10 ? 'text-yellow-400' : 'text-red-400'
+                                }`}>
+                                  {packageData.activityBreakdown.developmentConsistency}
+                                </div>
+                                <div className="text-sm text-gray-400">Development Consistency</div>
+                                <div className="text-xs text-gray-500 mt-1">out of 25</div>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Weekly commit rate consistency in the last 3 months</p>
+                              <p className="text-xs text-gray-300">3+ commits/week = max score</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       </div>
 
-                      {/* Activity Details */}
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Combined Activity Stats and Heatmap */}
+                      <div className="p-4 bg-gray-800/50 rounded-lg">
+                        <div className="flex items-center gap-2 mb-4">
+                          <Clock className="h-4 w-4 text-gray-400" />
+                          <span className="text-white font-medium">Activity Statistics</span>
+                        </div>
+                        
                         {/* Commits per Week */}
-                        <div className="p-4 bg-gray-800/50 rounded-lg">
-                          <div className="flex items-center gap-2 mb-3">
-                            <GitCommit className="h-4 w-4 text-green-400" />
-                            <span className="text-white font-medium">Commits per Week</span>
+                        <div className="mb-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <TrendingUp className="h-4 w-4 text-gray-400" />
+                            <span className="text-sm font-medium text-white">Commits per Week</span>
                           </div>
-                          <div className="text-3xl font-bold text-green-400">
-                            {packageData.activityData.commitsPerWeek}
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-gray-300">Average weekly commits</span>
+                            <div className="text-right">
+                              <div className={`text-2xl font-bold ${
+                                packageData.activityData.commitsPerWeek >= 3 ? 'text-green-400' :
+                                packageData.activityData.commitsPerWeek >= 1.5 ? 'text-yellow-400' : 'text-red-400'
+                              }`}>
+                                {packageData.activityData.commitsPerWeek.toFixed(2)}
+                              </div>
+                            </div>
                           </div>
-                          <div className="text-sm text-gray-400 mt-1">Average weekly commits</div>
                         </div>
 
-                        {/* Activity Heatmap */}
-                        <div className="p-4 bg-gray-800/50 rounded-lg">
+                        {/* Weekly Activity Pattern */}
+                        <div>
                           <div className="flex items-center gap-2 mb-3">
-                            <Clock className="h-4 w-4 text-blue-400" />
-                            <span className="text-white font-medium">Most Active Times</span>
+                            <Calendar className="h-4 w-4 text-gray-400" />
+                            <span className="text-sm font-medium text-white">Weekly Activity Pattern</span>
                           </div>
                           <div className="space-y-2">
-                            {packageData.activityData.activeDays.slice(0, 5).map((day, index) => (
-                              <div key={index} className="flex items-center justify-between">
-                                <span className="text-sm text-gray-300">{day.day}</span>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-sm text-gray-400">{day.hour}:00</span>
-                                  <div className="flex gap-1">
-                                    {[...Array(5)].map((_, i) => (
-                                      <div
-                                        key={i}
-                                        className={`w-2 h-2 rounded ${
-                                          i < day.intensity / 2 
-                                            ? 'bg-blue-400' 
-                                            : 'bg-gray-600'
-                                        }`}
-                                      />
-                                    ))}
+                            {packageData.activity_heatmap ? (
+                              // Use real activity heatmap data - show all 7 days
+                              (() => {
+                                const dayEntries = Object.entries(packageData.activity_heatmap.dayOfWeek || {});
+                                const maxCommits = Math.max(...dayEntries.map(([_, count]) => count as number), 1);
+                                
+                                return dayEntries.map(([day, count]) => {
+                                  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                                  const dayName = dayNames[parseInt(day)] || 'Unknown';
+                                  const intensity = Math.min((count as number) / maxCommits * 10, 10); // Relative to max
+                                  return (
+                                    <div key={day} className="flex items-center justify-between">
+                                      <span className="text-sm text-gray-300">{dayName}</span>
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-sm text-gray-400">{count} commits</span>
+                                        <div className="flex gap-1">
+                                          {[...Array(10)].map((_, i) => (
+                                            <div
+                                              key={i}
+                                              className={`w-2 h-2 rounded ${
+                                                i < intensity 
+                                                  ? 'bg-blue-400' 
+                                                  : 'bg-gray-600'
+                                              }`}
+                                            />
+                                          ))}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                });
+                              })()
+                            ) : (
+                              // Fallback to mock data - show all 7 days
+                              (() => {
+                                const maxIntensity = Math.max(...packageData.activityData.activeDays.map(day => day.intensity), 1);
+                                
+                                return packageData.activityData.activeDays.map((day, index) => (
+                                  <div key={index} className="flex items-center justify-between">
+                                    <span className="text-sm text-gray-300">{day.day}</span>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-sm text-gray-400">{day.intensity} commits</span>
+                                      <div className="flex gap-1">
+                                        {[...Array(10)].map((_, i) => (
+                                          <div
+                                            key={i}
+                                            className={`w-2 h-2 rounded ${
+                                              i < (day.intensity / maxIntensity * 10)
+                                                ? 'bg-blue-400' 
+                                                : 'bg-gray-600'
+                                            }`}
+                                          />
+                                        ))}
+                                      </div>
+                                    </div>
                                   </div>
-                                </div>
-                              </div>
-                            ))}
+                                ));
+                              })()
+                            )}
                           </div>
                         </div>
                       </div>

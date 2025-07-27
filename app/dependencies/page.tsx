@@ -242,8 +242,8 @@ export default function DependenciesPage() {
   // Helper function to get activity color and label
   const getActivityDisplay = (score: number | null | undefined) => {
     if (!score) return { color: 'text-gray-400', borderColor: 'border-gray-600', label: 'Unknown' }
-    if (score >= 70) return { color: 'text-green-400', borderColor: 'border-green-500/30', label: 'Active' }
-    if (score >= 40) return { color: 'text-yellow-400', borderColor: 'border-yellow-500/30', label: 'Moderate Activity' }
+    if (score >= 65) return { color: 'text-green-400', borderColor: 'border-green-500/30', label: 'Very Active' }
+    if (score >= 30) return { color: 'text-yellow-400', borderColor: 'border-yellow-500/30', label: 'Moderate Activity' }
     return { color: 'text-red-400', borderColor: 'border-red-500/30', label: 'Inactive' }
   }
 
