@@ -325,14 +325,8 @@ export const addRepositoryToWatchlist = async (
         repository_variance: number
         hardcoded_threshold: number
       }
-      high_churn: {
-        enabled: boolean
-        multiplier: number
-        hardcoded_threshold: number
-      }
-      ancestry_breaks: {
-        enabled: boolean
-      }
+
+
       unusual_author_activity: {
         enabled: boolean
         percentage_outside_range: number
@@ -458,7 +452,7 @@ export const fetchWatchlistItems = async (): Promise<WatchlistItem[]> => {
       updatedAt: item.last_updated,
       status: item.status, // Include the status from the backend!
       // New enriched data fields
-      activity_score: item.activity_score || null,
+      activity_score: item.activity_score !== undefined && item.activity_score !== null ? item.activity_score : null,
       bus_factor: item.bus_factor || null,
       health_score: item.health_score || null,
       tracking_duration: item.tracking_duration || '0 days',

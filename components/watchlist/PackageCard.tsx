@@ -8,13 +8,11 @@ import { formatNumber } from '../../lib/watchlist/index'
 interface PackageCardProps {
   pkg: PackageType
   onSelect: (pkg: PackageType) => void
-  onAdd: (pkg: PackageType) => void
   searchQuery: string
   isSelected: boolean
-  isAdding?: boolean
 }
 
-export function PackageCard({ pkg, onSelect, onAdd, searchQuery, isSelected, isAdding }: PackageCardProps) {
+export function PackageCard({ pkg, onSelect, searchQuery, isSelected }: PackageCardProps) {
   const isExactMatch = pkg.name.toLowerCase() === searchQuery.toLowerCase().trim()
   
   return (
@@ -73,40 +71,16 @@ export function PackageCard({ pkg, onSelect, onAdd, searchQuery, isSelected, isA
       )}
 
       {/* Footer */}
-      <div className="flex items-center justify-between gap-4 pt-3 border-t border-gray-800">
-        <div className="flex items-center gap-2 text-xs text-gray-500">
-          {pkg.version && (
-            <span className="font-mono text-gray-400">v{pkg.version}</span>
-          )}
-          {pkg.license && (
-            <span className="flex items-center gap-1">
-              <Shield className="h-3 w-3" />
-              {pkg.license}
-            </span>
-          )}
-        </div>
-        
-        <Button
-          onClick={(e) => {
-            e.stopPropagation()
-            onAdd(pkg)
-          }}
-          disabled={isAdding}
-          size="sm"
-          className="h-7 px-3 text-xs font-medium bg-white text-black hover:bg-gray-100 transition-colors disabled:opacity-50"
-        >
-          {isAdding ? (
-            <>
-              <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-              Adding...
-            </>
-          ) : (
-            <>
-              <Plus className="w-3 h-3 mr-1" />
-              Add
-            </>
-          )}
-        </Button>
+      <div className="flex items-center gap-2 text-xs text-gray-500 pt-3 border-t border-gray-800">
+        {pkg.version && (
+          <span className="font-mono text-gray-400">v{pkg.version}</span>
+        )}
+        {pkg.license && (
+          <span className="flex items-center gap-1">
+            <Shield className="h-3 w-3" />
+            {pkg.license}
+          </span>
+        )}
       </div>
     </div>
   )

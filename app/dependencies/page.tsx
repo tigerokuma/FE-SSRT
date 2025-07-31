@@ -241,8 +241,8 @@ export default function DependenciesPage() {
 
   // Helper function to get activity color and label
   const getActivityDisplay = (score: number | null | undefined) => {
-    if (!score) return { color: 'text-gray-400', borderColor: 'border-gray-600', label: 'Unknown' }
-    if (score === 0) return { color: 'text-gray-400', borderColor: 'border-gray-600', label: 'No Activity' }
+    if (score === null || score === undefined) return { color: 'text-gray-400', borderColor: 'border-gray-600', label: 'Unknown' }
+    if (score === 0) return { color: 'text-red-400', borderColor: 'border-red-500/30', label: 'No Activity' }
     if (score >= 65) return { color: 'text-green-400', borderColor: 'border-green-500/30', label: 'Very Active' }
     if (score >= 30) return { color: 'text-yellow-400', borderColor: 'border-yellow-500/30', label: 'Moderate Activity' }
     return { color: 'text-red-400', borderColor: 'border-red-500/30', label: 'Inactive' }
@@ -290,32 +290,6 @@ export default function DependenciesPage() {
       </PageHeader>
       
       <FullWidthContainer>
-        {/* Stats Section */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-gray-900/50 border-gray-800 backdrop-blur-sm border rounded-lg p-4 text-center">
-            <div className="text-2xl font-bold text-white">{allDependencies.length}</div>
-            <div className="text-sm text-gray-400">Total Dependencies</div>
-          </div>
-          <div className="bg-gray-900/50 border-gray-800 backdrop-blur-sm border rounded-lg p-4 text-center">
-            <div className="text-2xl font-bold text-white">
-              {allDependencies.filter(d => d.risk === 'low').length}
-            </div>
-            <div className="text-sm text-gray-400">Low Risk</div>
-          </div>
-          <div className="bg-gray-900/50 border-gray-800 backdrop-blur-sm border rounded-lg p-4 text-center">
-            <div className="text-2xl font-bold text-white">
-              {allDependencies.filter(d => d.risk === 'medium').length}
-            </div>
-            <div className="text-sm text-gray-400">Medium Risk</div>
-          </div>
-          <div className="bg-gray-900/50 border-gray-800 backdrop-blur-sm border rounded-lg p-4 text-center">
-            <div className="text-2xl font-bold text-white">
-              {allDependencies.filter(d => d.risk === 'high').length}
-            </div>
-            <div className="text-sm text-gray-400">High Risk</div>
-          </div>
-        </div>
-
         {/* Dependencies Grid */}
         <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4">
           {/* Add New Dependency Card */}

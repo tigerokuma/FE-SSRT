@@ -25,6 +25,15 @@ export function WatchlistItemCard({ item, onAction, className }: WatchlistItemCa
   // Note: Backend returns health scores on 0-10 scale, not 0-100
   const healthTrend = healthScore >= 8 ? 'improving' : healthScore >= 6 ? 'stable' : 'declining'
 
+  // Helper function to get activity display (same logic as dependencies page)
+  const getActivityDisplay = (score: number | null | undefined) => {
+    if (!score) return { color: 'text-gray-400', borderColor: 'border-gray-600', label: 'Unknown' }
+    if (score === 0) return { color: 'text-gray-400', borderColor: 'border-gray-600', label: 'No Activity' }
+    if (score >= 65) return { color: 'text-green-400', borderColor: 'border-green-500/30', label: 'Very Active' }
+    if (score >= 30) return { color: 'text-yellow-400', borderColor: 'border-yellow-500/30', label: 'Moderate Activity' }
+    return { color: 'text-red-400', borderColor: 'border-red-500/30', label: 'Inactive' }
+  }
+
   return (
     <Card className={`
       bg-gray-900/50 border-gray-800 backdrop-blur-sm rounded-lg border p-4 space-y-3 group hover:border-gray-700 transition-colors
@@ -49,9 +58,9 @@ export function WatchlistItemCard({ item, onAction, className }: WatchlistItemCa
             </Badge>
           ) : (
             <>
-              <Badge variant="outline" className="border-green-500 text-green-500 text-xs">
-                <Activity className="mr-1 h-3 w-3" />
-                Activity: {activityScore}
+              <Badge variant="outline" className={`${getActivityDisplay(activityScore).borderColor} text-gray-300 text-xs`}>
+                <Activity className={`mr-1 h-3 w-3 ${getActivityDisplay(activityScore).color}`} />
+                {getActivityDisplay(activityScore).label}
               </Badge>
               <Badge variant="outline" className="border-blue-500 text-blue-500 text-xs">
                 <Users2 className="mr-1 h-3 w-3" />

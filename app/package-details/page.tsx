@@ -1135,9 +1135,11 @@ export default function PackageDetailsPage() {
                           packageData.activityScore >= 65 ? 'text-green-400' :
                           packageData.activityScore >= 30 ? 'text-yellow-400' : 'text-red-400'
                         }`}>
-                          {packageData.activityScore}
+                          {packageData.activityScore === 0 ? 'No Activity' : packageData.activityScore}
                         </div>
-                        <div className="text-gray-400">out of 100</div>
+                        <div className="text-gray-400">
+                          {packageData.activityScore === 0 ? '' : 'out of 100'}
+                        </div>
                       </div>
 
                       {/* Activity Breakdown */}

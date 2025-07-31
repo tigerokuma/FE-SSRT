@@ -101,14 +101,8 @@ export function WatchlistSearchDialog({
         repository_variance: number
         hardcoded_threshold: number
       }
-      high_churn: {
-        enabled: boolean
-        multiplier: number
-        hardcoded_threshold: number
-      }
-      ancestry_breaks: {
-        enabled: boolean
-      }
+
+
       unusual_author_activity: {
         enabled: boolean
         percentage_outside_range: number
@@ -216,10 +210,8 @@ export function WatchlistSearchDialog({
                           key={pkg.name}
                           pkg={pkg}
                           onSelect={handlePackageSelect}
-                          onAdd={handleAddToWatchlist}
                           searchQuery={searchQuery}
                           isSelected={selectedPackage?.name === pkg.name}
-                          isAdding={isAddingToWatchlist}
                         />
                       ))}
                     </div>

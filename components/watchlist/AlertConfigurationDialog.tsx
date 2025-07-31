@@ -42,14 +42,8 @@ interface AlertConfig {
       repository_variance: number
       hardcoded_threshold: number
     }
-    high_churn: {
-      enabled: boolean
-      multiplier: number
-      hardcoded_threshold: number
-    }
-    ancestry_breaks: {
-      enabled: boolean
-    }
+
+
     unusual_author_activity: {
       enabled: boolean
       percentage_outside_range: number
@@ -82,14 +76,8 @@ export function AlertConfigurationDialog({
       repository_variance: 3.0,
       hardcoded_threshold: 20
     },
-    high_churn: {
-      enabled: true,
-      multiplier: 3.0,
-      hardcoded_threshold: 10
-    },
-    ancestry_breaks: {
-      enabled: true
-    },
+
+
     unusual_author_activity: {
       enabled: true,
       percentage_outside_range: 80
@@ -390,86 +378,6 @@ export function AlertConfigurationDialog({
                       </div>
                     </CardContent>
                   )}
-                </Card>
-
-                {/* High Churn */}
-                <Card className="!bg-gray-900 border-gray-800">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <AlertTriangle className="h-5 w-5 text-amber-400" />
-                        <CardTitle className="text-base text-white">High Churn</CardTitle>
-                      </div>
-                      <Switch
-                        checked={alerts.high_churn.enabled}
-                        onCheckedChange={(enabled) => handleAlertToggle('high_churn', enabled)}
-                      />
-                    </div>
-                    <CardDescription className="text-gray-400">
-                      Alert on high lines-to-files ratio commits
-                    </CardDescription>
-                  </CardHeader>
-                  {alerts.high_churn.enabled && (
-                    <CardContent className="space-y-4">
-                      <div className="space-y-3">
-                        <div>
-                          <div className="flex items-center justify-between mb-2">
-                            <Label className="text-sm text-gray-300">Multiplier</Label>
-                            <span className="text-sm text-gray-400">{alerts.high_churn.multiplier}</span>
-                          </div>
-                          <Slider
-                            value={[alerts.high_churn.multiplier]}
-                            onValueChange={(value) => setAlerts(prev => ({
-                              ...prev,
-                              high_churn: {
-                                ...prev.high_churn,
-                                multiplier: value[0]
-                              }
-                            }))}
-                            max={10}
-                            min={1}
-                            step={0.1}
-                            className="w-full"
-                          />
-                          <p className="text-xs text-gray-500 mt-1">Suggested: 3.0</p>
-                        </div>
-                        <div>
-                          <Label className="text-sm text-gray-300">Hard Threshold</Label>
-                          <Input
-                            type="number"
-                            value={alerts.high_churn.hardcoded_threshold}
-                            onChange={(e) => setAlerts(prev => ({
-                              ...prev,
-                              high_churn: {
-                                ...prev.high_churn,
-                                hardcoded_threshold: parseInt(e.target.value) || 10
-                              }
-                            }))}
-                            className="h-8 text-sm bg-black border-gray-700 text-white mt-2"
-                          />
-                        </div>
-                      </div>
-                    </CardContent>
-                  )}
-                </Card>
-
-                {/* Ancestry Breaks */}
-                <Card className="!bg-gray-900 border-gray-800">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <GitBranch className="h-5 w-5 text-purple-400" />
-                        <CardTitle className="text-base text-white">Ancestry Breaks</CardTitle>
-                      </div>
-                      <Switch
-                        checked={alerts.ancestry_breaks.enabled}
-                        onCheckedChange={(enabled) => handleAlertToggle('ancestry_breaks', enabled)}
-                      />
-                    </div>
-                    <CardDescription className="text-gray-400">
-                      Alert on git history rewrites
-                    </CardDescription>
-                  </CardHeader>
                 </Card>
 
                 {/* Unusual Author Activity - Re-added */}
