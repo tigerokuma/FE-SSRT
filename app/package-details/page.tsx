@@ -359,13 +359,13 @@ export default function PackageDetailsPage() {
           activityData: {
             commitsPerWeek: data.weekly_commit_rate ? Number(data.weekly_commit_rate) : 12,
             activeDays: [
-              { day: "Sunday", hour: 14, intensity: 15 },
               { day: "Monday", hour: 14, intensity: 42 },
               { day: "Tuesday", hour: 16, intensity: 38 },
               { day: "Wednesday", hour: 10, intensity: 55 },
               { day: "Thursday", hour: 18, intensity: 48 },
               { day: "Friday", hour: 12, intensity: 32 },
-              { day: "Saturday", hour: 10, intensity: 12 }
+              { day: "Saturday", hour: 10, intensity: 12 },
+              { day: "Sunday", hour: 14, intensity: 15 }
             ]
           },
           // New scorecard health data
@@ -1262,9 +1262,19 @@ export default function PackageDetailsPage() {
                                 const dayEntries = Object.entries(packageData.activity_heatmap.dayOfWeek || {});
                                 const maxCommits = Math.max(...dayEntries.map(([_, count]) => count as number), 1);
                                 
-                                return dayEntries.map(([day, count]) => {
-                                  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-                                  const dayName = dayNames[parseInt(day)] || 'Unknown';
+                                // Backend now sends data in Monday-first format (0=Monday, 6=Sunday)
+                                const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+                                
+                                // Sort day entries to ensure Monday-Sunday order
+                                const sortedDayEntries = dayEntries.sort(([dayA], [dayB]) => {
+                                  const dayIndexA = parseInt(dayA);
+                                  const dayIndexB = parseInt(dayB);
+                                  return dayIndexA - dayIndexB;
+                                });
+                                
+                                return sortedDayEntries.map(([day, count]) => {
+                                  const dayIndex = parseInt(day);
+                                  const dayName = dayNames[dayIndex] || 'Unknown';
                                   const intensity = Math.min((count as number) / maxCommits * 10, 10); // Relative to max
                                   return (
                                     <div key={day} className="flex items-center justify-between">
@@ -1293,7 +1303,13 @@ export default function PackageDetailsPage() {
                               (() => {
                                 const maxIntensity = Math.max(...packageData.activityData.activeDays.map(day => day.intensity), 1);
                                 
-                                return packageData.activityData.activeDays.map((day, index) => (
+                                // Sort days to ensure Monday-Sunday order
+                                const sortedDays = packageData.activityData.activeDays.sort((a, b) => {
+                                  const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+                                  return dayOrder.indexOf(a.day) - dayOrder.indexOf(b.day);
+                                });
+                                
+                                return sortedDays.map((day, index) => (
                                   <div key={index} className="flex items-center justify-between">
                                     <span className="text-sm text-gray-300">{day.day}</span>
                                     <div className="flex items-center gap-2">
