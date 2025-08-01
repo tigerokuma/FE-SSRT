@@ -565,7 +565,7 @@ export const getRecentCommits = async (
  */
 export const generateCommitSummary = async (
   watchlistId: string,
-  commitCount: number = 10
+  commitCount: number = 50
 ): Promise<{
   summary: string
   commitCount: number

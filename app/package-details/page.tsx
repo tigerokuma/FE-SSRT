@@ -728,7 +728,7 @@ export default function PackageDetailsPage() {
     
     setIsSummarizing(true)
     try {
-      const summaryData = await generateCommitSummary(userWatchlistId, 10)
+      const summaryData = await generateCommitSummary(userWatchlistId, 50)
       setCommitSummary(summaryData.summary)
       console.log("Generated commit summary:", summaryData)
     } catch (error) {
