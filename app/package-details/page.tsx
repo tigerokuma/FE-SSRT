@@ -747,10 +747,7 @@ export default function PackageDetailsPage() {
 
   const handleViewFullGraph = () => {
     // Navigate to graph tab
-    const graphTab = document.querySelector('[data-value="graph"]') as HTMLElement
-    if (graphTab) {
-      graphTab.click()
-    }
+    setActiveTab("graph")
   }
 
   const handleViewCommitOnGitHub = (commitSha: string) => {
