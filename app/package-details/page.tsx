@@ -335,8 +335,9 @@ export default function PackageDetailsPage() {
               initials: (contributor.author || 'U').split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
             })) : [];
             
-            // Calculate percentages
-            const totalCommits = contributors.reduce((sum: number, c: { commits: number }) => sum + c.commits, 0);
+            // Calculate total commits from all contributors (not just top 5)
+            // The backend provides the total commit count for all human contributors
+            const totalCommits = data.bus_factor_details.totalCommits || contributors.reduce((sum: number, c: { commits: number }) => sum + c.commits, 0);
             if (totalCommits > 0) {
               contributors.forEach((contributor: { commits: number; percentage: number }) => {
                 contributor.percentage = Math.round((contributor.commits / totalCommits) * 100);
