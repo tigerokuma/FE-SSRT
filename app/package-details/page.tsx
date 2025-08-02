@@ -197,6 +197,7 @@ export default function PackageDetailsPage() {
   }>>([])
   const [isLoadingCommits, setIsLoadingCommits] = useState(false)
 
+
   // Fetch package details from API
   useEffect(() => {
     const fetchPackageDetails = async () => {
@@ -646,12 +647,16 @@ export default function PackageDetailsPage() {
     }
   }
 
+
+
   // Fetch commits when activity tab is selected
   useEffect(() => {
     if (activeTab === "activity" && userWatchlistId && commits.length === 0) {
       fetchCommits()
     }
   }, [activeTab, userWatchlistId, commits.length])
+
+
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
@@ -1507,6 +1512,8 @@ export default function PackageDetailsPage() {
                   </CardContent>
                 </Card>
               )}
+
+
               <Card className="bg-gray-900/50 border-gray-800">
                 <CardHeader>
                   <div className="flex items-center justify-between">

@@ -597,4 +597,6 @@ export const generateCommitSummary = async (
     console.error('Error generating commit summary:', error)
     throw new Error('Failed to generate commit summary. Please try again.')
   }
-} 
+}
+
+ 
