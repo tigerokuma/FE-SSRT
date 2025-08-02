@@ -426,7 +426,7 @@ export const updateWatchlistItem = async (
 /**
  * Fetch all watchlist items
  */
-export const fetchWatchlistItems = async (): Promise<WatchlistItem[]> => {
+export const fetchWatchlistItems = async (): Promise<any[]> => {
   try {
     // Use the new backend API to fetch user's watchlist
     const userWatchlist = await getUserWatchlist('user-123')
@@ -434,30 +434,38 @@ export const fetchWatchlistItems = async (): Promise<WatchlistItem[]> => {
     console.log('Raw user watchlist data:', userWatchlist)
     
     // Transform the backend data to match the frontend WatchlistItem format
-    const transformedItems = userWatchlist.map((item: any) => ({
-      id: item.id, // Use the UUID string directly - it's the user watchlist ID
-      watchlist_id: item.watchlist_id, // KEEP THE WATCHLIST_ID!
-      name: item.name,
-      version: item.version || 'latest',
-      type: 'production' as const, // Default to production for now
-      risk: (item.risk_score ? (item.risk_score >= 70 ? 'low' : item.risk_score >= 40 ? 'medium' : 'high') : 'medium') as 'low' | 'medium' | 'high',
-      activity: (item.activity_score ? 
-        (item.activity_score >= 70 ? 'high' : item.activity_score >= 40 ? 'medium' : 'low') : 'medium') as 'low' | 'medium' | 'high',
-      lastUpdate: item.last_updated || new Date().toISOString(),
-      cves: item.notification_count || 0, // Use real alert count from backend
-      maintainers: item.contributors || 0, // This is correct - backend returns contributors
-      stars: item.stars ? item.stars.toString() : '0', // This is correct
-      downloads: item.downloads || 0, // Add the missing downloads field
-      createdAt: item.added_at,
-      updatedAt: item.last_updated,
-      status: item.status, // Include the status from the backend!
-      // New enriched data fields
-      activity_score: item.activity_score !== undefined && item.activity_score !== null ? item.activity_score : null,
-      bus_factor: item.bus_factor || null,
-      health_score: item.health_score || null,
-      tracking_duration: item.tracking_duration || '0 days',
-      notification_count: item.notification_count || 0
-    }))
+    const transformedItems = userWatchlist.map((item: any) => {
+      console.log('🔄 Transforming item:', item.name, 'vulnerability_summary:', item.vulnerability_summary)
+      const transformedItem = {
+        id: item.id, // Use the UUID string directly - it's the user watchlist ID
+        watchlist_id: item.watchlist_id, // KEEP THE WATCHLIST_ID!
+        name: item.name,
+        version: item.version || 'latest',
+        type: 'production' as const, // Default to production for now
+        risk: (item.risk_score ? (item.risk_score >= 70 ? 'low' : item.risk_score >= 40 ? 'medium' : 'high') : 'medium') as 'low' | 'medium' | 'high',
+        activity: (item.activity_score ? 
+          (item.activity_score >= 70 ? 'high' : item.activity_score >= 40 ? 'medium' : 'low') : 'medium') as 'low' | 'medium' | 'high',
+        lastUpdate: item.last_updated || new Date().toISOString(),
+        cves: item.notification_count || 0, // Use real alert count from backend
+        maintainers: item.contributors || 0, // This is correct - backend returns contributors
+        stars: item.stars ? item.stars.toString() : '0', // This is correct
+        downloads: item.downloads || 0, // Add the missing downloads field
+        createdAt: item.added_at,
+        updatedAt: item.last_updated,
+        status: item.status, // Include the status from the backend!
+        // New enriched data fields
+        activity_score: item.activity_score !== undefined && item.activity_score !== null ? item.activity_score : null,
+        bus_factor: item.bus_factor || null,
+        health_score: item.health_score || null,
+        tracking_duration: item.tracking_duration || '0 days',
+        notification_count: item.notification_count || 0,
+        // Vulnerability data
+        vulnerability_summary: item.vulnerability_summary || null
+      }
+      console.log('🔄 Transformed item vulnerability_summary:', transformedItem.vulnerability_summary)
+      console.log('🔄 Full transformed item:', JSON.stringify(transformedItem, null, 2))
+      return transformedItem
+    })
     
     console.log('Transformed watchlist items:', transformedItems)
     

@@ -69,6 +69,16 @@ export interface WatchlistItem {
   tracking_duration?: string // how long been tracking (e.g., "3 months")
   version_status?: 'latest' | 'behind' | 'pre-release' // version status
   is_processing?: boolean // whether package is being analyzed
+  
+  // Vulnerability data
+  vulnerability_summary?: {
+    total_count: number
+    critical_count: number
+    high_count: number
+    medium_count: number
+    low_count: number
+    last_updated: string
+  }
 }
 
 // Legacy alias for backward compatibility

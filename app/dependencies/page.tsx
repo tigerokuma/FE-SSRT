@@ -60,6 +60,14 @@ interface DisplayDependency {
   health_score?: number
   notification_count?: number
   tracking_duration?: string
+  vulnerability_summary?: {
+    total_count: number
+    critical_count: number
+    high_count: number
+    medium_count: number
+    low_count: number
+    last_updated: string
+  }
 }
 
 export default function DependenciesPage() {
@@ -187,7 +195,9 @@ export default function DependenciesPage() {
       bus_factor: dep.bus_factor,
       health_score: dep.health_score,
       notification_count: dep.notification_count || 0,
-      tracking_duration: dep.tracking_duration
+      tracking_duration: dep.tracking_duration,
+      // Vulnerability data
+      vulnerability_summary: dep.vulnerability_summary
     }))
   }, [userDependencies, dependencyStatuses])
 
@@ -265,6 +275,22 @@ export default function DependenciesPage() {
     return { color: 'text-red-400', borderColor: 'border-red-500/30', label: 'Poor Health' }
   }
 
+  const getVulnerabilityDisplay = (summary: any) => {
+    if (!summary || summary.total_count === 0) {
+      return { label: 'No Vulnerabilities', color: 'text-green-400', borderColor: 'border-green-500/30' }
+    }
+    if (summary.critical_count > 0 || summary.high_count > 0) {
+      return { label: 'Critical Risk', color: 'text-red-400', borderColor: 'border-red-500/30' }
+    }
+    if (summary.medium_count > 0) {
+      return { label: 'Medium Risk', color: 'text-yellow-400', borderColor: 'border-yellow-500/30' }
+    }
+    if (summary.low_count > 0) {
+      return { label: 'Low Risk', color: 'text-blue-400', borderColor: 'border-blue-500/30' }
+    }
+    return { label: 'Unknown', color: 'text-gray-400', borderColor: 'border-gray-600' }
+  }
+
   return (
     <FullWidthPage>
       <PageHeader 
@@ -324,6 +350,7 @@ export default function DependenciesPage() {
 
           {/* Dependency Cards */}
           {!isLoading && allDependencies.map((item) => {
+            console.log('📦 Item:', item.name, 'vulnerability_summary:', item.vulnerability_summary)
             return (
               <div
                 key={item.id}
@@ -365,6 +392,10 @@ export default function DependenciesPage() {
                         <Badge variant="outline" className={`${getHealthDisplay(item.health_score).borderColor} text-gray-300 text-xs`}>
                           <Shield className={`mr-1 h-3 w-3 ${getHealthDisplay(item.health_score).color}`} />
                           {getHealthDisplay(item.health_score).label}
+                        </Badge>
+                        <Badge variant="outline" className={`${getVulnerabilityDisplay(item.vulnerability_summary).borderColor} text-gray-300 text-xs`}>
+                          <Shield className={`mr-1 h-3 w-3 ${getVulnerabilityDisplay(item.vulnerability_summary).color}`} />
+                          {getVulnerabilityDisplay(item.vulnerability_summary).label}
                         </Badge>
                     </>
                   )}

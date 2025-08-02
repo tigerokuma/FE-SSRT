@@ -26,7 +26,8 @@ import {
   Minus,
   Eye,
   Package,
-  User
+  User,
+  Shield
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -165,6 +166,30 @@ interface PackageDetails {
       [key: string]: number; // e.g., "0": 10, "1": 8, "2": 12
     };
   };
+  // Vulnerability data
+  vulnerabilities?: Array<{
+    id: string;
+    title: string;
+    description: string;
+    severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+    cveId?: string;
+    ghsaId?: string;
+    publishedDate: string;
+    affectedVersions: string[];
+    fixedVersions?: string[];
+    references: Array<{
+      url: string;
+      type: string;
+    }>;
+  }>;
+  vulnerabilitySummary?: {
+    totalCount: number;
+    criticalCount: number;
+    highCount: number;
+    mediumCount: number;
+    lowCount: number;
+    lastUpdated: string;
+  };
 }
 
 export default function PackageDetailsPage() {
@@ -196,6 +221,8 @@ export default function PackageDetailsPage() {
     sha: string
   }>>([])
   const [isLoadingCommits, setIsLoadingCommits] = useState(false)
+  const [showAllVulnerabilities, setShowAllVulnerabilities] = useState(false)
+  const [expandedDescriptions, setExpandedDescriptions] = useState<Set<string>>(new Set())
 
 
   // Fetch package details from API
@@ -578,6 +605,16 @@ export default function PackageDetailsPage() {
                "5": 32,  // Friday
                "6": 12   // Saturday
              }
+           },
+           // Vulnerability data
+           vulnerabilities: data.vulnerabilities?.vulnerabilities || [],
+           vulnerabilitySummary: data.vulnerabilities?.summary || {
+             totalCount: 0,
+             criticalCount: 0,
+             highCount: 0,
+             mediumCount: 0,
+             lowCount: 0,
+             lastUpdated: new Date().toISOString()
            }
         }
         
@@ -1100,6 +1137,255 @@ export default function PackageDetailsPage() {
                     </CardContent>
                   </Card>
                 )}
+
+                {/* Security Vulnerabilities - Full Width */}
+                <Card className="bg-gray-900/50 border-gray-800">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-white">
+                      <Shield className="h-5 w-5" />
+                      Security Vulnerabilities
+                      {packageData.vulnerabilitySummary && packageData.vulnerabilitySummary.totalCount > 0 && (
+                        <Badge 
+                          variant="outline" 
+                          className={`ml-2 ${
+                            packageData.vulnerabilitySummary.criticalCount > 0 || packageData.vulnerabilitySummary.highCount > 0
+                              ? 'border-red-600 text-red-400'
+                              : packageData.vulnerabilitySummary.mediumCount > 0
+                              ? 'border-yellow-600 text-yellow-400'
+                              : 'border-blue-600 text-blue-400'
+                          }`}
+                        >
+                          {packageData.vulnerabilitySummary.totalCount} found
+                        </Badge>
+                      )}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {packageData.vulnerabilitySummary && packageData.vulnerabilitySummary.totalCount > 0 ? (
+                      <div className="space-y-4">
+                        {/* Vulnerability Summary */}
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                          <div className="text-center p-4 bg-red-900/20 border border-red-800 rounded-lg">
+                            <div className="text-2xl font-bold text-red-400 mb-1">
+                              {packageData.vulnerabilitySummary.criticalCount}
+                            </div>
+                            <div className="text-sm text-gray-400">Critical</div>
+                          </div>
+                          <div className="text-center p-4 bg-orange-900/20 border border-orange-800 rounded-lg">
+                            <div className="text-2xl font-bold text-orange-400 mb-1">
+                              {packageData.vulnerabilitySummary.highCount}
+                            </div>
+                            <div className="text-sm text-gray-400">High</div>
+                          </div>
+                          <div className="text-center p-4 bg-yellow-900/20 border border-yellow-800 rounded-lg">
+                            <div className="text-2xl font-bold text-yellow-400 mb-1">
+                              {packageData.vulnerabilitySummary.mediumCount}
+                            </div>
+                            <div className="text-sm text-gray-400">Medium</div>
+                          </div>
+                          <div className="text-center p-4 bg-blue-900/20 border border-blue-800 rounded-lg">
+                            <div className="text-2xl font-bold text-blue-400 mb-1">
+                              {packageData.vulnerabilitySummary.lowCount}
+                            </div>
+                            <div className="text-sm text-gray-400">Low</div>
+                          </div>
+                        </div>
+
+                        {/* Recent Vulnerabilities */}
+                        <div className="space-y-3">
+                          <h4 className="text-sm font-medium text-gray-300 mb-3">Recent Vulnerabilities</h4>
+                          {packageData.vulnerabilities?.slice(0, showAllVulnerabilities ? undefined : 1).map((vuln) => (
+                            <div 
+                              key={vuln.id}
+                              className={`p-4 rounded-lg border ${
+                                vuln.severity === 'CRITICAL' 
+                                  ? 'bg-red-900/20 border-red-800' 
+                                  : vuln.severity === 'HIGH'
+                                  ? 'bg-orange-900/20 border-orange-800'
+                                  : vuln.severity === 'MEDIUM'
+                                  ? 'bg-yellow-900/20 border-yellow-800'
+                                  : 'bg-blue-900/20 border-blue-800'
+                              }`}
+                            >
+                              <div className="space-y-3">
+                                {/* Header with title, severity, and date */}
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <Shield className={`h-4 w-4 ${
+                                        vuln.severity === 'CRITICAL' 
+                                          ? 'text-red-400' 
+                                          : vuln.severity === 'HIGH'
+                                          ? 'text-orange-400'
+                                          : vuln.severity === 'MEDIUM'
+                                          ? 'text-yellow-400'
+                                          : 'text-blue-400'
+                                      }`} />
+                                      <span className="font-medium text-white">{vuln.title}</span>
+                                      <Badge 
+                                        variant="outline" 
+                                        className={`text-xs ${
+                                          vuln.severity === 'CRITICAL' 
+                                            ? 'border-red-600 text-red-400' 
+                                            : vuln.severity === 'HIGH'
+                                            ? 'border-orange-600 text-orange-400'
+                                            : vuln.severity === 'MEDIUM'
+                                            ? 'border-yellow-600 text-yellow-400'
+                                            : 'border-blue-600 text-blue-400'
+                                        }`}
+                                      >
+                                        {vuln.severity}
+                                      </Badge>
+                                    </div>
+                                    <div className="space-y-2">
+                                      <p className={`text-sm text-gray-300 ${expandedDescriptions.has(vuln.id) ? '' : 'line-clamp-3'}`}>
+                                        {vuln.description}
+                                      </p>
+                                      {vuln.description.length > 200 && (
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={() => {
+                                            const newExpanded = new Set(expandedDescriptions)
+                                            if (expandedDescriptions.has(vuln.id)) {
+                                              newExpanded.delete(vuln.id)
+                                            } else {
+                                              newExpanded.add(vuln.id)
+                                            }
+                                            setExpandedDescriptions(newExpanded)
+                                          }}
+                                          className="text-blue-400 hover:text-blue-300 text-xs p-0 h-auto"
+                                        >
+                                          {expandedDescriptions.has(vuln.id) ? 'Show less' : 'Show more'}
+                                        </Button>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <span className="text-xs text-gray-400 whitespace-nowrap">
+                                    {getTimeAgo(new Date(vuln.publishedDate))}
+                                  </span>
+                                </div>
+
+                                {/* Version Information */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                  {/* Affected Versions */}
+                                  {vuln.affectedVersions && vuln.affectedVersions.length > 0 && (
+                                    <div className="space-y-1">
+                                      <div className="flex items-center gap-2">
+                                        <AlertTriangle className="h-3 w-3 text-red-400" />
+                                        <span className="text-xs font-medium text-red-400">Affected Versions</span>
+                                      </div>
+                                      <div className="flex flex-wrap gap-1">
+                                        {vuln.affectedVersions.map((version, index) => (
+                                          <code key={index} className="text-xs bg-red-900/30 border border-red-800 px-2 py-1 rounded text-red-300">
+                                            {version}
+                                          </code>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  {/* Fixed Versions */}
+                                  {vuln.fixedVersions && vuln.fixedVersions.length > 0 && (
+                                    <div className="space-y-1">
+                                      <div className="flex items-center gap-2">
+                                        <Shield className="h-3 w-3 text-green-400" />
+                                        <span className="text-xs font-medium text-green-400">Fixed Versions</span>
+                                      </div>
+                                      <div className="flex flex-wrap gap-1">
+                                        {vuln.fixedVersions.map((version, index) => (
+                                          <code key={index} className="text-xs bg-green-900/30 border border-green-800 px-2 py-1 rounded text-green-300">
+                                            {version}
+                                          </code>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Identifiers */}
+                                <div className="flex flex-wrap items-center gap-3">
+                                  {vuln.cveId && (
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs text-gray-400">CVE:</span>
+                                      <code className="text-xs bg-gray-800 px-2 py-1 rounded text-gray-300">
+                                        {vuln.cveId}
+                                      </code>
+                                    </div>
+                                  )}
+                                  {vuln.ghsaId && (
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs text-gray-400">GHSA:</span>
+                                      <code className="text-xs bg-gray-800 px-2 py-1 rounded text-gray-300">
+                                        {vuln.ghsaId}
+                                      </code>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* References */}
+                                {vuln.references && vuln.references.length > 0 && (
+                                  <div className="space-y-1">
+                                    <span className="text-xs font-medium text-gray-400">References:</span>
+                                    <div className="flex flex-wrap gap-2">
+                                      {vuln.references.slice(0, 2).map((ref, index) => (
+                                        <a
+                                          key={index}
+                                          href={ref.url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1"
+                                        >
+                                          <ExternalLink className="h-3 w-3" />
+                                          {ref.type || 'Link'}
+                                        </a>
+                                      ))}
+                                      {vuln.references.length > 2 && (
+                                        <span className="text-xs text-gray-500">
+                                          +{vuln.references.length - 2} more
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                          {packageData.vulnerabilities && packageData.vulnerabilities.length > 1 && (
+                            <div className="text-center py-2">
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => setShowAllVulnerabilities(!showAllVulnerabilities)}
+                                className="text-blue-400 hover:text-blue-300 flex items-center gap-2"
+                              >
+                                {showAllVulnerabilities ? (
+                                  <>
+                                    <Minus className="h-4 w-4" />
+                                    Show less
+                                  </>
+                                ) : (
+                                  <>
+                                    <Plus className="h-4 w-4" />
+                                    Show {packageData.vulnerabilities.length - 1} more vulnerabilities
+                                  </>
+                                )}
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-8">
+                        <Shield className="h-12 w-12 mx-auto mb-4 text-green-400" />
+                        <p className="text-green-400 mb-2">No vulnerabilities found</p>
+                        <p className="text-sm text-gray-500">
+                          This package appears to be secure with no known vulnerabilities.
+                        </p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
 
                 {/* Scorecard Stats - Full Width */}
                 <Card className="bg-gray-900/50 border-gray-800">
