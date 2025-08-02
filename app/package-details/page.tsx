@@ -1163,32 +1163,21 @@ export default function PackageDetailsPage() {
                   <CardContent>
                     {packageData.vulnerabilitySummary && packageData.vulnerabilitySummary.totalCount > 0 ? (
                       <div className="space-y-4">
-                        {/* Vulnerability Summary */}
-                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                          <div className="text-center p-4 bg-red-900/20 border border-red-800 rounded-lg">
-                            <div className="text-2xl font-bold text-red-400 mb-1">
-                              {packageData.vulnerabilitySummary.criticalCount}
-                            </div>
-                            <div className="text-sm text-gray-400">Critical</div>
-                          </div>
-                          <div className="text-center p-4 bg-orange-900/20 border border-orange-800 rounded-lg">
-                            <div className="text-2xl font-bold text-orange-400 mb-1">
-                              {packageData.vulnerabilitySummary.highCount}
-                            </div>
-                            <div className="text-sm text-gray-400">High</div>
-                          </div>
-                          <div className="text-center p-4 bg-yellow-900/20 border border-yellow-800 rounded-lg">
-                            <div className="text-2xl font-bold text-yellow-400 mb-1">
-                              {packageData.vulnerabilitySummary.mediumCount}
-                            </div>
-                            <div className="text-sm text-gray-400">Medium</div>
-                          </div>
-                          <div className="text-center p-4 bg-blue-900/20 border border-blue-800 rounded-lg">
-                            <div className="text-2xl font-bold text-blue-400 mb-1">
-                              {packageData.vulnerabilitySummary.lowCount}
-                            </div>
-                            <div className="text-sm text-gray-400">Low</div>
-                          </div>
+                        {/* Clean Vulnerability Summary */}
+                        <div className="flex items-center gap-4 text-sm text-gray-400 mb-4">
+                          <span>Severity breakdown:</span>
+                          {packageData.vulnerabilitySummary.criticalCount > 0 && (
+                            <span className="text-red-400">{packageData.vulnerabilitySummary.criticalCount} critical</span>
+                          )}
+                          {packageData.vulnerabilitySummary.highCount > 0 && (
+                            <span className="text-orange-400">{packageData.vulnerabilitySummary.highCount} high</span>
+                          )}
+                          {packageData.vulnerabilitySummary.mediumCount > 0 && (
+                            <span className="text-yellow-400">{packageData.vulnerabilitySummary.mediumCount} medium</span>
+                          )}
+                          {packageData.vulnerabilitySummary.lowCount > 0 && (
+                            <span className="text-blue-400">{packageData.vulnerabilitySummary.lowCount} low</span>
+                          )}
                         </div>
 
                         {/* Recent Vulnerabilities */}
@@ -1197,41 +1186,25 @@ export default function PackageDetailsPage() {
                           {packageData.vulnerabilities?.slice(0, showAllVulnerabilities ? undefined : 1).map((vuln) => (
                             <div 
                               key={vuln.id}
-                              className={`p-4 rounded-lg border ${
-                                vuln.severity === 'CRITICAL' 
-                                  ? 'bg-red-900/20 border-red-800' 
-                                  : vuln.severity === 'HIGH'
-                                  ? 'bg-orange-900/20 border-orange-800'
-                                  : vuln.severity === 'MEDIUM'
-                                  ? 'bg-yellow-900/20 border-yellow-800'
-                                  : 'bg-blue-900/20 border-blue-800'
-                              }`}
+                              className="p-4 rounded-lg border border-gray-700 bg-gray-900/30"
                             >
                               <div className="space-y-3">
                                 {/* Header with title, severity, and date */}
                                 <div className="flex items-start justify-between gap-3">
                                   <div className="flex-1">
                                     <div className="flex items-center gap-2 mb-2">
-                                      <Shield className={`h-4 w-4 ${
-                                        vuln.severity === 'CRITICAL' 
-                                          ? 'text-red-400' 
-                                          : vuln.severity === 'HIGH'
-                                          ? 'text-orange-400'
-                                          : vuln.severity === 'MEDIUM'
-                                          ? 'text-yellow-400'
-                                          : 'text-blue-400'
-                                      }`} />
+                                      <Shield className="h-4 w-4 text-gray-500" />
                                       <span className="font-medium text-white">{vuln.title}</span>
                                       <Badge 
                                         variant="outline" 
                                         className={`text-xs ${
                                           vuln.severity === 'CRITICAL' 
-                                            ? 'border-red-600 text-red-400' 
+                                            ? 'border-red-500/30 text-red-400' 
                                             : vuln.severity === 'HIGH'
-                                            ? 'border-orange-600 text-orange-400'
+                                            ? 'border-orange-500/30 text-orange-400'
                                             : vuln.severity === 'MEDIUM'
-                                            ? 'border-yellow-600 text-yellow-400'
-                                            : 'border-blue-600 text-blue-400'
+                                            ? 'border-yellow-500/30 text-yellow-400'
+                                            : 'border-blue-500/30 text-blue-400'
                                         }`}
                                       >
                                         {vuln.severity}
@@ -2485,7 +2458,7 @@ export default function PackageDetailsPage() {
 
                 {/* Remove Repository */}
                 <div className="p-4 bg-red-900/20 border border-red-800 rounded-lg">
-                  <div className="flex items-start justify-between">
+                  <div className="flex items-center justify-between">
                     <div>
                       <h4 className="text-lg font-medium text-red-400 mb-2">Remove from Watchlist</h4>
                       <p className="text-sm text-gray-300 mb-4">
