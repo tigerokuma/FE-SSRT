@@ -18,7 +18,6 @@ import type { Package as PackageType, WatchlistItem } from '../../lib/watchlist/
 import { usePackageSearch, useWatchlist } from '../../lib/watchlist/index'
 import { PackageCard } from './PackageCard'
 import { PackageDetailsPanel } from './PackageDetailsPanel'
-import { AlertConfigurationDialog } from "./AlertConfigurationDialog"
 import { addRepositoryToWatchlist, fetchWatchlistItems } from "../../lib/watchlist/api"
 
 interface WatchlistSearchDialogProps {
@@ -37,7 +36,6 @@ export function WatchlistSearchDialog({
   const [isOpen, setIsOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedPackage, setSelectedPackage] = useState<PackageType | null>(null)
-  const [showAlertConfig, setShowAlertConfig] = useState(false)
   const [isAdding, setIsAdding] = useState(false)
 
   const { isAdding: isAddingToWatchlist, addItem, refreshItems } = useWatchlist()
@@ -75,51 +73,47 @@ export function WatchlistSearchDialog({
   }
 
   const handleAddToWatchlist = async (pkg: PackageType) => {
-    // Always show alert config dialog for all packages
-    setSelectedPackage(pkg)
-    setShowAlertConfig(true)
-    setIsOpen(false) // Close search dialog when opening alert config
-  }
-
-  const handleAlertConfigAdd = async (config: {
-    repo_url: string
-    added_by: string
-    notes?: string
-    alerts: {
-      ai_powered_anomaly_detection: {
-        enabled: boolean
-      }
-      lines_added_deleted: {
-        enabled: boolean
-        contributor_variance: number
-        repository_variance: number
-        hardcoded_threshold: number
-      }
-      files_changed: {
-        enabled: boolean
-        contributor_variance: number
-        repository_variance: number
-        hardcoded_threshold: number
-      }
-
-
-      unusual_author_activity: {
-        enabled: boolean
-        percentage_outside_range: number
-      }
-    }
-  }) => {
-    if (!selectedPackage) return
-    
     setIsAdding(true)
     try {
-      console.log('🔄 Adding repository to watchlist:', config.repo_url)
+      console.log('🔄 Adding repository to watchlist:', pkg.repo_url || pkg.name)
+      
+      // Create default alert configuration with all alerts disabled
+      const defaultAlertConfig = {
+        repo_url: pkg.repo_url || `https://github.com/${pkg.name}`,
+        added_by: "user-123", // TODO: Get actual user ID
+        alerts: {
+          ai_powered_anomaly_detection: {
+            enabled: false
+          },
+          lines_added_deleted: {
+            enabled: false,
+            contributor_variance: 3.0,
+            repository_variance: 3.5,
+            hardcoded_threshold: 1000
+          },
+          files_changed: {
+            enabled: false,
+            contributor_variance: 2.5,
+            repository_variance: 3.0,
+            hardcoded_threshold: 20
+          },
+          suspicious_author_timestamps: {
+            enabled: false
+          },
+          new_vulnerabilities_detected: {
+            enabled: false
+          },
+          health_score_decreases: {
+            enabled: false,
+            minimum_health_change: 5
+          }
+        }
+      }
       
       // Use addRepositoryToWatchlist which calls the correct /activity/user-watchlist-added endpoint
-      const result = await addRepositoryToWatchlist(config)
+      const result = await addRepositoryToWatchlist(defaultAlertConfig)
       console.log('✅ Repository added successfully:', result)
       
-      setShowAlertConfig(false)
       setIsOpen(false)
       setSearchQuery("")
       setSelectedPackage(null)
@@ -140,19 +134,6 @@ export function WatchlistSearchDialog({
     } finally {
       setIsAdding(false)
     }
-  }
-
-  const handleAlertConfigBack = () => {
-    setShowAlertConfig(false)
-    setIsOpen(true) // Reopen search dialog when going back
-  }
-
-  const handleAlertConfigClose = () => {
-    setShowAlertConfig(false)
-    setIsOpen(false)
-    setSelectedPackage(null)
-    setSearchQuery("")
-    clearSearch()
   }
 
   const hasResults = searchResults.length > 0
@@ -247,18 +228,6 @@ export function WatchlistSearchDialog({
           </div>
         </DialogContent>
       </Dialog>
-
-      {/* Alert Configuration Dialog */}
-      {selectedPackage && (
-        <AlertConfigurationDialog
-          pkg={selectedPackage}
-          isOpen={showAlertConfig}
-          onClose={handleAlertConfigClose}
-          onBack={handleAlertConfigBack}
-          onAdd={handleAlertConfigAdd}
-          isAdding={isAdding}
-        />
-      )}
     </>
   )
 } 

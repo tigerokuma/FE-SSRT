@@ -27,7 +27,11 @@ import {
   Eye,
   Package,
   User,
-  Shield
+  Shield,
+  TrendingDown,
+  MessageSquare,
+  Mail,
+  MessageCircle
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -2198,7 +2202,6 @@ export default function PackageDetailsPage() {
                                     step={0.1}
                                     className="w-full"
                                   />
-                                  <p className="text-xs text-gray-500 mt-1">Suggested: 3.0</p>
                                 </div>
                                 <div>
                                   <div className="flex items-center justify-between mb-2">
@@ -2213,14 +2216,20 @@ export default function PackageDetailsPage() {
                                     step={0.1}
                                     className="w-full"
                                   />
-                                  <p className="text-xs text-gray-500 mt-1">Suggested: 3.5</p>
                                 </div>
                                 <div>
                                   <Label className="text-sm text-gray-300">Hard Threshold</Label>
                                   <Input
                                     type="number"
                                     value={alertSettings.lines_added_deleted.hardcoded_threshold}
-                                    onChange={(e) => handleUpdateAlertThreshold('lines_added_deleted', 'hardcoded_threshold', parseInt(e.target.value) || 1000)}
+                                    onChange={(e) => {
+                                      const value = e.target.value;
+                                      const numValue = value === '' ? 0 : parseInt(value, 10);
+                                      if (!isNaN(numValue)) {
+                                        handleUpdateAlertThreshold('lines_added_deleted', 'hardcoded_threshold', numValue);
+                                      }
+                                    }}
+                                    onWheel={(e) => e.currentTarget.blur()}
                                     className="h-8 text-sm bg-black border-gray-700 text-white mt-2"
                                   />
                                 </div>
@@ -2281,7 +2290,6 @@ export default function PackageDetailsPage() {
                                     step={0.1}
                                     className="w-full"
                                   />
-                                  <p className="text-xs text-gray-500 mt-1">Suggested: 2.5</p>
                                 </div>
                                 <div>
                                   <div className="flex items-center justify-between mb-2">
@@ -2296,14 +2304,20 @@ export default function PackageDetailsPage() {
                                     step={0.1}
                                     className="w-full"
                                   />
-                                  <p className="text-xs text-gray-500 mt-1">Suggested: 3.0</p>
                                 </div>
                                 <div>
                                   <Label className="text-sm text-gray-300">Hard Threshold</Label>
                                   <Input
                                     type="number"
                                     value={alertSettings.files_changed.hardcoded_threshold}
-                                    onChange={(e) => handleUpdateAlertThreshold('files_changed', 'hardcoded_threshold', parseInt(e.target.value) || 20)}
+                                    onChange={(e) => {
+                                      const value = e.target.value;
+                                      const numValue = value === '' ? 0 : parseInt(value, 10);
+                                      if (!isNaN(numValue)) {
+                                        handleUpdateAlertThreshold('files_changed', 'hardcoded_threshold', numValue);
+                                      }
+                                    }}
+                                    onWheel={(e) => e.currentTarget.blur()}
                                     className="h-8 text-sm bg-black border-gray-700 text-white mt-2"
                                   />
                                 </div>
@@ -2311,83 +2325,71 @@ export default function PackageDetailsPage() {
                             </div>
                           )}
 
-                          {/* High Churn */}
-                          <div className="flex items-center justify-between p-4 bg-gray-800/50 rounded-lg">
-                            <div className="flex items-center gap-3">
-                              <AlertTriangle className="h-5 w-5 text-amber-400" />
-                              <div>
-                                <div className="font-medium text-white">High Churn</div>
-                                <div className="text-sm text-gray-400">
-                                  Alert on high lines-to-files ratio commits
-                                  {alertSettings.high_churn?.enabled && (
-                                    <div className="text-xs text-gray-500 mt-1">
-                                      Multiplier: {alertSettings.high_churn.multiplier}x
-                                      <br />
-                                      Hard threshold: {alertSettings.high_churn.hardcoded_threshold}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                            {isEditingAlerts ? (
-                              <Switch
-                                checked={alertSettings.high_churn?.enabled || false}
-                                onCheckedChange={(enabled) => handleToggleAlert('high_churn', enabled)}
-                              />
-                            ) : (
-                              <Badge variant="outline" className={`${
-                                alertSettings.high_churn?.enabled 
-                                  ? 'border-green-600 text-green-400' 
-                                  : 'border-gray-600 text-gray-400'
-                              }`}>
-                                {alertSettings.high_churn?.enabled ? 'Enabled' : 'Disabled'}
-                              </Badge>
-                            )}
-                          </div>
-                          
-                          {/* High Churn Configuration */}
-                          {isEditingAlerts && alertSettings.high_churn?.enabled && (
-                            <div className="ml-8 p-4 bg-gray-900/50 rounded-lg space-y-4">
-                              <div className="space-y-3">
-                                <div>
-                                  <div className="flex items-center justify-between mb-2">
-                                    <Label className="text-sm text-gray-300">Multiplier</Label>
-                                    <span className="text-sm text-gray-400">{alertSettings.high_churn.multiplier}</span>
-                                  </div>
-                                  <Slider
-                                    value={[alertSettings.high_churn.multiplier]}
-                                    onValueChange={(value) => handleUpdateAlertThreshold('high_churn', 'multiplier', value[0])}
-                                    max={10}
-                                    min={1}
-                                    step={0.1}
-                                    className="w-full"
-                                  />
-                                  <p className="text-xs text-gray-500 mt-1">Suggested: 3.0</p>
-                                </div>
-                                <div>
-                                  <Label className="text-sm text-gray-300">Hard Threshold</Label>
-                                  <Input
-                                    type="number"
-                                    value={alertSettings.high_churn.hardcoded_threshold}
-                                    onChange={(e) => handleUpdateAlertThreshold('high_churn', 'hardcoded_threshold', parseInt(e.target.value) || 10)}
-                                    className="h-8 text-sm bg-black border-gray-700 text-white mt-2"
-                                  />
-                                </div>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Unusual Author Activity */}
+                          {/* Suspicious Author Timestamps */}
                           <div className="flex items-center justify-between p-4 bg-gray-800/50 rounded-lg">
                             <div className="flex items-center gap-3">
                               <User className="h-5 w-5 text-orange-400" />
                               <div>
-                                <div className="font-medium text-white">Unusual Author Activity</div>
+                                <div className="font-medium text-white">Suspicious Author Timestamps</div>
                                 <div className="text-sm text-gray-400">
-                                  Alert when authors commit outside normal hours
-                                  {alertSettings.unusual_author_activity?.enabled && (
+                                  Alert when authors commit outside their normal hours
+                                </div>
+                              </div>
+                            </div>
+                            {isEditingAlerts ? (
+                              <Switch
+                                checked={alertSettings.suspicious_author_timestamps?.enabled || false}
+                                onCheckedChange={(enabled) => handleToggleAlert('suspicious_author_timestamps', enabled)}
+                              />
+                            ) : (
+                              <Badge variant="outline" className={`${
+                                alertSettings.suspicious_author_timestamps?.enabled 
+                                  ? 'border-green-600 text-green-400' 
+                                  : 'border-gray-600 text-gray-400'
+                              }`}>
+                                {alertSettings.suspicious_author_timestamps?.enabled ? 'Enabled' : 'Disabled'}
+                              </Badge>
+                            )}
+                          </div>
+
+                          {/* New Vulnerabilities Detected */}
+                          <div className="flex items-center justify-between p-4 bg-gray-800/50 rounded-lg">
+                            <div className="flex items-center gap-3">
+                              <Shield className="h-5 w-5 text-red-400" />
+                              <div>
+                                <div className="font-medium text-white">New Vulnerabilities Detected</div>
+                                <div className="text-sm text-gray-400">
+                                  Alert when new security vulnerabilities are discovered
+                                </div>
+                              </div>
+                            </div>
+                            {isEditingAlerts ? (
+                              <Switch
+                                checked={alertSettings.new_vulnerabilities_detected?.enabled || false}
+                                onCheckedChange={(enabled) => handleToggleAlert('new_vulnerabilities_detected', enabled)}
+                              />
+                            ) : (
+                              <Badge variant="outline" className={`${
+                                alertSettings.new_vulnerabilities_detected?.enabled 
+                                  ? 'border-green-600 text-green-400' 
+                                  : 'border-gray-600 text-gray-400'
+                              }`}>
+                                {alertSettings.new_vulnerabilities_detected?.enabled ? 'Enabled' : 'Disabled'}
+                              </Badge>
+                            )}
+                          </div>
+
+                          {/* Health Score Decreases */}
+                          <div className="flex items-center justify-between p-4 bg-gray-800/50 rounded-lg">
+                            <div className="flex items-center gap-3">
+                              <TrendingDown className="h-5 w-5 text-yellow-400" />
+                              <div>
+                                <div className="font-medium text-white">Health Score Decreases</div>
+                                <div className="text-sm text-gray-400">
+                                  Alert when repository health score decreases significantly
+                                  {alertSettings.health_score_decreases?.enabled && (
                                     <div className="text-xs text-gray-500 mt-1">
-                                      Threshold: {alertSettings.unusual_author_activity.percentage_outside_range}% outside range
+                                      Minimum change: {alertSettings.health_score_decreases.minimum_health_change} points
                                     </div>
                                   )}
                                 </div>
@@ -2395,37 +2397,37 @@ export default function PackageDetailsPage() {
                             </div>
                             {isEditingAlerts ? (
                               <Switch
-                                checked={alertSettings.unusual_author_activity?.enabled || false}
-                                onCheckedChange={(enabled) => handleToggleAlert('unusual_author_activity', enabled)}
+                                checked={alertSettings.health_score_decreases?.enabled || false}
+                                onCheckedChange={(enabled) => handleToggleAlert('health_score_decreases', enabled)}
                               />
                             ) : (
                               <Badge variant="outline" className={`${
-                                alertSettings.unusual_author_activity?.enabled 
+                                alertSettings.health_score_decreases?.enabled 
                                   ? 'border-green-600 text-green-400' 
                                   : 'border-gray-600 text-gray-400'
                               }`}>
-                                {alertSettings.unusual_author_activity?.enabled ? 'Enabled' : 'Disabled'}
+                                {alertSettings.health_score_decreases?.enabled ? 'Enabled' : 'Disabled'}
                               </Badge>
                             )}
                           </div>
                           
-                          {/* Unusual Author Activity Configuration */}
-                          {isEditingAlerts && alertSettings.unusual_author_activity?.enabled && (
+                          {/* Health Score Decreases Configuration */}
+                          {isEditingAlerts && alertSettings.health_score_decreases?.enabled && (
                             <div className="ml-8 p-4 bg-gray-900/50 rounded-lg space-y-4">
                               <div>
                                 <div className="flex items-center justify-between mb-2">
-                                  <Label className="text-sm text-gray-300">Percentage Outside Range</Label>
-                                  <span className="text-sm text-gray-400">{alertSettings.unusual_author_activity.percentage_outside_range}%</span>
+                                  <Label className="text-sm text-gray-300">Minimum Health Change</Label>
+                                  <span className="text-sm text-gray-400">{alertSettings.health_score_decreases.minimum_health_change} points</span>
                                 </div>
                                 <Slider
-                                  value={[alertSettings.unusual_author_activity.percentage_outside_range]}
-                                  onValueChange={(value) => handleUpdateAlertThreshold('unusual_author_activity', 'percentage_outside_range', value[0])}
-                                  max={100}
-                                  min={10}
-                                  step={5}
+                                  value={[alertSettings.health_score_decreases.minimum_health_change]}
+                                  onValueChange={(value) => handleUpdateAlertThreshold('health_score_decreases', 'minimum_health_change', value[0])}
+                                  max={20}
+                                  min={1}
+                                  step={1}
                                   className="w-full"
                                 />
-                                <p className="text-xs text-gray-500 mt-1">Suggested: 80%</p>
+                                <p className="text-xs text-gray-500 mt-1">Alert when health score decreases by this amount or more</p>
                               </div>
                             </div>
                           )}
@@ -2455,6 +2457,8 @@ export default function PackageDetailsPage() {
                     })()}
                   </CardContent>
                 </Card>
+
+
 
                 {/* Remove Repository */}
                 <div className="p-4 bg-red-900/20 border border-red-800 rounded-lg">

@@ -308,7 +308,6 @@ export const addRepositoryToWatchlist = async (
   config: {
     repo_url: string
     added_by: string
-    notes?: string
     alerts: {
       ai_powered_anomaly_detection: {
         enabled: boolean
@@ -325,11 +324,15 @@ export const addRepositoryToWatchlist = async (
         repository_variance: number
         hardcoded_threshold: number
       }
-
-
-      unusual_author_activity: {
+      suspicious_author_timestamps: {
         enabled: boolean
-        percentage_outside_range: number
+      }
+      new_vulnerabilities_detected: {
+        enabled: boolean
+      }
+      health_score_decreases: {
+        enabled: boolean
+        minimum_health_change: number
       }
     }
   }
@@ -604,6 +607,39 @@ export const generateCommitSummary = async (
   } catch (error) {
     console.error('Error generating commit summary:', error)
     throw new Error('Failed to generate commit summary. Please try again.')
+  }
+}
+
+/**
+ * Update alert settings for a user watchlist
+ */
+export const updateUserWatchlistAlerts = async (
+  userWatchlistId: string,
+  alerts: any
+): Promise<void> => {
+  try {
+    console.log('Updating alert settings for user watchlist:', userWatchlistId)
+    
+    const response = await fetch(`${API_BASE_URL}/activity/user-watchlist-alerts/${userWatchlistId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ alerts }),
+    })
+    
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Failed to update alert settings: ${response.statusText} - ${errorText}`)
+    }
+    
+    console.log('Alert settings updated successfully')
+  } catch (error) {
+    console.error('Error updating alert settings:', error)
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error('Failed to update alert settings. Please try again.')
   }
 }
 
