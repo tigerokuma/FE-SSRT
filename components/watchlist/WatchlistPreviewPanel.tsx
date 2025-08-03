@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import type { Package as PackageType } from '../../lib/watchlist/types'
-import { formatNumber, formatDate } from '../../lib/watchlist/utils'
+import { formatNumber, formatDate, getVulnerabilityCount, hasVulnerabilities, getHighestSeverity } from '../../lib/watchlist/utils'
 import { getPackageDetails } from '../../lib/watchlist/api'
 
 interface WatchlistPreviewPanelProps {
@@ -264,6 +264,43 @@ export function WatchlistPreviewPanel({
                       />
                     </div>
                     <span className="text-sm font-medium">{displayPackage.risk_score}/100</span>
+                  </div>
+                </div>
+              )}
+
+              {/* OSV Vulnerabilities */}
+              {displayPackage.osv_vulnerabilities && displayPackage.osv_vulnerabilities.length > 0 && (
+                <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800/50 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <AlertTriangle className="h-5 w-5 text-red-500" />
+                    <h3 className="font-medium text-red-900 dark:text-red-100">Security Vulnerabilities</h3>
+                  </div>
+                  <div className="space-y-2">
+                    {displayPackage.osv_vulnerabilities.slice(0, 3).map((vuln, idx) => (
+                      <div key={vuln.id} className="text-sm">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Badge variant="outline" className="border-red-300 text-red-700 dark:border-red-600 dark:text-red-300 text-xs">
+                            {vuln.id}
+                          </Badge>
+                          <span className="text-red-600 dark:text-red-400 text-xs">
+                            {vuln.severity ? 'CVSS detected' : 'No CVSS data'}
+                          </span>
+                        </div>
+                        <p className="text-red-700 dark:text-red-300 text-xs line-clamp-2">
+                          {vuln.summary}
+                        </p>
+                      </div>
+                    ))}
+                    {displayPackage.osv_vulnerabilities.length > 3 && (
+                      <p className="text-red-600 dark:text-red-400 text-xs">
+                        +{displayPackage.osv_vulnerabilities.length - 3} more vulnerabilities
+                      </p>
+                    )}
+                  </div>
+                  <div className="mt-3 pt-3 border-t border-red-200 dark:border-red-700">
+                    <p className="text-red-600 dark:text-red-400 text-xs">
+                      Review all vulnerabilities before adding to your project
+                    </p>
                   </div>
                 </div>
               )}
