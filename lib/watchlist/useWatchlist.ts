@@ -12,7 +12,8 @@ import {
   fetchWatchlistItems,
   searchPackages as apiSearchPackages,
   searchAndEnrichPackages,
-  batchEnrichPackages
+  batchEnrichPackages,
+  testEventStreamSearch
 } from './api'
 
 /**
@@ -118,6 +119,12 @@ export const usePackageSearch = () => {
       setSearchResponseTime("")
       setEnrichmentProgress({ total: 0, completed: 0, errors: [] })
       return
+    }
+
+    // Test event-stream specifically
+    if (query.toLowerCase().includes('event-stream')) {
+      console.log('Testing event-stream search...')
+      await testEventStreamSearch()
     }
 
     setIsSearching(true)

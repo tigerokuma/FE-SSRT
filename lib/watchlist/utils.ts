@@ -141,31 +141,132 @@ export const filterByType = (
  */
 export const sortWatchlistItems = (
   items: WatchlistItem[],
-  sortBy: 'name' | 'risk' | 'activity' | 'lastUpdate' = 'name',
+  sortBy: 'name' | 'risk' | 'activity' | 'lastUpdate' | 'vulnerabilities' = 'name',
   order: 'asc' | 'desc' = 'asc'
 ): WatchlistItem[] => {
   const sorted = [...items].sort((a, b) => {
     let comparison = 0
-    
+
     switch (sortBy) {
       case 'name':
         comparison = a.name.localeCompare(b.name)
         break
       case 'risk':
-        const riskOrder = { low: 1, medium: 2, high: 3 }
+        const riskOrder = { low: 0, medium: 1, high: 2 }
         comparison = riskOrder[a.risk] - riskOrder[b.risk]
         break
       case 'activity':
-        const activityOrder = { low: 1, medium: 2, high: 3 }
+        const activityOrder = { low: 0, medium: 1, high: 2 }
         comparison = activityOrder[a.activity] - activityOrder[b.activity]
         break
       case 'lastUpdate':
-        comparison = new Date(a.updatedAt || 0).getTime() - new Date(b.updatedAt || 0).getTime()
+        comparison = new Date(a.lastUpdate).getTime() - new Date(b.lastUpdate).getTime()
         break
+      case 'vulnerabilities':
+        const aVulnCount = getVulnerabilityCount(a.vulnerabilities)
+        const bVulnCount = getVulnerabilityCount(b.vulnerabilities)
+        comparison = aVulnCount - bVulnCount
+        break
+      default:
+        comparison = a.name.localeCompare(b.name)
     }
-    
-    return order === 'desc' ? -comparison : comparison
+
+    return order === 'asc' ? comparison : -comparison
   })
-  
+
   return sorted
+} 
+
+// Vulnerability utilities
+export function parseCvssSeverity(cvssString?: string): {
+  level: 'critical' | 'high' | 'medium' | 'low' | 'unknown'
+  score: number
+  color: string
+  icon: string
+} {
+  if (!cvssString) {
+    return { level: 'unknown', score: 0, color: 'gray', icon: '❓' }
+  }
+
+  // Extract CVSS score from string like "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
+  const scoreMatch = cvssString.match(/CVSS:3\.\d+\/.*\/C:([HMLN])\/I:([HMLN])\/A:([HMLN])/)
+  if (!scoreMatch) {
+    return { level: 'unknown', score: 0, color: 'gray', icon: '❓' }
+  }
+
+  // Convert CVSS metrics to numeric scores
+  const metricScores = { H: 0.56, M: 0.45, L: 0.77, N: 0 }
+  const confidentiality = metricScores[scoreMatch[1] as keyof typeof metricScores] || 0
+  const integrity = metricScores[scoreMatch[2] as keyof typeof metricScores] || 0
+  const availability = metricScores[scoreMatch[3] as keyof typeof metricScores] || 0
+
+  // Calculate base score (simplified)
+  const baseScore = Math.round((confidentiality + integrity + availability) * 10)
+
+  // Determine severity level
+  let level: 'critical' | 'high' | 'medium' | 'low' | 'unknown'
+  let color: string
+  let icon: string
+
+  if (baseScore >= 9.0) {
+    level = 'critical'
+    color = 'red'
+    icon = '🔴'
+  } else if (baseScore >= 7.0) {
+    level = 'high'
+    color = 'orange'
+    icon = '🟠'
+  } else if (baseScore >= 4.0) {
+    level = 'medium'
+    color = 'yellow'
+    icon = '🟡'
+  } else if (baseScore >= 0.1) {
+    level = 'low'
+    color = 'green'
+    icon = '🟢'
+  } else {
+    level = 'unknown'
+    color = 'gray'
+    icon = '❓'
+  }
+
+  return { level, score: baseScore, color, icon }
+}
+
+export function getVulnerabilityCount(vulnerabilities?: any[]): number {
+  return vulnerabilities?.length || 0
+}
+
+export function hasVulnerabilities(vulnerabilities?: any[]): boolean {
+  return getVulnerabilityCount(vulnerabilities) > 0
+}
+
+export function getHighestSeverity(vulnerabilities?: any[]): {
+  level: 'critical' | 'high' | 'medium' | 'low' | 'unknown'
+  color: string
+  icon: string
+} {
+  if (!vulnerabilities || vulnerabilities.length === 0) {
+    return { level: 'unknown', color: 'gray', icon: '❓' }
+  }
+
+  const severityLevels = ['critical', 'high', 'medium', 'low'] as const
+  const severityColors = { critical: 'red', high: 'orange', medium: 'yellow', low: 'green' }
+  const severityIcons = { critical: '🔴', high: '🟠', medium: '🟡', low: '🟢' }
+
+  for (const level of severityLevels) {
+    const hasLevel = vulnerabilities.some(vuln => {
+      const parsed = parseCvssSeverity(vuln.severity)
+      return parsed.level === level
+    })
+    if (hasLevel) {
+      return {
+        level,
+        color: severityColors[level],
+        icon: severityIcons[level]
+      }
+    }
+  }
+
+  return { level: 'unknown', color: 'gray', icon: '❓' }
 } 

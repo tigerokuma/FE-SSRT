@@ -1,10 +1,11 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Search, Loader2, Plus } from "lucide-react"
+import { Search, Loader2, Plus, AlertTriangle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Badge } from "@/components/ui/badge"
 import {
   Dialog,
   DialogContent,
@@ -16,6 +17,7 @@ import {
 
 import type { Package as PackageType, WatchlistItem } from '../../lib/watchlist/types'
 import { usePackageSearch, useWatchlist } from '../../lib/watchlist/index'
+import { hasVulnerabilities, getVulnerabilityCount, getHighestSeverity } from '../../lib/watchlist/utils'
 import { PackageCard } from './PackageCard'
 import { PackageDetailsPanel } from './PackageDetailsPanel'
 import { AlertConfigurationDialog } from "./AlertConfigurationDialog"
@@ -37,6 +39,7 @@ export function WatchlistSearchDialog({
   const [selectedPackage, setSelectedPackage] = useState<PackageType | null>(null)
   const [showAlertConfig, setShowAlertConfig] = useState(false)
   const [isAdding, setIsAdding] = useState(false)
+  const [securityFilter, setSecurityFilter] = useState<'all' | 'secure' | 'vulnerable'>('all')
 
   const { isAdding: isAddingToWatchlist, addItem } = useWatchlist()
   const {
@@ -66,6 +69,16 @@ export function WatchlistSearchDialog({
 
     return () => clearTimeout(timeoutId)
   }, [searchQuery, searchPackages])
+
+  // Filter results by security status
+  const filteredResults = searchResults.filter(pkg => {
+    if (securityFilter === 'secure') {
+      return !hasVulnerabilities(pkg.osv_vulnerabilities)
+    } else if (securityFilter === 'vulnerable') {
+      return hasVulnerabilities(pkg.osv_vulnerabilities)
+    }
+    return true
+  })
 
   const handlePackageSelect = (pkg: PackageType) => {
     setSelectedPackage(pkg)
@@ -143,7 +156,9 @@ export function WatchlistSearchDialog({
     clearSearch()
   }
 
-  const hasResults = searchResults.length > 0
+  const hasResults = filteredResults.length > 0
+  const vulnerableCount = searchResults.filter(pkg => hasVulnerabilities(pkg.osv_vulnerabilities)).length
+  const secureCount = searchResults.filter(pkg => !hasVulnerabilities(pkg.osv_vulnerabilities)).length
 
   return (
     <>
@@ -169,7 +184,7 @@ export function WatchlistSearchDialog({
               </DialogHeader>
 
               {/* Search Controls */}
-              <div className="px-6 pb-4 flex-shrink-0">
+              <div className="px-6 pb-4 flex-shrink-0 space-y-3">
                 <div className="relative">
                   <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                   <Input
@@ -179,6 +194,40 @@ export function WatchlistSearchDialog({
                     className="pl-10"
                   />
                 </div>
+
+                {/* Security Filter */}
+                {searchResults.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-400">Security:</span>
+                    <div className="flex gap-1">
+                      <Button
+                        size="sm"
+                        variant={securityFilter === 'all' ? 'default' : 'outline'}
+                        onClick={() => setSecurityFilter('all')}
+                        className="text-xs"
+                      >
+                        All ({searchResults.length})
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={securityFilter === 'secure' ? 'default' : 'outline'}
+                        onClick={() => setSecurityFilter('secure')}
+                        className="text-xs"
+                      >
+                        Secure ({secureCount})
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant={securityFilter === 'vulnerable' ? 'default' : 'outline'}
+                        onClick={() => setSecurityFilter('vulnerable')}
+                        className="text-xs"
+                      >
+                        <AlertTriangle className="w-3 h-3 mr-1" />
+                        Vulnerable ({vulnerableCount})
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Results */}
@@ -193,7 +242,7 @@ export function WatchlistSearchDialog({
                     </div>
                   ) : hasResults ? (
                     <div className="space-y-3 pb-6">
-                      {searchResults.map((pkg) => (
+                      {filteredResults.map((pkg) => (
                         <PackageCard
                           key={pkg.name}
                           pkg={pkg}
@@ -209,7 +258,14 @@ export function WatchlistSearchDialog({
                     <div className="flex items-center justify-center py-8">
                       <div className="text-center">
                         <Search className="h-8 w-8 mx-auto mb-4 text-gray-400" />
-                        <p className="text-sm text-gray-400">No packages found</p>
+                        <p className="text-sm text-gray-400">
+                          {securityFilter === 'all' 
+                            ? 'No packages found' 
+                            : securityFilter === 'secure' 
+                            ? 'No secure packages found' 
+                            : 'No vulnerable packages found'
+                          }
+                        </p>
                       </div>
                     </div>
                   ) : (

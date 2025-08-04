@@ -1,13 +1,14 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Loader2, Download, Plus, Star, GitFork, Users, Calendar, Shield, ExternalLink, Globe, Package, AlertCircle, CheckCircle, XCircle, Eye, Github, Award, Activity, Clock, Link } from "lucide-react"
+import { Loader2, Download, Plus, Star, GitFork, Users, Calendar, Shield, ExternalLink, Globe, Package, AlertCircle, CheckCircle, XCircle, Eye, Github, Award, Activity, Clock, Link, AlertTriangle, ChevronDown, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
-import type { Package as PackageType } from '../../lib/watchlist/types'
-import { formatNumber } from '../../lib/watchlist/index'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import type { Package as PackageType, OsvVulnerability } from '../../lib/watchlist/types'
+import { formatNumber, parseCvssSeverity, getVulnerabilityCount, hasVulnerabilities, getHighestSeverity } from '../../lib/watchlist/index'
 import { getPackageDetailsSafe } from '../../lib/watchlist/api'
 
 interface PackageDetailsPanelProps {
@@ -30,11 +31,17 @@ export function PackageDetailsPanel({ pkg, onClose, onAdd, onAddWithConfig, isAd
       setIsLoading(true)
       setError(null)
       
+      // Debug: Log the package data to see what we're getting
+      console.log('Package data received:', pkg)
+      console.log('OSV vulnerabilities:', pkg.osv_vulnerabilities)
+      
       // Fetch detailed info in the background
       getPackageDetailsSafe(pkg.name, 'details')
         .then((result) => {
           if (result) {
             // Enhance with detailed information
+            console.log('Detailed package data:', result)
+            console.log('Detailed OSV vulnerabilities:', result.osv_vulnerabilities)
             setDetailedPkg(result)
           } else {
             setError('Unable to load additional package details')
@@ -354,60 +361,6 @@ export function PackageDetailsPanel({ pkg, onClose, onAdd, onAddWithConfig, isAd
             </div>
           </div>
 
-          {/* Security & Risk Assessment */}
-          <div>
-            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">
-              Security Assessment
-            </h3>
-            {displayPkg.risk_score ? (
-              <div className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-700 rounded-xl p-6 border border-slate-200 dark:border-slate-600">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-12 h-12 rounded-xl bg-${riskData.color}-100 dark:bg-${riskData.color}-900/50 flex items-center justify-center`}>
-                      <Shield className={`h-6 w-6 text-${riskData.color}-600 dark:text-${riskData.color}-400`} />
-                    </div>
-                    <div>
-                      <div className="font-semibold text-slate-900 dark:text-slate-100">
-                        {riskData.level} Security
-                      </div>
-                      <div className="text-sm text-slate-600 dark:text-slate-400">
-                        Risk Score: {displayPkg.risk_score}/100
-                      </div>
-                    </div>
-                  </div>
-                  <div className={`px-3 py-1 rounded-full text-sm font-medium bg-${riskData.color}-100 text-${riskData.color}-700 dark:bg-${riskData.color}-900/50 dark:text-${riskData.color}-300`}>
-                    {displayPkg.risk_score}/100
-                  </div>
-                </div>
-                
-                <div className="mb-4">
-                  <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
-                    <div 
-                      className={`h-2 rounded-full bg-gradient-to-r from-${riskData.color}-500 to-${riskData.color}-600`}
-                      style={{ width: `${displayPkg.risk_score}%` }}
-                    />
-                  </div>
-                </div>
-                
-                <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
-                  {riskData.description}
-                </p>
-              </div>
-            ) : (
-              <div className="bg-slate-50 dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-600 text-center">
-                <div className="w-12 h-12 mx-auto mb-4 rounded-xl bg-slate-200 dark:bg-slate-700 flex items-center justify-center">
-                  <AlertCircle className="h-6 w-6 text-slate-400" />
-                </div>
-                <p className="text-slate-600 dark:text-slate-400 text-sm mb-2">
-                  Security assessment unavailable
-                </p>
-                <p className="text-slate-500 dark:text-slate-500 text-xs">
-                  Manual review recommended before adoption
-                </p>
-              </div>
-            )}
-          </div>
-
           {/* Package Information */}
           <div>
             <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">
@@ -453,6 +406,112 @@ export function PackageDetailsPanel({ pkg, onClose, onAdd, onAddWithConfig, isAd
                   <div className="text-sm text-slate-900 dark:text-slate-100">
                     {displayPkg.last_updated || <span className="text-slate-500 italic">Not available</span>}
                   </div>
+                </div>
+              </div>
+
+              {/* OSV Vulnerability Information */}
+              <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4 border border-slate-200 dark:border-slate-600">
+                <div className="flex items-center gap-3 mb-3">
+                  <AlertTriangle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-300">OSV Vulnerability Data</span>
+                </div>
+                
+                {displayPkg.osv_vulnerabilities && displayPkg.osv_vulnerabilities.length > 0 ? (
+                  <div className="space-y-3">
+                    <div className="text-sm text-slate-600 dark:text-slate-400">
+                      <strong>Vulnerabilities Found:</strong> {displayPkg.osv_vulnerabilities.length}
+                    </div>
+                    
+                    {displayPkg.osv_vulnerabilities.map((vuln: OsvVulnerability, index: number) => (
+                      <div key={vuln.id} className="bg-white dark:bg-slate-700 rounded-lg p-3 border border-slate-200 dark:border-slate-600">
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="font-mono text-xs text-slate-600 dark:text-slate-400">
+                              <strong>ID:</strong> {vuln.id}
+                            </span>
+                            <span className="text-xs text-slate-500">
+                              #{index + 1}
+                            </span>
+                          </div>
+                          
+                          <div className="text-sm">
+                            <strong className="text-slate-700 dark:text-slate-300">Summary:</strong>
+                            <p className="text-slate-600 dark:text-slate-400 mt-1">{vuln.summary}</p>
+                          </div>
+                          
+                          {vuln.severity && (
+                            <div className="text-sm">
+                              <strong className="text-slate-700 dark:text-slate-300">CVSS Severity:</strong>
+                              <p className="text-slate-600 dark:text-slate-400 mt-1 font-mono text-xs">{vuln.severity}</p>
+                            </div>
+                          )}
+                          
+                          {vuln.affected_versions && vuln.affected_versions.length > 0 && (
+                            <div className="text-sm">
+                              <strong className="text-slate-700 dark:text-slate-300">Affected Versions:</strong>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {vuln.affected_versions.map((version, idx) => (
+                                  <span key={idx} className="px-2 py-1 bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-300 text-xs rounded">
+                                    {version}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {vuln.references && vuln.references.length > 0 && (
+                            <div className="text-sm">
+                              <strong className="text-slate-700 dark:text-slate-300">References ({vuln.references.length}):</strong>
+                              <div className="mt-1 space-y-1">
+                                {vuln.references.map((ref, idx) => (
+                                  <div key={idx} className="flex items-center gap-2 text-xs">
+                                    <span className="text-slate-500 capitalize">{ref.type}:</span>
+                                    <a 
+                                      href={ref.url} 
+                                      target="_blank" 
+                                      rel="noopener noreferrer"
+                                      className="text-blue-600 dark:text-blue-400 hover:underline truncate"
+                                    >
+                                      {ref.url}
+                                    </a>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {vuln.details && (
+                            <div className="text-sm">
+                              <strong className="text-slate-700 dark:text-slate-300">Details:</strong>
+                              <p className="text-slate-600 dark:text-slate-400 mt-1 text-xs leading-relaxed">
+                                {vuln.details}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-sm text-slate-600 dark:text-slate-400">
+                    <div className="flex items-center gap-2 mb-2">
+                      <CheckCircle className="h-4 w-4 text-green-500" />
+                      <strong>No vulnerabilities found in OSV database</strong>
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-500">
+                      This package has no known security vulnerabilities according to the Open Source Vulnerabilities (OSV) database. 
+                      The OSV database aggregates vulnerability information from multiple sources including GitHub Security Advisories, 
+                      NPM Security Advisories, and other security databases.
+                    </p>
+                  </div>
+                )}
+                
+                <div className="mt-4 pt-3 border-t border-slate-200 dark:border-slate-600">
+                  <p className="text-xs text-slate-500 dark:text-slate-500">
+                    <strong>About OSV Data:</strong> Open Source Vulnerabilities (OSV) is a vulnerability database and format 
+                    designed to help open source projects track and fix vulnerabilities. Data is sourced from GitHub Security 
+                    Advisories, NPM Security Advisories, and other security databases.
+                  </p>
                 </div>
               </div>
 

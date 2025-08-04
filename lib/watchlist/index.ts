@@ -51,9 +51,16 @@ export {
 // UI Components
 export * from '../../components/watchlist'
 
-// Re-export everything for convenience
+// Export all watchlist utilities
+export * from './api'
 export * from './types'
 export * from './utils'
-export * from './api'
 export * from './useWatchlist'
-export * from '../../components/watchlist' 
+
+// Re-export vulnerability utilities for convenience
+export {
+  parseCvssSeverity,
+  getVulnerabilityCount,
+  hasVulnerabilities,
+  getHighestSeverity
+} from './utils' 
