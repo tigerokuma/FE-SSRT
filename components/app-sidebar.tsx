@@ -61,6 +61,11 @@ export function AppSidebar() {
       href: "/team-routing",
       icon: Users
     },
+    {
+      title: "Sboms",
+      href: "/sbom",
+      icon: Users
+    },
   ]
 
   return (
