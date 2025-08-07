@@ -61,6 +61,7 @@ export default function SbomSearchPage() {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [vulnerablePackages, setVulnerablePackages] = useState<string[]>([]);
   const [metadata, setMetadata] = useState({
+    sbomPackage: "",
     directDependencies: 0,
     transitiveDependencies: 0,
     licenseSummary: {},
@@ -76,7 +77,7 @@ export default function SbomSearchPage() {
     { id: "user-123", label: "main" }, 
   ];
   const userId = 'user-123';
-  const [history, setHistory] = useState<string[]>(["pkg:npm/express@5.1.0"]);
+  const [history, setHistory] = useState<string[]>([metadata.sbomPackage]);
   const [watchlistId, setWatchlistId] = useState<string>("");
   const [userWatchlistId, setUserWatchlistId] = useState<string>("user-123");
 
@@ -101,7 +102,7 @@ export default function SbomSearchPage() {
         const encodedUserWatchlist = encodeURIComponent(userWatchlistId);
         const encodedNode = encodeURIComponent(currentNodeId);
         const vulnsParam = encodeURIComponent(vulnerablePackages.join(','));
-        
+        console.log('metadata: ');
         let url = "";
         if (watchlistId) {
           url = `http://localhost:3000/sbom/graph-dependencies/${encodedWatchlist}/${encodedNode}?vulns=${vulnsParam}`;
@@ -112,7 +113,6 @@ export default function SbomSearchPage() {
         const res = await fetch(url);
 
         const json = await res.json();
-        console.log("data here:", json);
         
         const layoutedData = structuredGraphOutput(json);
       setData(layoutedData);
@@ -123,7 +123,7 @@ export default function SbomSearchPage() {
     }
 
     fetchData();
-  }, [watchlistId, currentNodeId, vulnerablePackages]);
+  }, [metadata, watchlistId, currentNodeId, vulnerablePackages]);
 
   return (
     <ForceGraph2D
@@ -180,7 +180,7 @@ export default function SbomSearchPage() {
   );
 }
 
-  const currentNodeId = history[history.length - 1];
+  let currentNodeId = history[history.length - 1];
 
   useEffect(() => {
     async function loadDependencyPackages() {
@@ -215,11 +215,14 @@ export default function SbomSearchPage() {
         } else if (userWatchlistId) {
           url = `http://localhost:3000/sbom/user-watchlist-metadata/${userWatchlistId}`;
         }
-        console.log('metadata change');
 
         const res = await fetch(url);
         const data = await res.json();
         setMetadata(data);
+        setHistory([data.sbomPackage]);
+        console.log('metadata change:', data.sbomPackage);
+
+        currentNodeId = history[history.length - 1];
       } catch (error) {
         console.error("Failed to fetch metadata:", error);
       }
@@ -305,13 +308,6 @@ export default function SbomSearchPage() {
     }
   }
 
-  const COLORS = ["#4CAF50", "#FFC107", "#F44336", "#9E9E9E"]; // Customize colors
-
-  // Convert risk summary to chart data
-  const riskData = Object.entries(metadata.riskSummary || {}).map(([level, count]) => ({
-    name: level,
-    value: Number(count),
-  }));
 
   function prepareLicenseData(licenseSummary: Record<string, number>) {
   const threshold = 10;
@@ -337,6 +333,36 @@ export default function SbomSearchPage() {
 
 const licenseData = prepareLicenseData(metadata.licenseSummary || {});
 
+const licenses = [
+  {
+    name: 'GPL-3.0',
+    requirements: [
+      'Disclose source code',
+      'Use same license (copyleft)',
+      'Provide installation instructions',
+    ],
+  },
+  {
+    name: 'MIT',
+    requirements: [
+      'Include original license',
+      'Provide attribution',
+    ],
+  },
+  {
+    name: 'Apache-2.0',
+    requirements: [
+      'Include license and NOTICE file',
+      'Grant of patent rights',
+      'State changes made to code',
+    ],
+  },
+];
+
+const [selectedLicense, setSelectedLicense] = useState<{
+  name: string;
+  requirements: string[];
+} | null>(null);
 
 
   return (
@@ -393,7 +419,7 @@ const licenseData = prepareLicenseData(metadata.licenseSummary || {});
 
         {/* Show metadata at the top */}
         {metadata && (
-          <Card>
+          <Card className="h-[30vh]">
           <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4">
       {/* Total Components */}
       <div className="flex flex-col items-center justify-center bg-white rounded shadow p-4">
@@ -413,38 +439,56 @@ const licenseData = prepareLicenseData(metadata.licenseSummary || {});
 
       {/* License Summary Pie Chart */}
       <div className="bg-white rounded shadow p-4">
-        <h3 className="text-lg font-bold mb-2">License Summary</h3>
-        <ResponsiveContainer width="100%" height={200}>
-          <PieChart width={300} height={300}>
-            <Pie
-              data={licenseData}
-              dataKey="value"
-              nameKey="name"
-              outerRadius={80}
-              label={({ name }) => name}
-            >
-              {licenseData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-              ))}
-            </Pie>
-            <Tooltip formatter={(value, name) => [`${value} components`, name]} />
-          </PieChart>
-        </ResponsiveContainer>
-      </div>
+  <h3 className="text-lg font-bold mb-2">License Summary</h3>
+  <ul className="space-y-2 overflow-auto">
+    {licenseData.map((entry, index) => (
+      <li
+        key={index}
+        className="flex items-center justify-between border-b pb-1"
+      >
+        <span className="font-medium">{entry.name}</span>
+        <span className="text-sm text-gray-600">{entry.value} components</span>
+      </li>
+    ))}
+  </ul>
+</div>
 
       {/* Risk Summary Bar Chart */}
-      <div className="bg-white rounded shadow p-4">
-        <h3 className="text-lg font-bold mb-2">CopyLeft Risk Summary</h3>
-        <ResponsiveContainer width="100%" height={200}>
-          <BarChart data={riskData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="name" />
-            <YAxis allowDecimals={false} />
-            <Tooltip />
-            <Bar dataKey="value" fill="#F87171" />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
+      <div className="bg-white rounded shadow p-4 w-full max-w-md">
+      <h3 className="text-lg font-bold mb-4">Copyleft License Explorer</h3>
+
+      {!selectedLicense ? (
+        // Explorer View
+        <div className="space-y-2 overflow-auto">
+          {licenses.map((license, index) => (
+            <div
+              key={index}
+              className="p-3 border rounded hover:bg-gray-50 cursor-pointer"
+              onClick={() => setSelectedLicense(license)}
+            >
+              <span className="font-medium">{license.name}</span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        // Detail View
+        <div>
+          <button
+            className="text-sm text-blue-500 hover:underline mb-3"
+            onClick={() => setSelectedLicense(null)}
+          >
+            ← Back to licenses
+          </button>
+
+          <h4 className="text-md font-semibold mb-2">{selectedLicense.name}</h4>
+          <ul className="list-disc ml-5 text-sm text-gray-700">
+            {selectedLicense.requirements.map((req, idx) => (
+              <li key={idx}>{req}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
     </CardContent>
     </Card>
         )}
