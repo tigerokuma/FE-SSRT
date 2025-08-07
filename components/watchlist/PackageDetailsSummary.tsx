@@ -275,13 +275,139 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                             {/* Technical Details */}
                             {vuln.details && (
                               <div className="bg-white dark:bg-red-950/30 rounded-lg p-3 border border-red-100 dark:border-red-800/30">
-                                <div className="flex items-center gap-2 mb-2">
+                                <div className="flex items-center gap-2 mb-3">
                                   <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
                                   <span className="text-xs font-semibold text-red-700 dark:text-red-300 uppercase tracking-wide">Technical Details</span>
                                 </div>
-                                <p className="text-xs text-red-600 dark:text-red-400 leading-relaxed break-words overflow-wrap-anywhere bg-red-50 dark:bg-red-900/20 p-2 rounded border border-red-100 dark:border-red-800/30">
-                                  {vuln.details}
-                                </p>
+                                <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded border border-red-100 dark:border-red-800/30 max-h-64 overflow-y-auto">
+                                  {(() => {
+                                    const details = vuln.details;
+                                    
+                                    // Parse markdown-like content
+                                    const sections = details.split('##').filter(section => section.trim());
+                                    
+                                    if (sections.length <= 1) {
+                                      // No markdown sections, show as regular text
+                                      return (
+                                        <p className="text-xs text-red-600 dark:text-red-400 leading-relaxed break-words overflow-wrap-anywhere">
+                                          {details}
+                                        </p>
+                                      );
+                                    }
+                                    
+                                    return (
+                                      <div className="space-y-3">
+                                        {sections.map((section, idx) => {
+                                          const lines = section.trim().split('\n');
+                                          const title = lines[0]?.trim();
+                                          const content = lines.slice(1).join('\n').trim();
+                                          
+                                          if (!title) return null;
+                                          
+                                          return (
+                                            <div key={idx} className="border-l-2 border-red-300 dark:border-red-700 pl-3">
+                                              <h6 className="text-xs font-semibold text-red-700 dark:text-red-300 mb-1 uppercase tracking-wide">
+                                                {title}
+                                              </h6>
+                                              {content && (
+                                                <div className="text-xs text-red-600 dark:text-red-400 leading-relaxed space-y-2">
+                                                  {content.split('\n\n').map((paragraph, pIdx) => {
+                                                    // Handle code blocks
+                                                    if (paragraph.includes('```') || paragraph.includes('`')) {
+                                                      const codeMatch = paragraph.match(/`([^`]+)`/g);
+                                                      if (codeMatch) {
+                                                        return (
+                                                          <div key={pIdx} className="space-y-1">
+                                                            {paragraph.split(/`([^`]+)`/).map((part, partIdx) => {
+                                                              if (codeMatch.some(code => code === `\`${part}\``)) {
+                                                                return (
+                                                                  <code key={partIdx} className="bg-red-100 dark:bg-red-900/40 px-1 py-0.5 rounded text-xs font-mono text-red-700 dark:text-red-300">
+                                                                    {part}
+                                                                  </code>
+                                                                );
+                                                              }
+                                                              return part;
+                                                            })}
+                                                          </div>
+                                                        );
+                                                      }
+                                                    }
+                                                    
+                                                    // Handle numbered lists
+                                                    if (paragraph.match(/^\d+\./m)) {
+                                                      const listItems = paragraph.split(/(?=^\d+\.)/m).filter(item => item.trim());
+                                                      return (
+                                                        <ol key={pIdx} className="list-decimal list-inside space-y-1 ml-2">
+                                                          {listItems.map((item, itemIdx) => (
+                                                            <li key={itemIdx} className="text-xs break-words">
+                                                              {item.replace(/^\d+\.\s*/, '')}
+                                                            </li>
+                                                          ))}
+                                                        </ol>
+                                                      );
+                                                    }
+                                                    
+                                                    // Handle bullet points
+                                                    if (paragraph.match(/^[-*]/m)) {
+                                                      const listItems = paragraph.split(/(?=^[-*])/m).filter(item => item.trim());
+                                                      return (
+                                                        <ul key={pIdx} className="list-disc list-inside space-y-1 ml-2">
+                                                          {listItems.map((item, itemIdx) => (
+                                                            <li key={itemIdx} className="text-xs break-words">
+                                                              {item.replace(/^[-*]\s*/, '')}
+                                                            </li>
+                                                          ))}
+                                                        </ul>
+                                                      );
+                                                    }
+                                                    
+                                                    // Handle links
+                                                    const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+                                                    if (linkRegex.test(paragraph)) {
+                                                      const parts = paragraph.split(linkRegex);
+                                                      return (
+                                                        <p key={pIdx} className="break-words">
+                                                          {parts.map((part, partIdx) => {
+                                                            if (partIdx % 3 === 1) {
+                                                              // Link text
+                                                              const url = parts[partIdx + 1];
+                                                              return (
+                                                                <a
+                                                                  key={partIdx}
+                                                                  href={url}
+                                                                  target="_blank"
+                                                                  rel="noopener noreferrer"
+                                                                  className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
+                                                                >
+                                                                  {part}
+                                                                </a>
+                                                              );
+                                                            } else if (partIdx % 3 === 2) {
+                                                              // URL part, skip
+                                                              return null;
+                                                            }
+                                                            return part;
+                                                          })}
+                                                        </p>
+                                                      );
+                                                    }
+                                                    
+                                                    // Regular paragraph
+                                                    return (
+                                                      <p key={pIdx} className="break-words overflow-wrap-anywhere">
+                                                        {paragraph}
+                                                      </p>
+                                                    );
+                                                  })}
+                                                </div>
+                                              )}
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    );
+                                  })()}
+                                </div>
                               </div>
                             )}
                             
