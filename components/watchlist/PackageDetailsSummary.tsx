@@ -8,7 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Separator } from "@/components/ui/separator"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import type { Package as PackageType, OsvVulnerability } from '../../lib/watchlist/types'
-import { formatNumber, getVulnerabilityCount, hasVulnerabilities, getHighestSeverity } from '../../lib/watchlist/index'
+import { formatNumber, getVulnerabilityCount, hasVulnerabilities, getHighestSeverity, parseCvssSeverity } from '../../lib/watchlist/index'
 import { getPackageDetailsSafe } from '../../lib/watchlist/api'
 
 interface PackageDetailsSummaryProps {
@@ -73,6 +73,131 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
       case 'medium': return 'bg-yellow-500'
       case 'low': return 'bg-green-500'
       default: return 'bg-gray-500'
+    }
+  }
+
+  const parseCvssScore = (cvssString?: string): { score: number | null, level: string } => {
+    if (!cvssString) return { score: null, level: 'unknown' }
+    
+    // Try to extract actual CVSS score from common formats
+    // Format 1: "CVSS_V3: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H" with score
+    let scoreMatch = cvssString.match(/(\d+\.?\d*)\s*\/\s*10/)
+    if (scoreMatch) {
+      const score = parseFloat(scoreMatch[1])
+      return { score, level: getSeverityLevel(score) }
+    }
+    
+    // Format 2: Look for standalone score in string
+    scoreMatch = cvssString.match(/score[:\s]+(\d+\.?\d*)/i)
+    if (scoreMatch) {
+      const score = parseFloat(scoreMatch[1])
+      return { score, level: getSeverityLevel(score) }
+    }
+    
+    // Format 3: Just CVSS vector - we can't calculate accurately without proper formula
+    // So we'll classify based on the impact metrics only
+    const impactMatch = cvssString.match(/C:([HNML])[^A-Z]*I:([HNML])[^A-Z]*A:([HNML])/)
+    if (impactMatch) {
+      const [, c, i, a] = impactMatch
+      // Simple heuristic: if all High, likely critical/high
+      if (c === 'H' && i === 'H' && a === 'H') return { score: null, level: 'high' }
+      if ((c === 'H' && i === 'H') || (c === 'H' && a === 'H') || (i === 'H' && a === 'H')) return { score: null, level: 'medium' }
+      if (c === 'H' || i === 'H' || a === 'H') return { score: null, level: 'medium' }
+      if (c === 'M' || i === 'M' || a === 'M') return { score: null, level: 'low' }
+      return { score: null, level: 'low' }
+    }
+    
+    return { score: null, level: 'unknown' }
+  }
+  
+  const getSeverityLevel = (score: number): string => {
+    if (score >= 9.0) return 'critical'
+    if (score >= 7.0) return 'high' 
+    if (score >= 4.0) return 'medium'
+    if (score >= 0.1) return 'low'
+    return 'unknown'
+  }
+
+  const getSeverityTheme = (vuln: OsvVulnerability) => {
+    const { score, level } = parseCvssScore(vuln.severity)
+    const hasSeverityData = !!vuln.severity
+    
+    switch (level) {
+      case 'critical':
+        return {
+          dotColor: 'bg-red-600',
+          cardBg: 'from-red-50 to-red-50/80 dark:from-red-950/30 dark:to-red-900/20',
+          cardBorder: 'border-red-300 dark:border-red-800/60',
+          idBg: 'bg-red-100 dark:bg-red-900/50',
+          idText: 'text-red-700 dark:text-red-300',
+          titleText: 'text-red-900 dark:text-red-100',
+          subtitleText: 'text-red-700 dark:text-red-200',
+          sectionBorder: 'border-red-300 dark:border-red-700',
+          sectionBg: 'bg-white dark:bg-red-950/40',
+          sectionBorderColor: 'border-red-200 dark:border-red-800/40',
+          level: 'CRITICAL',
+          score
+        }
+      case 'high':
+        return {
+          dotColor: 'bg-orange-600',
+          cardBg: 'from-orange-50 to-orange-50/80 dark:from-orange-950/30 dark:to-orange-900/20',
+          cardBorder: 'border-orange-300 dark:border-orange-800/60',
+          idBg: 'bg-orange-100 dark:bg-orange-900/50',
+          idText: 'text-orange-700 dark:text-orange-300',
+          titleText: 'text-orange-900 dark:text-orange-100',
+          subtitleText: 'text-orange-700 dark:text-orange-200',
+          sectionBorder: 'border-orange-300 dark:border-orange-700',
+          sectionBg: 'bg-white dark:bg-orange-950/40',
+          sectionBorderColor: 'border-orange-200 dark:border-orange-800/40',
+          level: 'HIGH',
+          score
+        }
+      case 'medium':
+        return {
+          dotColor: 'bg-yellow-600',
+          cardBg: 'from-yellow-50 to-yellow-50/80 dark:from-yellow-950/30 dark:to-yellow-900/20',
+          cardBorder: 'border-yellow-300 dark:border-yellow-800/60',
+          idBg: 'bg-yellow-100 dark:bg-yellow-900/50',
+          idText: 'text-yellow-700 dark:text-yellow-300',
+          titleText: 'text-yellow-900 dark:text-yellow-100',
+          subtitleText: 'text-yellow-700 dark:text-yellow-200',
+          sectionBorder: 'border-yellow-300 dark:border-yellow-700',
+          sectionBg: 'bg-white dark:bg-yellow-950/40',
+          sectionBorderColor: 'border-yellow-200 dark:border-yellow-800/40',
+          level: 'MEDIUM',
+          score
+        }
+      case 'low':
+        return {
+          dotColor: 'bg-green-600',
+          cardBg: 'from-green-50 to-green-50/80 dark:from-green-950/30 dark:to-green-900/20',
+          cardBorder: 'border-green-300 dark:border-green-800/60',
+          idBg: 'bg-green-100 dark:bg-green-900/50',
+          idText: 'text-green-700 dark:text-green-300',
+          titleText: 'text-green-900 dark:text-green-100',
+          subtitleText: 'text-green-700 dark:text-green-200',
+          sectionBorder: 'border-green-300 dark:border-green-700',
+          sectionBg: 'bg-white dark:bg-green-950/40',
+          sectionBorderColor: 'border-green-200 dark:border-green-800/40',
+          level: 'LOW',
+          score
+        }
+      default:
+        return {
+          dotColor: 'bg-gray-500',
+          cardBg: 'from-gray-50 to-gray-50/80 dark:from-gray-950/30 dark:to-gray-900/20',
+          cardBorder: 'border-gray-300 dark:border-gray-800/60',
+          idBg: 'bg-gray-100 dark:bg-gray-900/50',
+          idText: 'text-gray-700 dark:text-gray-300',
+          titleText: 'text-gray-900 dark:text-gray-100',
+          subtitleText: 'text-gray-700 dark:text-gray-200',
+          sectionBorder: 'border-gray-300 dark:border-gray-700',
+          sectionBg: 'bg-white dark:bg-gray-950/40',
+          sectionBorderColor: 'border-gray-200 dark:border-gray-800/40',
+          level: hasSeverityData ? 'UNRATED' : 'NO CVSS',
+          score
+        }
     }
   }
 
@@ -188,29 +313,36 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
               <div className="space-y-3">
                 {displayPkg.osv_vulnerabilities.map((vuln: OsvVulnerability) => {
                   const isExpanded = expandedVulns.has(vuln.id)
+                  const theme = getSeverityTheme(vuln)
+                  
                   return (
-                    <div key={vuln.id} className="bg-gradient-to-r from-red-50 to-red-50/80 dark:from-red-950/20 dark:to-red-900/10 border border-red-200 dark:border-red-800/40 rounded-xl p-4 w-full overflow-hidden shadow-sm">
+                    <div key={vuln.id} className={`bg-gradient-to-r ${theme.cardBg} border ${theme.cardBorder} rounded-xl p-4 w-full overflow-hidden shadow-sm`}>
                       <div className="w-full">
                         {/* Vulnerability Header */}
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center gap-3">
                             <div className="flex items-center gap-2">
-                              <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                              <span className="font-mono text-xs text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/40 px-2.5 py-1 rounded-full font-medium">
+                              <div className={`w-2 h-2 rounded-full ${theme.dotColor}`}></div>
+                              <span className={`font-mono text-xs ${theme.idText} ${theme.idBg} px-2.5 py-1 rounded-full font-medium`}>
                                 {vuln.id}
                               </span>
                             </div>
-                            {vuln.severity && (
-                              <div className="flex items-center gap-1 bg-orange-100 dark:bg-orange-900/30 px-2 py-0.5 rounded-full">
-                                <Shield className="h-3 w-3 text-orange-600 dark:text-orange-400" />
-                                <span className="text-xs font-medium text-orange-700 dark:text-orange-300">CVSS</span>
+                            <div className={`flex items-center gap-1 ${theme.idBg} px-2 py-0.5 rounded-full`}>
+                              <Shield className={`h-3 w-3 ${theme.dotColor.replace('bg-', 'text-')}`} />
+                              <span className={`text-xs font-medium ${theme.idText}`}>{theme.level}</span>
+                            </div>
+                            {theme.score !== null && (
+                              <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full">
+                                <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                                  {theme.score.toFixed(1)}/10
+                                </span>
                               </div>
                             )}
                           </div>
                           
                           <Collapsible open={isExpanded} onOpenChange={() => toggleVulnExpansion(vuln.id)}>
                             <CollapsibleTrigger asChild>
-                              <button className="flex items-center gap-1 px-2 py-1 text-xs text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-md transition-colors">
+                              <button className={`flex items-center gap-1 px-2 py-1 text-xs ${theme.idText} hover:opacity-80 hover:${theme.idBg} rounded-md transition-colors`}>
                                 {isExpanded ? (
                                   <>
                                     <ChevronDown className="h-3 w-3" />
@@ -229,11 +361,11 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                         
                         {/* Vulnerability Summary */}
                         <div className="mb-3">
-                          <h5 className="text-sm font-medium text-red-800 dark:text-red-200 mb-1 leading-tight">
+                          <h5 className={`text-sm font-medium ${theme.titleText} mb-1 leading-tight`}>
                             {vuln.summary.split('.')[0]}.
                           </h5>
                           {vuln.summary.split('.').length > 1 && (
-                            <p className="text-xs text-red-600 dark:text-red-300 leading-relaxed opacity-90">
+                            <p className={`text-xs ${theme.subtitleText} leading-relaxed opacity-90`}>
                               {vuln.summary.split('.').slice(1).join('.').trim()}
                             </p>
                           )}
@@ -241,30 +373,40 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                         
                         {/* Expandable Details */}
                         <Collapsible open={isExpanded} onOpenChange={() => toggleVulnExpansion(vuln.id)}>
-                          <CollapsibleContent className="space-y-4 pt-3 border-t border-red-200 dark:border-red-800/50">
+                          <CollapsibleContent className={`space-y-4 pt-3 border-t ${theme.sectionBorder}`}>
                             {/* CVSS Severity */}
                             {vuln.severity && (
-                              <div className="bg-white dark:bg-red-950/30 rounded-lg p-3 border border-red-100 dark:border-red-800/30">
+                              <div className={`${theme.sectionBg} rounded-lg p-3 border ${theme.sectionBorderColor}`}>
                                 <div className="flex items-center gap-2 mb-2">
-                                  <Shield className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-                                  <span className="text-xs font-semibold text-red-700 dark:text-red-300 uppercase tracking-wide">CVSS Score</span>
+                                  <Shield className={`h-4 w-4 ${theme.dotColor.replace('bg-', 'text-')}`} />
+                                  <span className={`text-xs font-semibold ${theme.idText} uppercase tracking-wide`}>
+                                    CVSS Score ({theme.level})
+                                  </span>
                                 </div>
-                                <code className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded block break-all font-mono">
+                                <code className={`text-xs ${theme.idText} ${theme.idBg} px-2 py-1 rounded block break-all font-mono`}>
                                   {vuln.severity}
                                 </code>
+                                {theme.score !== null && (
+                                  <div className="mt-2 flex items-center gap-2">
+                                    <div className={`w-3 h-3 rounded-full ${theme.dotColor}`}></div>
+                                    <span className={`text-sm font-bold ${theme.titleText}`}>
+                                      Score: {theme.score.toFixed(1)}/10
+                                    </span>
+                                  </div>
+                                )}
                               </div>
                             )}
                             
                             {/* Affected Versions */}
                             {vuln.affected_versions && vuln.affected_versions.length > 0 && (
-                              <div className="bg-white dark:bg-red-950/30 rounded-lg p-3 border border-red-100 dark:border-red-800/30">
+                              <div className={`${theme.sectionBg} rounded-lg p-3 border ${theme.sectionBorderColor}`}>
                                 <div className="flex items-center gap-2 mb-2">
-                                  <Package className="h-4 w-4 text-red-600 dark:text-red-400" />
-                                  <span className="text-xs font-semibold text-red-700 dark:text-red-300 uppercase tracking-wide">Affected Versions</span>
+                                  <Package className={`h-4 w-4 ${theme.dotColor.replace('bg-', 'text-')}`} />
+                                  <span className={`text-xs font-semibold ${theme.idText} uppercase tracking-wide`}>Affected Versions</span>
                                 </div>
                                 <div className="flex flex-wrap gap-1.5">
                                   {vuln.affected_versions.map((version, idx) => (
-                                    <span key={idx} className="px-2 py-1 bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 text-xs rounded-md font-mono border border-red-200 dark:border-red-800/50">
+                                    <span key={idx} className={`px-2 py-1 ${theme.idBg} ${theme.idText} text-xs rounded-md font-mono border ${theme.sectionBorderColor}`}>
                                       {version}
                                     </span>
                                   ))}
@@ -274,12 +416,12 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                             
                             {/* Technical Details */}
                             {vuln.details && (
-                              <div className="bg-white dark:bg-red-950/30 rounded-lg p-3 border border-red-100 dark:border-red-800/30">
+                              <div className={`${theme.sectionBg} rounded-lg p-3 border ${theme.sectionBorderColor}`}>
                                 <div className="flex items-center gap-2 mb-3">
-                                  <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
-                                  <span className="text-xs font-semibold text-red-700 dark:text-red-300 uppercase tracking-wide">Technical Details</span>
+                                  <AlertCircle className={`h-4 w-4 ${theme.dotColor.replace('bg-', 'text-')}`} />
+                                  <span className={`text-xs font-semibold ${theme.idText} uppercase tracking-wide`}>Technical Details</span>
                                 </div>
-                                <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded border border-red-100 dark:border-red-800/30 max-h-64 overflow-y-auto">
+                                <div className={`${theme.idBg} p-3 rounded border ${theme.sectionBorderColor} max-h-64 overflow-y-auto`}>
                                   {(() => {
                                     const details = vuln.details;
                                     
@@ -289,7 +431,7 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                                     if (sections.length <= 1) {
                                       // No markdown sections, show as regular text
                                       return (
-                                        <p className="text-xs text-red-600 dark:text-red-400 leading-relaxed break-words overflow-wrap-anywhere">
+                                        <p className={`text-xs ${theme.idText} leading-relaxed break-words overflow-wrap-anywhere`}>
                                           {details}
                                         </p>
                                       );
@@ -305,12 +447,12 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                                           if (!title) return null;
                                           
                                           return (
-                                            <div key={idx} className="border-l-2 border-red-300 dark:border-red-700 pl-3">
-                                              <h6 className="text-xs font-semibold text-red-700 dark:text-red-300 mb-1 uppercase tracking-wide">
+                                            <div key={idx} className={`border-l-2 ${theme.sectionBorder} pl-3`}>
+                                              <h6 className={`text-xs font-semibold ${theme.titleText} mb-1 uppercase tracking-wide`}>
                                                 {title}
                                               </h6>
                                               {content && (
-                                                <div className="text-xs text-red-600 dark:text-red-400 leading-relaxed space-y-2">
+                                                <div className={`text-xs ${theme.subtitleText} leading-relaxed space-y-2`}>
                                                   {content.split('\n\n').map((paragraph, pIdx) => {
                                                     // Handle code blocks
                                                     if (paragraph.includes('```') || paragraph.includes('`')) {
@@ -413,17 +555,17 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                             
                             {/* References */}
                             {vuln.references && vuln.references.length > 0 && (
-                              <div className="bg-white dark:bg-red-950/30 rounded-lg p-3 border border-red-100 dark:border-red-800/30">
+                              <div className={`${theme.sectionBg} rounded-lg p-3 border ${theme.sectionBorderColor}`}>
                                 <div className="flex items-center gap-2 mb-2">
                                   <ExternalLink className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                                  <span className="text-xs font-semibold text-red-700 dark:text-red-300 uppercase tracking-wide">
+                                  <span className={`text-xs font-semibold ${theme.idText} uppercase tracking-wide`}>
                                     References ({vuln.references.length})
                                   </span>
                                 </div>
                                 <div className="space-y-2">
                                   {vuln.references.slice(0, 3).map((ref, idx) => (
-                                    <div key={idx} className="flex items-center gap-2 p-2 bg-red-50 dark:bg-red-900/20 rounded border border-red-100 dark:border-red-800/30">
-                                      <span className="text-xs font-medium text-red-500 dark:text-red-400 bg-red-100 dark:bg-red-900/40 px-2 py-0.5 rounded uppercase flex-shrink-0">
+                                    <div key={idx} className={`flex items-center gap-2 p-2 ${theme.idBg} rounded border ${theme.sectionBorderColor}`}>
+                                      <span className={`text-xs font-medium ${theme.idText} bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded uppercase flex-shrink-0`}>
                                         {ref.type}
                                       </span>
                                       <a 
@@ -438,7 +580,7 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                                     </div>
                                   ))}
                                   {vuln.references.length > 3 && (
-                                    <p className="text-xs text-red-500 dark:text-red-400 text-center py-1 italic">
+                                    <p className={`text-xs ${theme.subtitleText} text-center py-1 italic`}>
                                       +{vuln.references.length - 3} more references available
                                     </p>
                                   )}
