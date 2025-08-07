@@ -56,9 +56,12 @@ function structuredGraphOutput(data: { nodes: any[]; links: any[] }) {
 
 
 export default function SbomSearchPage() {
-  const [query, setQuery] = useState("");
+  const [infQuery, setInfQuery] = useState("");
   const [showResults, setShowResults] = useState(false);
   const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [eQuery, setEQuery] = useState("");
+  const [showEResults, setEShowResults] = useState(false);
+  const [searchEResults, setESearchResults] = useState<any[]>([]);
   const [vulnerablePackages, setVulnerablePackages] = useState<string[]>([]);
   const [metadata, setMetadata] = useState({
     sbomPackage: "",
@@ -102,7 +105,6 @@ export default function SbomSearchPage() {
         const encodedUserWatchlist = encodeURIComponent(userWatchlistId);
         const encodedNode = encodeURIComponent(currentNodeId);
         const vulnsParam = encodeURIComponent(vulnerablePackages.join(','));
-        console.log('metadata: ');
         let url = "";
         if (watchlistId) {
           url = `http://localhost:3000/sbom/graph-dependencies/${encodedWatchlist}/${encodedNode}?vulns=${vulnsParam}`;
@@ -183,19 +185,45 @@ export default function SbomSearchPage() {
     }
     else {
       return (
-      <ul className="space-y-2 h-[75vh] overflow-y-auto">
-        {data.nodes.slice(1).map((node) => (
-          <li
-            key={node.id}
-            className="p-2 rounded border border-gray-300 cursor-pointer hover:bg-blue-200"
-            onClick={() => onNodeClick(node.id)}
-            style={{ backgroundColor: node.color || 'transparent' }}
-          >
-            <div className="font-medium">{node.id}</div>
-            {node.group && <div className="text-sm text-gray-500">Group: {node.group}</div>}
-          </li>
-        ))}
-      </ul>
+        
+
+     <div className="relative h-[75vh] overflow-y-auto space-y-2">
+  {/* Search Input */}
+  <div className="mt-6">
+    <div className="flex items-center">
+      <Input
+        placeholder="Search packages..."
+        value={eQuery}
+        onChange={(e) => {
+    const value = e.target.value;
+    setEQuery(value);
+    handleSearch("E", value); // pass input value to search function
+  }}
+        className="flex-1 max-w-xs"
+      />
+    </div>
+  </div>
+
+  {/* Node List */}
+  <ul className="space-y-2">
+    {(showEResults && searchEResults.length > 0
+      ? searchEResults.map((result) => result.node)
+      : data.nodes.slice(1)
+    ).map((node) => (
+      <li
+        key={node.id}
+        className="p-2 rounded border border-gray-300 cursor-pointer hover:bg-blue-200"
+        onClick={() => {onNodeClick(node.id); setEShowResults(false)}}
+        style={{ backgroundColor: node.color || 'transparent' }}
+      >
+        <div className="font-medium">{node.name || node.id}</div>
+        {node.group && (
+          <div className="text-sm text-gray-500">Group: {node.group}</div>
+        )}
+      </li>
+    ))}
+  </ul>
+</div>
     );
     }
   }
@@ -258,9 +286,12 @@ export default function SbomSearchPage() {
     setHistory((prev) => [...prev, newNodeId]); // push new node to history
   }
 
-  async function handleSearch() {
+  async function handleSearch(searchBar: string, query: string) {
+
+
     if (!query.trim()) {
-      alert("Please enter a search term.");
+      setShowResults(false);
+      setEShowResults(false);
       return;
     }
 
@@ -279,11 +310,14 @@ export default function SbomSearchPage() {
       console.log("Search results:", data);
 
       if (data.length > 0) {
-        // For example, set the first matching node as the new current node
-        setSearchResults(data); // Save results if you want to display a list or something
-        setShowResults(true);
-      } else {
-        alert("No matches found");
+        if(searchBar=='Inf'){
+          setSearchResults(data);
+          setShowResults(true);
+        }
+        else{
+          setESearchResults(data);
+          setEShowResults(true);
+        }
       }
     } catch (error) {
       console.error("Search failed:", error);
@@ -347,45 +381,46 @@ export default function SbomSearchPage() {
   const licenseData = prepareLicenseData(metadata.licenseSummary || {});
 
   const licenses = [
-    {
-      name: 'GPL-3.0',
-      requirements: [
-        'Disclose source code',
-        'Use same license (copyleft)',
-        'Provide installation instructions',
-      ],
-    },
-    {
-      name: 'MIT',
-      requirements: [
-        'Include original license',
-        'Provide attribution',
-      ],
-    },
-    {
-      name: 'Apache-2.0',
-      requirements: [
-        'Include license and NOTICE file',
-        'Grant of patent rights',
-        'State changes made to code',
-      ],
-    },
-    {
-      name: 'ISC',
-      requirements: [
-        'Include original license text',
-        'Provide attribution',
-      ],
-    },
-    {
-      name: 'BSD-3-Clause',
-      requirements: [
-        'Include license text',
-        'Provide attribution',
-        'Do not use names of contributors for endorsement',
-      ],
-    },
-  ];
+  {
+    name: 'Apache-2.0',
+    requirements: [
+      'Include license and NOTICE file',
+      'Grant of patent rights',
+      'State changes made to code',
+    ],
+  },
+  {
+    name: 'BSD-3-Clause',
+    requirements: [
+      'Include license text',
+      'Provide attribution',
+      'Do not use names of contributors for endorsement',
+    ],
+  },
+  {
+    name: 'GPL-3.0',
+    requirements: [
+      'Disclose source code',
+      'Use same license (copyleft)',
+      'Provide installation instructions',
+    ],
+  },
+  {
+    name: 'ISC',
+    requirements: [
+      'Include original license text',
+      'Provide attribution',
+    ],
+  },
+  {
+    name: 'MIT',
+    requirements: [
+      'Include original license',
+      'Provide attribution',
+    ],
+  },
+];
+
 
   const [selectedLicense, setSelectedLicense] = useState<{
     name: string;
@@ -452,7 +487,7 @@ export default function SbomSearchPage() {
           <Card className="h-[30vh]">
             <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4">
               {/* Total Components */}
-              <div className="flex flex-col items-center justify-center bg-white rounded shadow p-4">
+              <div className="flex flex-col  items-center justify-center bg-white rounded shadow p-4">
                 <h3 className="text-lg font-bold mb-2">Total Components</h3>
                 <p className="text-2xl font-bold">{metadata.directDependencies + metadata.transitiveDependencies}</p>
                 <div className="flex flex-row items-center">
@@ -468,7 +503,7 @@ export default function SbomSearchPage() {
               </div>
 
               {/* License Summary Pie Chart */}
-              <div className="bg-white rounded shadow p-4 w-[50vh] h-[28vh] overflow-y-auto">
+              <div className="bg-white rounded shadow p-4 w-[55vh] h-[28vh] overflow-y-auto">
                 <h3 className="text-lg font-bold mb-2">License Summary</h3>
                 <ul className="space-y-2 overflow-auto">
                   {licenseData.map((entry, index) => (
@@ -484,12 +519,12 @@ export default function SbomSearchPage() {
               </div>
 
               {/* Risk Summary Bar Chart */}
-              <div className="bg-white rounded shadow p-4 w-[50vh] h-[28vh] overflow-y-auto">
-                <h3 className="text-lg font-bold mb-4">Copyleft License Explorer</h3>
+              <div className="bg-white rounded shadow p-4 w-[55vh] h-[28vh] overflow-y-auto">
+                <h3 className="text-lg font-bold mb-4">License Explorer</h3>
                 
                 {!selectedLicense ? (
                   // Explorer View
-                  <div className="space-y-2 overflow-y-auto">
+                  <div className="space-y-2">
                     {licenses.map((license, index) => (
                       <div
                         key={index}
@@ -529,20 +564,21 @@ export default function SbomSearchPage() {
           <Card className="flex flex-row w-full mx-auto gap-4">
             
           <Card>
-              <h2 className="text-xl pt-2 pl-2 pr-2 font-semibold"> Check Dependency Influence</h2>
+              <h2 className="text-xl pt-4 pl-4 pr-2 font-semibold"> Dependency Influence</h2>
             <CardContent className="w-72 flex-shrink-0 max-h-[80vh]">
               {/* Search Row */}
-                <div className="relative mt-6">
+                <div className="relative mt-3">
                   <div className="flex items-center">
                     <Input
                       placeholder="Search packages..."
-                      value={query}
-                      onChange={(e) => setQuery(e.target.value)}
+                      value={infQuery}
+                            onChange={(e) => {
+                            const value = e.target.value;
+                            setInfQuery(value);
+                            handleSearch("Inf", value); // pass input value to search function
+                          }}
                       className="flex-1 max-w-xs" // limit width
                     />
-                    <Button onClick={handleSearch} className="ml-2">
-                      Search
-                    </Button>
                   </div>
 
 
