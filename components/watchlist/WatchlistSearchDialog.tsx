@@ -19,7 +19,7 @@ import type { Package as PackageType, WatchlistItem } from '../../lib/watchlist/
 import { usePackageSearch, useWatchlist } from '../../lib/watchlist/index'
 import { hasVulnerabilities, getVulnerabilityCount, getHighestSeverity } from '../../lib/watchlist/utils'
 import { PackageCard } from './PackageCard'
-import { PackageDetailsPanel } from './PackageDetailsPanel'
+import { PackageDetailsSummary } from './PackageDetailsSummary'
 import { AlertConfigurationDialog } from "./AlertConfigurationDialog"
 import { addRepositoryToWatchlist } from "../../lib/watchlist/api"
 
@@ -282,11 +282,9 @@ export function WatchlistSearchDialog({
 
             {/* Right Panel - Package Details */}
             <div className="w-1/2 flex flex-col min-h-0">
-              <PackageDetailsPanel
+              <PackageDetailsSummary
                 pkg={selectedPackage}
-                onClose={() => setSelectedPackage(null)}
                 onAdd={handleAddToWatchlist}
-                onAddWithConfig={handleAddToWatchlist} // Use same handler for both buttons
                 isAdding={isAddingToWatchlist}
               />
             </div>
