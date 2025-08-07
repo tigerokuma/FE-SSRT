@@ -172,126 +172,155 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
       {/* Scrollable Content */}
       <ScrollArea className="flex-1">
         <div className="p-4 space-y-4">
-          {/* Detailed Vulnerability Information */}
+          {/* Security Vulnerabilities */}
           {hasVulns && displayPkg.osv_vulnerabilities && (
             <div>
-              <h4 className="text-sm font-medium text-white mb-3 flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-red-400" />
-                Security Vulnerabilities ({vulnCount})
-              </h4>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-8 h-8 rounded-lg bg-red-600 flex items-center justify-center">
+                  <AlertTriangle className="h-4 w-4 text-white" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium text-white">Security Vulnerabilities</h4>
+                  <p className="text-xs text-red-400">{vulnCount} {vulnCount === 1 ? 'vulnerability' : 'vulnerabilities'} found</p>
+                </div>
+              </div>
+              
               <div className="space-y-3">
                 {displayPkg.osv_vulnerabilities.map((vuln: OsvVulnerability) => {
                   const isExpanded = expandedVulns.has(vuln.id)
                   return (
-                    <div key={vuln.id} className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800/50 rounded-lg p-3 w-full overflow-hidden">
-                      <div className="flex items-start gap-2 w-full">
-                        <AlertTriangle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
-                        <div className="flex-1 min-w-0 w-full overflow-hidden">
-                          {/* Vulnerability Header */}
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="font-mono text-xs text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/30 px-2 py-1 rounded">
-                              {vuln.id}
-                            </span>
+                    <div key={vuln.id} className="bg-gradient-to-r from-red-50 to-red-50/80 dark:from-red-950/20 dark:to-red-900/10 border border-red-200 dark:border-red-800/40 rounded-xl p-4 w-full overflow-hidden shadow-sm">
+                      <div className="w-full">
+                        {/* Vulnerability Header */}
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2">
+                              <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                              <span className="font-mono text-xs text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/40 px-2.5 py-1 rounded-full font-medium">
+                                {vuln.id}
+                              </span>
+                            </div>
                             {vuln.severity && (
-                              <Badge variant="outline" className="text-xs border-red-300 text-red-700 dark:border-red-700 dark:text-red-300">
-                                CVSS Available
-                              </Badge>
+                              <div className="flex items-center gap-1 bg-orange-100 dark:bg-orange-900/30 px-2 py-0.5 rounded-full">
+                                <Shield className="h-3 w-3 text-orange-600 dark:text-orange-400" />
+                                <span className="text-xs font-medium text-orange-700 dark:text-orange-300">CVSS</span>
+                              </div>
                             )}
                           </div>
                           
-                          {/* Summary */}
-                          <p className="text-sm text-red-700 dark:text-red-300 mb-2 font-medium break-words overflow-wrap-anywhere leading-relaxed">
-                            {vuln.summary}
-                          </p>
-                          
-                          {/* Expandable Details */}
                           <Collapsible open={isExpanded} onOpenChange={() => toggleVulnExpansion(vuln.id)}>
                             <CollapsibleTrigger asChild>
-                              <button className="flex items-center gap-1 text-xs text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors">
+                              <button className="flex items-center gap-1 px-2 py-1 text-xs text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/20 rounded-md transition-colors">
                                 {isExpanded ? (
                                   <>
                                     <ChevronDown className="h-3 w-3" />
-                                    Hide Details
+                                    Less
                                   </>
                                 ) : (
                                   <>
                                     <ChevronRight className="h-3 w-3" />
-                                    Show Details
+                                    More
                                   </>
                                 )}
                               </button>
                             </CollapsibleTrigger>
-                            <CollapsibleContent className="mt-2 space-y-3 overflow-hidden">
-                              {/* CVSS Severity */}
-                              {vuln.severity && (
-                                <div className="w-full">
-                                  <span className="text-xs font-medium text-red-700 dark:text-red-300">CVSS Severity:</span>
-                                  <div className="text-xs text-red-600 dark:text-red-400 font-mono mt-1 bg-red-100 dark:bg-red-900/20 p-2 rounded break-all">
-                                    {vuln.severity}
-                                  </div>
-                                </div>
-                              )}
-                              
-                              {/* Affected Versions */}
-                              {vuln.affected_versions && vuln.affected_versions.length > 0 && (
-                                <div className="w-full">
-                                  <span className="text-xs font-medium text-red-700 dark:text-red-300">Affected Versions:</span>
-                                  <div className="flex flex-wrap gap-1 mt-1">
-                                    {vuln.affected_versions.map((version, idx) => (
-                                      <span key={idx} className="px-2 py-1 bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-300 text-xs rounded font-mono break-all">
-                                        {version}
-                                      </span>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
-                              
-                              {/* Details */}
-                              {vuln.details && (
-                                <div className="w-full">
-                                  <span className="text-xs font-medium text-red-700 dark:text-red-300">Details:</span>
-                                  <div className="text-xs text-red-600 dark:text-red-400 mt-1 leading-relaxed bg-red-100 dark:bg-red-900/20 p-2 rounded break-words overflow-wrap-anywhere">
-                                    {vuln.details}
-                                  </div>
-                                </div>
-                              )}
-                              
-                              {/* References */}
-                              {vuln.references && vuln.references.length > 0 && (
-                                <div className="w-full">
-                                  <span className="text-xs font-medium text-red-700 dark:text-red-300">
-                                    References ({vuln.references.length}):
-                                  </span>
-                                  <div className="mt-1 space-y-1">
-                                    {vuln.references.slice(0, 3).map((ref, idx) => (
-                                      <div key={idx} className="w-full">
-                                        <div className="flex items-start gap-2 text-xs">
-                                          <span className="text-red-500 dark:text-red-400 capitalize font-medium flex-shrink-0">{ref.type.toUpperCase()}:</span>
-                                          <div className="flex-1 min-w-0">
-                                            <a 
-                                              href={ref.url} 
-                                              target="_blank" 
-                                              rel="noopener noreferrer"
-                                              className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:underline break-all block"
-                                            >
-                                              {ref.url}
-                                            </a>
-                                          </div>
-                                          <ExternalLink className="h-3 w-3 text-red-500 dark:text-red-400 flex-shrink-0 mt-0.5" />
-                                        </div>
-                                      </div>
-                                    ))}
-                                    {vuln.references.length > 3 && (
-                                      <p className="text-xs text-red-500 dark:text-red-400 mt-2">
-                                        +{vuln.references.length - 3} more references
-                                      </p>
-                                    )}
-                                  </div>
-                                </div>
-                              )}
-                            </CollapsibleContent>
                           </Collapsible>
                         </div>
+                        
+                        {/* Vulnerability Summary */}
+                        <div className="mb-3">
+                          <h5 className="text-sm font-medium text-red-800 dark:text-red-200 mb-1 leading-tight">
+                            {vuln.summary.split('.')[0]}.
+                          </h5>
+                          {vuln.summary.split('.').length > 1 && (
+                            <p className="text-xs text-red-600 dark:text-red-300 leading-relaxed opacity-90">
+                              {vuln.summary.split('.').slice(1).join('.').trim()}
+                            </p>
+                          )}
+                        </div>
+                        
+                        {/* Expandable Details */}
+                        <Collapsible open={isExpanded} onOpenChange={() => toggleVulnExpansion(vuln.id)}>
+                          <CollapsibleContent className="space-y-4 pt-3 border-t border-red-200 dark:border-red-800/50">
+                            {/* CVSS Severity */}
+                            {vuln.severity && (
+                              <div className="bg-white dark:bg-red-950/30 rounded-lg p-3 border border-red-100 dark:border-red-800/30">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Shield className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+                                  <span className="text-xs font-semibold text-red-700 dark:text-red-300 uppercase tracking-wide">CVSS Score</span>
+                                </div>
+                                <code className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded block break-all font-mono">
+                                  {vuln.severity}
+                                </code>
+                              </div>
+                            )}
+                            
+                            {/* Affected Versions */}
+                            {vuln.affected_versions && vuln.affected_versions.length > 0 && (
+                              <div className="bg-white dark:bg-red-950/30 rounded-lg p-3 border border-red-100 dark:border-red-800/30">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Package className="h-4 w-4 text-red-600 dark:text-red-400" />
+                                  <span className="text-xs font-semibold text-red-700 dark:text-red-300 uppercase tracking-wide">Affected Versions</span>
+                                </div>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {vuln.affected_versions.map((version, idx) => (
+                                    <span key={idx} className="px-2 py-1 bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 text-xs rounded-md font-mono border border-red-200 dark:border-red-800/50">
+                                      {version}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Technical Details */}
+                            {vuln.details && (
+                              <div className="bg-white dark:bg-red-950/30 rounded-lg p-3 border border-red-100 dark:border-red-800/30">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+                                  <span className="text-xs font-semibold text-red-700 dark:text-red-300 uppercase tracking-wide">Technical Details</span>
+                                </div>
+                                <p className="text-xs text-red-600 dark:text-red-400 leading-relaxed break-words overflow-wrap-anywhere bg-red-50 dark:bg-red-900/20 p-2 rounded border border-red-100 dark:border-red-800/30">
+                                  {vuln.details}
+                                </p>
+                              </div>
+                            )}
+                            
+                            {/* References */}
+                            {vuln.references && vuln.references.length > 0 && (
+                              <div className="bg-white dark:bg-red-950/30 rounded-lg p-3 border border-red-100 dark:border-red-800/30">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <ExternalLink className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                                  <span className="text-xs font-semibold text-red-700 dark:text-red-300 uppercase tracking-wide">
+                                    References ({vuln.references.length})
+                                  </span>
+                                </div>
+                                <div className="space-y-2">
+                                  {vuln.references.slice(0, 3).map((ref, idx) => (
+                                    <div key={idx} className="flex items-center gap-2 p-2 bg-red-50 dark:bg-red-900/20 rounded border border-red-100 dark:border-red-800/30">
+                                      <span className="text-xs font-medium text-red-500 dark:text-red-400 bg-red-100 dark:bg-red-900/40 px-2 py-0.5 rounded uppercase flex-shrink-0">
+                                        {ref.type}
+                                      </span>
+                                      <a 
+                                        href={ref.url} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline break-all flex-1"
+                                      >
+                                        {ref.url}
+                                      </a>
+                                      <ExternalLink className="h-3 w-3 text-blue-500 dark:text-blue-400 flex-shrink-0" />
+                                    </div>
+                                  ))}
+                                  {vuln.references.length > 3 && (
+                                    <p className="text-xs text-red-500 dark:text-red-400 text-center py-1 italic">
+                                      +{vuln.references.length - 3} more references available
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </CollapsibleContent>
+                        </Collapsible>
                       </div>
                     </div>
                   )
