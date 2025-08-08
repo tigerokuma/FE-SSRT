@@ -217,13 +217,15 @@ export function AppSidebar() {
               <span className="text-sm font-medium truncate">Jane Doe</span>
               <span className="text-xs text-muted-foreground truncate">DevSecOps Lead</span>
             </div>
-            <Button 
+            <Link href="/settings">
+              <Button 
               variant="ghost" 
               size="icon" 
               className="h-8 w-8 ml-auto"
-            >
-              <Settings className="h-4 w-4" />
-            </Button>
+              >
+                <Settings className="h-4 w-4" />
+              </Button>
+            </Link>
           </div>
         )}
       </SidebarFooter>
