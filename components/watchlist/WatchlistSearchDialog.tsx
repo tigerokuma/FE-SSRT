@@ -70,15 +70,27 @@ export function WatchlistSearchDialog({
     return () => clearTimeout(timeoutId)
   }, [searchQuery, searchPackages])
 
-  // Filter results by security status
-  const filteredResults = searchResults.filter(pkg => {
-    if (securityFilter === 'secure') {
-      return !hasVulnerabilities(pkg.osv_vulnerabilities)
-    } else if (securityFilter === 'vulnerable') {
-      return hasVulnerabilities(pkg.osv_vulnerabilities)
-    }
-    return true
-  })
+  // Filter and sort results by security status and exact match
+  const filteredResults = searchResults
+    .filter(pkg => {
+      if (securityFilter === 'secure') {
+        return !hasVulnerabilities(pkg.osv_vulnerabilities)
+      } else if (securityFilter === 'vulnerable') {
+        return hasVulnerabilities(pkg.osv_vulnerabilities)
+      }
+      return true
+    })
+    .sort((a, b) => {
+      // Sort exact matches first
+      const aIsExact = a.name.toLowerCase() === searchQuery.toLowerCase().trim()
+      const bIsExact = b.name.toLowerCase() === searchQuery.toLowerCase().trim()
+      
+      if (aIsExact && !bIsExact) return -1
+      if (!aIsExact && bIsExact) return 1
+      
+      // Then sort by downloads (higher first) for secondary sorting
+      return (b.downloads || 0) - (a.downloads || 0)
+    })
 
   const handlePackageSelect = (pkg: PackageType) => {
     setSelectedPackage(pkg)

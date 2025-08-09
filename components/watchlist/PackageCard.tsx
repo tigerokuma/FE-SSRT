@@ -58,7 +58,10 @@ export function PackageCard({ pkg, onSelect, onAdd, searchQuery, isSelected, isA
         <div className="flex items-center gap-3 flex-1 min-w-0">
           <h3 className="font-semibold text-lg text-gray-900 dark:text-white truncate">{pkg.name}</h3>
           {isExactMatch && (
-            <Badge variant="secondary" className="text-xs">
+            <Badge 
+              variant="secondary" 
+              className="text-xs bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800 font-medium"
+            >
               exact match
             </Badge>
           )}
