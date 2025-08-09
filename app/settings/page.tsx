@@ -8,21 +8,32 @@ import { useEffect, useState } from "react"
 import { Select, SelectItem } from "@/components/ui/select"
 
 export default function SettingsPage() {
-  const [loading, setLoading] = useState(true);
+  const [status, setStatus] = useState({jiraConnected: false});
 
-  const [status, setStatus] = useState({
-    emailConfirmed: false,
-    jiraConnected: false,
-    slackConnected: false,
-  });
-
+  const [slackChannel, setSlackChannel] = useState("");
 
   const [emailConfirmed, setEmailConfirmed] = useState(false);
   const [frequency, setFrequency] = useState("weekly");
 
   const user_id = "user-123";
 
+  useEffect(() => {
+    if (!user_id) return;
 
+    const fetchUserInfo = async () => {
+      try {
+        const slack_res = await fetch(`http://localhost:3000/slack/slack-channel/${user_id}`);
+        if (!slack_res.ok) throw new Error(`HTTP ${slack_res.status}`);
+        const slack_data = await slack_res.json();
+
+        setSlackChannel(slack_data.name);
+      } catch (err) {
+        console.error("Error fetching Slack channel:", err);
+      }
+    };
+
+    fetchUserInfo();
+  }, [user_id]);
 
 
   return (
@@ -84,10 +95,35 @@ export default function SettingsPage() {
       {/* Slack */}
       <div className="space-y-2">
         <h3 className="text-lg font-semibold">Slack Integration</h3>
-        {status.slackConnected ? (
-          <p className="text-sm text-green-600">Slack connected</p>
+        {slackChannel ? (
+          <div>
+          <div className="flex items-center gap-2">
+            <p className="text-sm text-green-600 font-medium">Slack connected to channel:</p>
+            <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-sm font-semibold">
+              {slackChannel}
+            </span>
+          </div>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              console.log("button clicked");
+              window.location.href = `http://localhost:3000/slack/start-oauth/${user_id}`;
+            }}
+          >
+            Connect to Different Slack
+          </Button>
+          </div>
+          
         ) : (
-          <Button variant="secondary">Connect Slack</Button>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              console.log("button clicked");
+              window.location.href = `http://localhost:3000/slack/start-oauth/${user_id}`;
+            }}
+          >
+            Connect Slack
+          </Button>
         )}
       </div>
 
