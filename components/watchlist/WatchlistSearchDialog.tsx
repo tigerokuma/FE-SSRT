@@ -17,7 +17,7 @@ import {
 
 import type { Package as PackageType, WatchlistItem } from '../../lib/watchlist/types'
 import { usePackageSearch, useWatchlist } from '../../lib/watchlist/index'
-import { hasVulnerabilities, getVulnerabilityCount, getHighestSeverity } from '../../lib/watchlist/utils'
+import { hasVulnerabilities, hasActiveVulnerabilities, getVulnerabilityCount, getHighestSeverity } from '../../lib/watchlist/utils'
 import { PackageCard } from './PackageCard'
 import { PackageDetailsSummary } from './PackageDetailsSummary'
 import { AlertConfigurationDialog } from "./AlertConfigurationDialog"
@@ -70,13 +70,17 @@ export function WatchlistSearchDialog({
     return () => clearTimeout(timeoutId)
   }, [searchQuery, searchPackages])
 
+  // Calculate security counts using active vulnerabilities
+  const secureCount = searchResults.filter(pkg => !hasActiveVulnerabilities(pkg.osv_vulnerabilities)).length
+  const vulnerableCount = searchResults.filter(pkg => hasActiveVulnerabilities(pkg.osv_vulnerabilities)).length
+
   // Filter and sort results by security status and exact match
   const filteredResults = searchResults
     .filter(pkg => {
       if (securityFilter === 'secure') {
-        return !hasVulnerabilities(pkg.osv_vulnerabilities)
+        return !hasActiveVulnerabilities(pkg.osv_vulnerabilities)
       } else if (securityFilter === 'vulnerable') {
-        return hasVulnerabilities(pkg.osv_vulnerabilities)
+        return hasActiveVulnerabilities(pkg.osv_vulnerabilities)
       }
       return true
     })
@@ -169,8 +173,6 @@ export function WatchlistSearchDialog({
   }
 
   const hasResults = filteredResults.length > 0
-  const vulnerableCount = searchResults.filter(pkg => hasVulnerabilities(pkg.osv_vulnerabilities)).length
-  const secureCount = searchResults.filter(pkg => !hasVulnerabilities(pkg.osv_vulnerabilities)).length
 
   return (
     <>
@@ -216,26 +218,35 @@ export function WatchlistSearchDialog({
                         size="sm"
                         variant={securityFilter === 'all' ? 'default' : 'outline'}
                         onClick={() => setSecurityFilter('all')}
-                        className="text-xs"
+                        className="text-xs flex items-center gap-1.5"
                       >
-                        All ({searchResults.length})
+                        All
+                        <span className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-1.5 py-0.5 rounded text-xs font-medium">
+                          {searchResults.length}
+                        </span>
                       </Button>
                       <Button
                         size="sm"
                         variant={securityFilter === 'secure' ? 'default' : 'outline'}
                         onClick={() => setSecurityFilter('secure')}
-                        className="text-xs"
+                        className="text-xs flex items-center gap-1.5"
                       >
-                        Secure ({secureCount})
+                        Secure
+                        <span className="bg-green-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-1.5 py-0.5 rounded text-xs font-medium">
+                          {secureCount}
+                        </span>
                       </Button>
                       <Button
                         size="sm"
                         variant={securityFilter === 'vulnerable' ? 'default' : 'outline'}
                         onClick={() => setSecurityFilter('vulnerable')}
-                        className="text-xs"
+                        className="text-xs flex items-center gap-1.5"
                       >
-                        <AlertTriangle className="w-3 h-3 mr-1" />
-                        Vulnerable ({vulnerableCount})
+                        <AlertTriangle className="w-3 h-3" />
+                        Vulnerable
+                        <span className="bg-red-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 px-1.5 py-0.5 rounded text-xs font-medium">
+                          {vulnerableCount}
+                        </span>
                       </Button>
                     </div>
                   </div>

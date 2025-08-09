@@ -241,6 +241,14 @@ export function hasVulnerabilities(vulnerabilities?: any[]): boolean {
   return getVulnerabilityCount(vulnerabilities) > 0
 }
 
+export function hasActiveVulnerabilities(vulnerabilities?: any[]): boolean {
+  if (!vulnerabilities || vulnerabilities.length === 0) {
+    return false
+  }
+  // Only count unpatched vulnerabilities as active threats
+  return vulnerabilities.some(vuln => !vuln.is_patched)
+}
+
 export function getHighestSeverity(vulnerabilities?: any[]): {
   level: 'critical' | 'high' | 'medium' | 'low' | 'unknown'
   color: string
