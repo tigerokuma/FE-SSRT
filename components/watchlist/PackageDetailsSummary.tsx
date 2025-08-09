@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Loader2, Download, Plus, Star, GitFork, Users, Package, AlertCircle, CheckCircle, ExternalLink, Github, Globe, AlertTriangle, Eye, Shield, Calendar, ChevronDown, ChevronRight } from "lucide-react"
+import { Loader2, Download, Plus, Star, GitFork, Users, Package, AlertCircle, CheckCircle, ExternalLink, Github, Globe, AlertTriangle, Eye, Shield, Calendar, ChevronDown, ChevronRight, Clock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -73,6 +73,37 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
       case 'medium': return 'bg-yellow-500'
       case 'low': return 'bg-green-500'
       default: return 'bg-gray-500'
+    }
+  }
+
+  const formatVulnerabilityDate = (dateString?: string): { formatted: string, relative: string } => {
+    if (!dateString) return { formatted: 'Unknown', relative: 'Unknown date' }
+    
+    try {
+      const date = new Date(dateString)
+      const now = new Date()
+      const diffInMs = now.getTime() - date.getTime()
+      const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24))
+      
+      // Formatted date
+      const formatted = date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      })
+      
+      // Relative time
+      let relative: string
+      if (diffInDays < 1) relative = 'Today'
+      else if (diffInDays === 1) relative = '1 day ago'
+      else if (diffInDays < 7) relative = `${diffInDays} days ago`
+      else if (diffInDays < 30) relative = `${Math.floor(diffInDays / 7)} weeks ago`
+      else if (diffInDays < 365) relative = `${Math.floor(diffInDays / 30)} months ago`
+      else relative = `${Math.floor(diffInDays / 365)} years ago`
+      
+      return { formatted, relative }
+    } catch {
+      return { formatted: 'Invalid date', relative: 'Unknown date' }
     }
   }
 
@@ -306,14 +337,36 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                 </div>
                 <div>
                   <h4 className="text-sm font-medium text-white">Security Vulnerabilities</h4>
-                  <p className="text-xs text-red-400">{vulnCount} {vulnCount === 1 ? 'vulnerability' : 'vulnerabilities'} found</p>
+                  <p className="text-xs text-red-400">
+                    {vulnCount} {vulnCount === 1 ? 'vulnerability' : 'vulnerabilities'} found
+                    {vulnCount > 0 && (() => {
+                      const sortedVulns = displayPkg.osv_vulnerabilities.sort((a, b) => {
+                        const dateA = new Date(a.published || a.modified || '1970-01-01').getTime()
+                        const dateB = new Date(b.published || b.modified || '1970-01-01').getTime()
+                        return dateB - dateA
+                      })
+                      const latestDate = formatVulnerabilityDate(sortedVulns[0]?.published || sortedVulns[0]?.modified)
+                      return (
+                        <span className="text-gray-400"> • Latest: {latestDate.relative}</span>
+                      )
+                    })()}
+                  </p>
                 </div>
               </div>
               
               <div className="space-y-3">
-                {displayPkg.osv_vulnerabilities.map((vuln: OsvVulnerability) => {
+                {displayPkg.osv_vulnerabilities
+                  .sort((a, b) => {
+                    // Sort by published date (latest first), fallback to modified date
+                    const dateA = new Date(a.published || a.modified || '1970-01-01').getTime()
+                    const dateB = new Date(b.published || b.modified || '1970-01-01').getTime()
+                    return dateB - dateA // Latest first
+                  })
+                  .map((vuln: OsvVulnerability) => {
                   const isExpanded = expandedVulns.has(vuln.id)
                   const theme = getSeverityTheme(vuln)
+                  const publishedDate = formatVulnerabilityDate(vuln.published)
+                  const modifiedDate = formatVulnerabilityDate(vuln.modified)
                   
                   return (
                     <div key={vuln.id} className={`bg-gradient-to-r ${theme.cardBg} border ${theme.cardBorder} rounded-xl p-4 w-full overflow-hidden shadow-sm`}>
@@ -338,6 +391,13 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                                 </span>
                               </div>
                             )}
+                            {/* Timing Information */}
+                            <div className="flex items-center gap-1 bg-blue-100 dark:bg-blue-900/30 px-2 py-0.5 rounded-full">
+                              <Clock className="h-3 w-3 text-blue-600 dark:text-blue-400" />
+                              <span className="text-xs font-medium text-blue-700 dark:text-blue-300">
+                                {publishedDate.relative}
+                              </span>
+                            </div>
                           </div>
                           
                           <Collapsible open={isExpanded} onOpenChange={() => toggleVulnExpansion(vuln.id)}>
@@ -396,6 +456,57 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                                 )}
                               </div>
                             )}
+                            
+                            {/* Timing Information */}
+                            <div className={`${theme.sectionBg} rounded-lg p-3 border ${theme.sectionBorderColor}`}>
+                              <div className="flex items-center gap-2 mb-2">
+                                <Clock className={`h-4 w-4 ${theme.dotColor.replace('bg-', 'text-')}`} />
+                                <span className={`text-xs font-semibold ${theme.idText} uppercase tracking-wide`}>Vulnerability Timeline</span>
+                              </div>
+                              <div className="space-y-2">
+                                {vuln.published && (
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-gray-600 dark:text-gray-400">Published:</span>
+                                    <div className="text-right">
+                                      <div className={`text-xs font-medium ${theme.titleText}`}>{publishedDate.formatted}</div>
+                                      <div className="text-xs text-gray-500">{publishedDate.relative}</div>
+                                    </div>
+                                  </div>
+                                )}
+                                {vuln.modified && vuln.modified !== vuln.published && (
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-gray-600 dark:text-gray-400">Last Modified:</span>
+                                    <div className="text-right">
+                                      <div className={`text-xs font-medium ${theme.titleText}`}>{modifiedDate.formatted}</div>
+                                      <div className="text-xs text-gray-500">{modifiedDate.relative}</div>
+                                    </div>
+                                  </div>
+                                )}
+                                <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                                  <div className="flex items-center gap-2">
+                                    <div className={`w-2 h-2 rounded-full ${
+                                      publishedDate.relative.includes('day') || publishedDate.relative === 'Today' 
+                                        ? 'bg-red-500' 
+                                        : publishedDate.relative.includes('week') 
+                                        ? 'bg-orange-500' 
+                                        : publishedDate.relative.includes('month') 
+                                        ? 'bg-yellow-500' 
+                                        : 'bg-green-500'
+                                    }`}></div>
+                                    <span className="text-xs text-gray-600 dark:text-gray-400">
+                                      {publishedDate.relative.includes('day') || publishedDate.relative === 'Today' 
+                                        ? 'Recently discovered' 
+                                        : publishedDate.relative.includes('week') 
+                                        ? 'Recent discovery' 
+                                        : publishedDate.relative.includes('month') 
+                                        ? 'Moderate age' 
+                                        : 'Well-established'
+                                      }
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
                             
                             {/* Affected Versions */}
                             {vuln.affected_versions && vuln.affected_versions.length > 0 && (
