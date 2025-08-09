@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Plus, Shield, AlertTriangle } from "lucide-react"
 
 import type { WatchlistItem } from '../../lib/watchlist/types'
-import { filterByType, sortWatchlistItems, hasVulnerabilities } from '../../lib/watchlist/utils'
+import { filterByType, sortWatchlistItems, hasVulnerabilities, hasActiveVulnerabilities } from '../../lib/watchlist/utils'
 import { WatchlistItemGrid } from './WatchlistItemCard'
 import { AllDependenciesEmptyState, ProductionEmptyState, DevelopmentEmptyState } from './WatchlistEmptyState'
 import { WatchlistSearchDialog } from './WatchlistSearchDialog'
@@ -37,11 +37,11 @@ export function WatchlistTabs({
   const filterItems = (items: WatchlistItem[]) => {
     let filtered = items
     
-    // Apply vulnerability filter
+    // Apply vulnerability filter - use active vulnerabilities for security assessment
     if (vulnerabilityFilter === 'secure') {
-      filtered = filtered.filter(item => !hasVulnerabilities(item.vulnerabilities))
+      filtered = filtered.filter(item => !hasActiveVulnerabilities(item.vulnerabilities))
     } else if (vulnerabilityFilter === 'vulnerable') {
-      filtered = filtered.filter(item => hasVulnerabilities(item.vulnerabilities))
+      filtered = filtered.filter(item => hasActiveVulnerabilities(item.vulnerabilities))
     }
     
     return sortWatchlistItems(filtered, sortBy, sortOrder)
@@ -191,7 +191,7 @@ export function WatchlistStats({ items, className }: WatchlistStatsProps) {
   const developmentItems = filterByType(items, 'development').length
   const highRiskItems = items.filter(item => item.risk === 'high').length
   const lowActivityItems = items.filter(item => item.activity === 'low').length
-  const vulnerableItems = items.filter(item => hasVulnerabilities(item.vulnerabilities)).length
+  const vulnerableItems = items.filter(item => hasActiveVulnerabilities(item.vulnerabilities)).length
 
   return (
     <div className={`grid grid-cols-2 lg:grid-cols-6 gap-4 ${className}`}>

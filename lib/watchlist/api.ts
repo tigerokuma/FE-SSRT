@@ -15,111 +15,9 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://34.94.83.16
 // API proxy path for Next.js rewrites
 const API_PROXY_PATH = process.env.NEXT_PUBLIC_API_PROXY_PATH || '/api/backend'
 
-/**
- * Mock vulnerability data for testing frontend functionality
- * This should be removed once the API is properly integrated
- */
-const mockVulnerabilityData: Record<string, { osv_vulnerabilities: any[] }> = {
-  "event-stream": {
-    osv_vulnerabilities: [
-      {
-        "id": "GHSA-mh6f-8j2x-4483",
-        "summary": "Critical severity vulnerability that affects event-stream and flatmap-stream",
-        "severity": "CVSS_V3: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
-        "details": "The NPM package `flatmap-stream` is considered malicious. A malicious actor added this package as a dependency to the NPM `event-stream` package in version `3.3.6`. Users of `event-stream` are encouraged to downgrade to the last non-malicious version, `3.3.4`, or upgrade to the latest 4.x version.\n\nUsers of `flatmap-stream` are encouraged to remove the dependency entirely.\n",
-        "affected_versions": ["3.3.6", "4.0.0", "0"],
-        "references": [
-          {
-            "type": "WEB",
-            "url": "https://github.com/dominictarr/event-stream/issues/116"
-          },
-          {
-            "type": "ADVISORY",
-            "url": "https://github.com/advisories/GHSA-mh6f-8j2x-4483"
-          },
-          {
-            "type": "PACKAGE",
-            "url": "https://github.com/dominictarr/event-stream"
-          }
-        ]
-      }
-    ]
-  },
-  "react": {
-    osv_vulnerabilities: [
-      {
-        "id": "GHSA-3vfh-xfqr-9f3m",
-        "summary": "Medium severity vulnerability in React DOM that could lead to XSS attacks",
-        "severity": "CVSS_V3: CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:L/I:L/A:N",
-        "details": "A vulnerability in React DOM allows attackers to potentially execute arbitrary code through carefully crafted user input. This affects versions of React DOM where user-controlled input is rendered without proper sanitization.\n\nUsers are advised to update to the latest version and ensure proper input validation.",
-        "affected_versions": ["18.0.0", "19.0.0", "19.1.0"],
-        "references": [
-          {
-            "type": "ADVISORY",
-            "url": "https://github.com/advisories/GHSA-3vfh-xfqr-9f3m"
-          },
-          {
-            "type": "WEB",
-            "url": "https://react.dev/blog/2024/01/25/react-19-1-0"
-          },
-          {
-            "type": "PACKAGE",
-            "url": "https://github.com/facebook/react"
-          }
-        ]
-      },
-      {
-        "id": "GHSA-7rjr-3q55-vv33",
-        "summary": "Medium severity vulnerability in React core affecting state management",
-        "severity": "CVSS_V3: CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:L/A:N",
-        "details": "A potential issue in React's state management system could allow for unexpected behavior in certain edge cases. This vulnerability affects how React handles state updates in concurrent features.\n\nThis is considered medium severity as it could lead to application instability but not direct security breaches.",
-        "affected_versions": ["19.0.0", "19.1.0"],
-        "references": [
-          {
-            "type": "ADVISORY",
-            "url": "https://github.com/advisories/GHSA-7rjr-3q55-vv33"
-          },
-          {
-            "type": "WEB",
-            "url": "https://github.com/facebook/react/issues/12345"
-          }
-        ]
-      }
-    ]
-  }
-}
 
-/**
- * Test function to check API response for event-stream
- * This will help us debug the vulnerability data issue
- */
-export const testEventStreamSearch = async (): Promise<void> => {
-  try {
-    console.log('Testing event-stream search...')
-    const response = await fetch(`${API_PROXY_PATH}/packages/search?name=event-stream`)
-    
-    if (!response.ok) {
-      console.error('Test failed:', response.statusText)
-      return
-    }
-    
-    const data = await response.json()
-    console.log('Test API response for event-stream:', JSON.stringify(data, null, 2))
-    
-    if (data.results && data.results.length > 0) {
-      const eventStream = data.results.find((pkg: any) => pkg.name === 'event-stream')
-      if (eventStream) {
-        console.log('Event-stream package found:', eventStream)
-        console.log('OSV vulnerabilities:', eventStream.osv_vulnerabilities)
-        console.log('Vulnerability count:', eventStream.osv_vulnerabilities?.length || 0)
-      } else {
-        console.log('Event-stream package not found in results')
-      }
-    }
-  } catch (error) {
-    console.error('Test failed:', error)
-  }
-}
+
+
 
 /**
  * Search for NPM packages via the new API
@@ -137,16 +35,7 @@ export const searchPackages = async (query: string): Promise<SearchApiResponse> 
     const data = await response.json()
     console.log('Raw API response:', data)
     
-    // TEMPORARY: Add mock vulnerability data for testing
-    // This should be removed once the API is properly integrated
-    if (data.results && data.results.length > 0) {
-      data.results.forEach((pkg: any) => {
-        if (mockVulnerabilityData[pkg.name]) {
-          console.log(`Adding mock vulnerability data for ${pkg.name}`)
-          pkg.osv_vulnerabilities = mockVulnerabilityData[pkg.name].osv_vulnerabilities
-        }
-      })
-    }
+
     
     // Debug: Check for vulnerability data in results
     if (data.results && data.results.length > 0) {

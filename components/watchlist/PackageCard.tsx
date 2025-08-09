@@ -17,14 +17,28 @@ interface PackageCardProps {
 
 export function PackageCard({ pkg, onSelect, onAdd, searchQuery, isSelected, isAdding }: PackageCardProps) {
   const isExactMatch = pkg.name.toLowerCase() === searchQuery.toLowerCase().trim()
+  
+  // Separate active (unpatched) and historical (patched) vulnerabilities
+  const allVulns = pkg.osv_vulnerabilities || []
+  const activeVulns = allVulns.filter(v => !v.is_patched)
+  const historicalVulns = allVulns.filter(v => v.is_patched)
+  
   const vulnerabilityCount = getVulnerabilityCount(pkg.osv_vulnerabilities)
   const hasVulns = hasVulnerabilities(pkg.osv_vulnerabilities)
-  const highestSeverity = getHighestSeverity(pkg.osv_vulnerabilities)
+  const hasActiveVulns = activeVulns.length > 0
+  const hasOnlyPatchedVulns = historicalVulns.length > 0 && activeVulns.length === 0
+  
+  // Use active vulnerabilities for severity assessment, not all vulnerabilities
+  const highestSeverity = hasActiveVulns ? getHighestSeverity(activeVulns) : getHighestSeverity(pkg.osv_vulnerabilities)
   
   // Debug logging
   console.log(`PackageCard for ${pkg.name}:`, {
     vulnerabilityCount,
     hasVulns,
+    hasActiveVulns,
+    hasOnlyPatchedVulns,
+    activeVulns: activeVulns.length,
+    historicalVulns: historicalVulns.length,
     highestSeverity,
     osv_vulnerabilities: pkg.osv_vulnerabilities
   })
@@ -58,15 +72,26 @@ export function PackageCard({ pkg, onSelect, onAdd, searchQuery, isSelected, isA
         <div className="flex items-center gap-3 flex-1 min-w-0">
           <h3 className="font-semibold text-lg text-gray-900 dark:text-white truncate">{pkg.name}</h3>
           {isExactMatch && (
-            <Badge variant="secondary" className="text-xs">
+            <Badge 
+              variant="secondary" 
+              className="text-xs bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800 font-medium"
+            >
               exact match
             </Badge>
           )}
-          {hasVulns && (
+          {hasActiveVulns && (
             <div className="flex items-center gap-2">
               <div className={`w-2 h-2 rounded-full ${getSeverityColor(highestSeverity.level)}`} />
               <Badge variant="outline" className="text-xs border-red-200 text-red-700 dark:border-red-800 dark:text-red-400">
-                {vulnerabilityCount} {vulnerabilityCount === 1 ? 'vulnerability' : 'vulnerabilities'}
+                {activeVulns.length} active {activeVulns.length === 1 ? 'vulnerability' : 'vulnerabilities'}
+              </Badge>
+            </div>
+          )}
+          {hasOnlyPatchedVulns && (
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-green-500" />
+              <Badge variant="outline" className="text-xs border-green-200 text-green-700 dark:border-green-800 dark:text-green-400">
+                {historicalVulns.length} patched {historicalVulns.length === 1 ? 'issue' : 'issues'}
               </Badge>
             </div>
           )}
@@ -86,18 +111,51 @@ export function PackageCard({ pkg, onSelect, onAdd, searchQuery, isSelected, isA
         </p>
       )}
 
-      {/* Vulnerability Status */}
-      {hasVulns && (
+      {/* Active Vulnerability Status */}
+      {hasActiveVulns && (
         <div className="mb-3 p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800/50 rounded-lg">
           <div className="flex items-start gap-2">
             <AlertTriangle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
             <div className="text-sm">
               <p className="text-red-700 dark:text-red-300 font-medium mb-1">
-                {highestSeverity.level.charAt(0).toUpperCase() + highestSeverity.level.slice(1)} severity vulnerabilities detected
+                {activeVulns.length} active {highestSeverity.level} severity {activeVulns.length === 1 ? 'vulnerability' : 'vulnerabilities'} detected
               </p>
-              <p className="text-red-600 dark:text-red-400 text-xs">
-                Review security advisories before adding to your project
+              <div className="flex items-center justify-between text-xs">
+                <p className="text-red-600 dark:text-red-400">
+                  Review security advisories from OSV.dev before adding to your project
+                </p>
+                <Badge 
+                  variant="secondary" 
+                  className="text-xs bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800 font-medium ml-2 flex-shrink-0"
+                >
+                  <img src="/osv_logo.svg" alt="OSV.dev" className="h-3 w-auto" />
+                </Badge>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Patched Vulnerabilities Status */}
+      {hasOnlyPatchedVulns && (
+        <div className="mb-3 p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800/50 rounded-lg">
+          <div className="flex items-start gap-2">
+            <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+            <div className="text-sm">
+              <p className="text-green-700 dark:text-green-300 font-medium mb-1">
+                All {historicalVulns.length} known {historicalVulns.length === 1 ? 'vulnerability has' : 'vulnerabilities have'} been patched
               </p>
+              <div className="flex items-center justify-between text-xs">
+                <p className="text-green-600 dark:text-green-400">
+                  No active security threats from OSV.dev - safe to add to your project
+                </p>
+                <Badge 
+                  variant="secondary" 
+                  className="text-xs bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800 font-medium ml-2 flex-shrink-0"
+                >
+                  <img src="/osv_logo.svg" alt="OSV.dev" className="h-3 w-auto" />
+                </Badge>
+              </div>
             </div>
           </div>
         </div>
@@ -141,8 +199,10 @@ export function PackageCard({ pkg, onSelect, onAdd, searchQuery, isSelected, isA
           disabled={isAdding}
           size="sm"
           className={`h-8 px-4 text-sm font-medium transition-colors disabled:opacity-50 ${
-            hasVulns 
+            hasActiveVulns 
               ? 'bg-red-600 text-white hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700' 
+              : hasOnlyPatchedVulns
+              ? 'bg-green-600 text-white hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700'
               : 'bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700'
           }`}
         >
