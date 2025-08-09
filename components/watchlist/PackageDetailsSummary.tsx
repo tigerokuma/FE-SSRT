@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Loader2, Download, Plus, Star, GitFork, Users, Package, AlertCircle, CheckCircle, ExternalLink, Github, Globe, AlertTriangle, Eye, Shield, Calendar, ChevronDown, ChevronRight, Clock } from "lucide-react"
+import { Loader2, Download, Plus, Star, GitFork, Users, Package, AlertCircle, CheckCircle, ExternalLink, Github, Globe, AlertTriangle, Eye, Shield, Calendar, ChevronDown, ChevronRight, Clock, CheckCircle2, XCircle, Activity } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -62,9 +62,21 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
   }
 
   const displayPkg = detailedPkg || pkg
-  const vulnCount = displayPkg.osv_vulnerabilities?.length || 0
-  const hasVulns = vulnCount > 0
-  const highestSeverity = getHighestSeverity(displayPkg.osv_vulnerabilities)
+  
+  // Separate active (unpatched) and historical (patched) vulnerabilities
+  const allVulns = displayPkg.osv_vulnerabilities || []
+  const activeVulns = allVulns.filter(v => !v.is_patched)
+  const historicalVulns = allVulns.filter(v => v.is_patched)
+  
+  const activeVulnCount = activeVulns.length
+  const historicalVulnCount = historicalVulns.length
+  const totalVulnCount = allVulns.length
+  
+  // Use active vulnerabilities for threat assessment
+  const hasActiveVulns = activeVulnCount > 0
+  const hasHistoricalVulns = historicalVulnCount > 0
+  const highestActiveSeverity = getHighestSeverity(activeVulns)
+  const highestOverallSeverity = getHighestSeverity(allVulns)
 
   const getSeverityColor = (level: string) => {
     switch (level) {
@@ -147,6 +159,29 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
     if (score >= 4.0) return 'medium'
     if (score >= 0.1) return 'low'
     return 'unknown'
+  }
+
+  // Helper function to determine if current package version is affected
+  const isCurrentVersionAffected = (vuln: OsvVulnerability, currentVersion?: string): { isAffected: boolean, context: string } => {
+    if (!currentVersion || !vuln.affected_versions?.length) {
+      return { isAffected: false, context: 'Version comparison unavailable' }
+    }
+
+    // Simple version comparison (this could be enhanced with semver)
+    const affectedVersions = vuln.affected_versions
+    const isDirectMatch = affectedVersions.includes(currentVersion)
+    
+    if (isDirectMatch) {
+      return { isAffected: true, context: `Current version ${currentVersion} is directly affected` }
+    }
+
+    // Check if any affected versions are ranges that might include current version
+    const hasRanges = affectedVersions.some(v => v.includes('>=') || v.includes('<=') || v.includes('<') || v.includes('>'))
+    if (hasRanges) {
+      return { isAffected: false, context: `Version ${currentVersion} may need manual verification` }
+    }
+
+    return { isAffected: false, context: `Version ${currentVersion} appears unaffected` }
   }
 
   const getSeverityTheme = (vuln: OsvVulnerability) => {
@@ -259,11 +294,19 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                 {displayPkg.version && (
                   <span className="font-mono text-sm text-gray-300">v{displayPkg.version}</span>
                 )}
-                {hasVulns && (
+                {hasActiveVulns && (
                   <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${getSeverityColor(highestSeverity.level)}`} />
+                    <div className={`w-2 h-2 rounded-full ${getSeverityColor(highestActiveSeverity.level)}`} />
                     <Badge variant="outline" className="text-xs border-red-200 text-red-300 dark:border-red-800 dark:text-red-400">
-                      {vulnCount} {vulnCount === 1 ? 'vulnerability' : 'vulnerabilities'}
+                      {activeVulnCount} active {activeVulnCount === 1 ? 'vulnerability' : 'vulnerabilities'}
+                    </Badge>
+                  </div>
+                )}
+                {!hasActiveVulns && hasHistoricalVulns && (
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-green-500" />
+                    <Badge variant="outline" className="text-xs border-green-200 text-green-300 dark:border-green-800 dark:text-green-400">
+                      {historicalVulnCount} patched {historicalVulnCount === 1 ? 'issue' : 'issues'}
                     </Badge>
                   </div>
                 )}
@@ -283,17 +326,34 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
             </div>
           </div>
           
-          {/* Vulnerability Status Banner */}
-          {hasVulns && (
+          {/* Active Vulnerability Warning Banner */}
+          {hasActiveVulns && (
             <div className="mb-3 p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800/50 rounded-lg">
               <div className="flex items-start gap-2">
                 <AlertTriangle className="h-4 w-4 text-red-500 mt-0.5 flex-shrink-0" />
                 <div className="text-sm">
                   <p className="text-red-700 dark:text-red-300 font-medium mb-1">
-                    {highestSeverity.level.charAt(0).toUpperCase() + highestSeverity.level.slice(1)} severity vulnerabilities detected
+                    {activeVulnCount} active {highestActiveSeverity.level} severity {activeVulnCount === 1 ? 'vulnerability' : 'vulnerabilities'} detected
                   </p>
                   <p className="text-red-600 dark:text-red-400 text-xs">
-                    Review security advisories before adding to your project
+                    Requires immediate attention - unpatched security issues found
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Historical Vulnerabilities Info Banner */}
+          {!hasActiveVulns && hasHistoricalVulns && (
+            <div className="mb-3 p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800/50 rounded-lg">
+              <div className="flex items-start gap-2">
+                <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                <div className="text-sm">
+                  <p className="text-green-700 dark:text-green-300 font-medium mb-1">
+                    All {historicalVulnCount} known {historicalVulnCount === 1 ? 'vulnerability has' : 'vulnerabilities have'} been patched
+                  </p>
+                  <p className="text-green-600 dark:text-green-400 text-xs">
+                    No active security threats - historical issues are resolved
                   </p>
                 </div>
               </div>
@@ -305,8 +365,10 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
             disabled={isAdding}
             size="sm"
             className={`w-full h-8 text-sm font-medium transition-colors disabled:opacity-50 ${
-              hasVulns 
+              hasActiveVulns 
                 ? 'bg-red-600 text-white hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700' 
+                : hasHistoricalVulns
+                ? 'bg-yellow-600 text-white hover:bg-yellow-700 dark:bg-yellow-600 dark:hover:bg-yellow-700'
                 : 'bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700'
             }`}
           >
@@ -328,45 +390,61 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
       {/* Scrollable Content */}
       <ScrollArea className="flex-1">
         <div className="p-4 space-y-4">
-          {/* Security Vulnerabilities */}
-          {hasVulns && displayPkg.osv_vulnerabilities && (
+          {/* Active Security Vulnerabilities */}
+          {hasActiveVulns && (
             <div>
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-8 h-8 rounded-lg bg-red-600 flex items-center justify-center">
                   <AlertTriangle className="h-4 w-4 text-white" />
                 </div>
                 <div>
-                  <h4 className="text-sm font-medium text-white">Security Vulnerabilities</h4>
-                  <p className="text-xs text-red-400">
-                    {vulnCount} {vulnCount === 1 ? 'vulnerability' : 'vulnerabilities'} found
-                    {vulnCount > 0 && (() => {
-                      const sortedVulns = displayPkg.osv_vulnerabilities.sort((a, b) => {
+                  <h4 className="text-sm font-medium text-white">Active Security Vulnerabilities</h4>
+                  <div className="flex items-center gap-4 text-xs">
+                    <span className="text-red-400">
+                      {activeVulnCount} unpatched {activeVulnCount === 1 ? 'vulnerability' : 'vulnerabilities'}
+                    </span>
+                    {(() => {
+                      const sortedActiveVulns = activeVulns.sort((a, b) => {
                         const dateA = new Date(a.published || a.modified || '1970-01-01').getTime()
                         const dateB = new Date(b.published || b.modified || '1970-01-01').getTime()
                         return dateB - dateA
                       })
-                      const latestDate = formatVulnerabilityDate(sortedVulns[0]?.published || sortedVulns[0]?.modified)
+                      const latestDate = formatVulnerabilityDate(sortedActiveVulns[0]?.published || sortedActiveVulns[0]?.modified)
                       return (
-                        <span className="text-gray-400"> • Latest: {latestDate.relative}</span>
+                        <>
+                          <span className="text-red-300 flex items-center gap-1">
+                            <XCircle className="h-3 w-3" />
+                            Requires action
+                          </span>
+                          <span className="text-gray-400">Latest: {latestDate.relative}</span>
+                        </>
                       )
                     })()}
-                  </p>
+                  </div>
                 </div>
               </div>
               
               <div className="space-y-3">
-                {displayPkg.osv_vulnerabilities
+                {activeVulns
                   .sort((a, b) => {
-                    // Sort by published date (latest first), fallback to modified date
+                    // Sort by severity first, then by date
+                    const severityOrder = { 'critical': 4, 'high': 3, 'medium': 2, 'low': 1, 'unknown': 0 }
+                    const aSeverity = getSeverityLevel(parseCvssScore(a.severity).score || 0)
+                    const bSeverity = getSeverityLevel(parseCvssScore(b.severity).score || 0)
+                    const severityDiff = (severityOrder[bSeverity as keyof typeof severityOrder] || 0) - (severityOrder[aSeverity as keyof typeof severityOrder] || 0)
+                    if (severityDiff !== 0) return severityDiff
+                    
+                    // Then sort by published date (latest first)
                     const dateA = new Date(a.published || a.modified || '1970-01-01').getTime()
                     const dateB = new Date(b.published || b.modified || '1970-01-01').getTime()
-                    return dateB - dateA // Latest first
+                    return dateB - dateA
                   })
                   .map((vuln: OsvVulnerability) => {
                   const isExpanded = expandedVulns.has(vuln.id)
                   const theme = getSeverityTheme(vuln)
                   const publishedDate = formatVulnerabilityDate(vuln.published)
                   const modifiedDate = formatVulnerabilityDate(vuln.modified)
+                  const versionContext = isCurrentVersionAffected(vuln, displayPkg.version)
                   
                   return (
                     <div key={vuln.id} className={`bg-gradient-to-r ${theme.cardBg} border ${theme.cardBorder} rounded-xl p-4 w-full overflow-hidden shadow-sm`}>
@@ -391,6 +469,32 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                                 </span>
                               </div>
                             )}
+                            {/* Patch Status */}
+                            {vuln.is_patched !== undefined && (
+                              <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full ${
+                                vuln.is_patched 
+                                  ? 'bg-green-100 dark:bg-green-900/30'
+                                  : 'bg-red-100 dark:bg-red-900/30'
+                              }`}>
+                                {vuln.is_patched ? (
+                                  <CheckCircle2 className="h-3 w-3 text-green-600 dark:text-green-400" />
+                                ) : (
+                                  <XCircle className="h-3 w-3 text-red-600 dark:text-red-400" />
+                                )}
+                                <span className={`text-xs font-medium ${
+                                  vuln.is_patched 
+                                    ? 'text-green-700 dark:text-green-300'
+                                    : 'text-red-700 dark:text-red-300'
+                                }`}>
+                                  {vuln.is_patched ? 'Patched' : 'Unpatched'}
+                                </span>
+                                {vuln.is_patched && vuln.patch_age_days && (
+                                  <span className="text-xs text-green-600 dark:text-green-400">
+                                    ({Math.floor(vuln.patch_age_days / 365)}y ago)
+                                  </span>
+                                )}
+                              </div>
+                            )}
                             {/* Timing Information */}
                             <div className="flex items-center gap-1 bg-blue-100 dark:bg-blue-900/30 px-2 py-0.5 rounded-full">
                               <Clock className="h-3 w-3 text-blue-600 dark:text-blue-400" />
@@ -398,6 +502,23 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                                 {publishedDate.relative}
                               </span>
                             </div>
+                            {/* Version Impact */}
+                            {displayPkg.version && versionContext.isAffected && (
+                              <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 dark:bg-red-900/30">
+                                <AlertTriangle className="h-3 w-3 text-red-600 dark:text-red-400" />
+                                <span className="text-xs font-medium text-red-700 dark:text-red-300">
+                                  Current version affected
+                                </span>
+                              </div>
+                            )}
+                            {displayPkg.version && !versionContext.isAffected && vuln.affected_versions?.length && (
+                              <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800">
+                                <CheckCircle2 className="h-3 w-3 text-gray-600 dark:text-gray-400" />
+                                <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                                  Version may be safe
+                                </span>
+                              </div>
+                            )}
                           </div>
                           
                           <Collapsible open={isExpanded} onOpenChange={() => toggleVulnExpansion(vuln.id)}>
@@ -421,13 +542,49 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                         
                         {/* Vulnerability Summary */}
                         <div className="mb-3">
-                          <h5 className={`text-sm font-medium ${theme.titleText} mb-1 leading-tight`}>
-                            {vuln.summary.split('.')[0]}.
-                          </h5>
+                          <div className="flex items-start gap-2 mb-2">
+                            <h5 className={`text-sm font-medium ${theme.titleText} leading-tight flex-1`}>
+                              {vuln.summary.split('.')[0]}.
+                            </h5>
+                            {!vuln.is_patched && (
+                              <div className="flex items-center gap-1 px-2 py-1 bg-red-100 dark:bg-red-900/30 rounded-full">
+                                <AlertTriangle className="h-3 w-3 text-red-600 dark:text-red-400" />
+                                <span className="text-xs font-medium text-red-700 dark:text-red-300">Action Required</span>
+                              </div>
+                            )}
+                          </div>
                           {vuln.summary.split('.').length > 1 && (
                             <p className={`text-xs ${theme.subtitleText} leading-relaxed opacity-90`}>
                               {vuln.summary.split('.').slice(1).join('.').trim()}
                             </p>
+                          )}
+                          {vuln.is_patched && vuln.fixed_versions && vuln.fixed_versions.length > 0 && (
+                            <div className="mt-2 p-2 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800/40 rounded-md">
+                              <div className="flex items-center gap-2 text-xs text-green-700 dark:text-green-300">
+                                <CheckCircle2 className="h-3 w-3" />
+                                <span className="font-medium">Fixed in: {vuln.fixed_versions.join(', ')}</span>
+                              </div>
+                            </div>
+                          )}
+                          {!vuln.is_patched && displayPkg.version && (
+                            <div className={`mt-2 p-2 rounded-md ${
+                              versionContext.isAffected 
+                                ? 'bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800/40' 
+                                : 'bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700'
+                            }`}>
+                              <div className={`flex items-center gap-2 text-xs ${
+                                versionContext.isAffected 
+                                  ? 'text-red-700 dark:text-red-300' 
+                                  : 'text-gray-700 dark:text-gray-300'
+                              }`}>
+                                {versionContext.isAffected ? (
+                                  <AlertTriangle className="h-3 w-3 text-red-600 dark:text-red-400" />
+                                ) : (
+                                  <CheckCircle2 className="h-3 w-3 text-gray-600 dark:text-gray-400" />
+                                )}
+                                <span className="font-medium">{versionContext.context}</span>
+                              </div>
+                            </div>
                           )}
                         </div>
                         
@@ -482,10 +639,23 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                                     </div>
                                   </div>
                                 )}
+                                {vuln.is_patched && vuln.patch_age_days && (
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-gray-600 dark:text-gray-400">Patch Status:</span>
+                                    <div className="text-right">
+                                      <div className="text-xs font-medium text-green-700 dark:text-green-300">
+                                        Fixed {Math.floor(vuln.patch_age_days / 365)}y {Math.floor((vuln.patch_age_days % 365) / 30)}m ago
+                                      </div>
+                                      <div className="text-xs text-gray-500">Patched vulnerability</div>
+                                    </div>
+                                  </div>
+                                )}
                                 <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
                                   <div className="flex items-center gap-2">
                                     <div className={`w-2 h-2 rounded-full ${
-                                      publishedDate.relative.includes('day') || publishedDate.relative === 'Today' 
+                                      !vuln.is_patched
+                                        ? 'bg-red-500'
+                                        : publishedDate.relative.includes('day') || publishedDate.relative === 'Today' 
                                         ? 'bg-red-500' 
                                         : publishedDate.relative.includes('week') 
                                         ? 'bg-orange-500' 
@@ -494,7 +664,9 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                                         : 'bg-green-500'
                                     }`}></div>
                                     <span className="text-xs text-gray-600 dark:text-gray-400">
-                                      {publishedDate.relative.includes('day') || publishedDate.relative === 'Today' 
+                                      {!vuln.is_patched
+                                        ? 'Unpatched - Immediate attention needed'
+                                        : publishedDate.relative.includes('day') || publishedDate.relative === 'Today' 
                                         ? 'Recently discovered' 
                                         : publishedDate.relative.includes('week') 
                                         ? 'Recent discovery' 
@@ -508,19 +680,82 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                               </div>
                             </div>
                             
-                            {/* Affected Versions */}
-                            {vuln.affected_versions && vuln.affected_versions.length > 0 && (
+                            {/* Version Information */}
+                            {(vuln.affected_versions?.length || vuln.fixed_versions?.length || vuln.introduced_versions?.length || vuln.last_affected_versions?.length) && (
                               <div className={`${theme.sectionBg} rounded-lg p-3 border ${theme.sectionBorderColor}`}>
-                                <div className="flex items-center gap-2 mb-2">
+                                <div className="flex items-center gap-2 mb-3">
                                   <Package className={`h-4 w-4 ${theme.dotColor.replace('bg-', 'text-')}`} />
-                                  <span className={`text-xs font-semibold ${theme.idText} uppercase tracking-wide`}>Affected Versions</span>
+                                  <span className={`text-xs font-semibold ${theme.idText} uppercase tracking-wide`}>Version Analysis</span>
                                 </div>
-                                <div className="flex flex-wrap gap-1.5">
-                                  {vuln.affected_versions.map((version, idx) => (
-                                    <span key={idx} className={`px-2 py-1 ${theme.idBg} ${theme.idText} text-xs rounded-md font-mono border ${theme.sectionBorderColor}`}>
-                                      {version}
-                                    </span>
-                                  ))}
+                                <div className="space-y-3">
+                                  {vuln.affected_versions && vuln.affected_versions.length > 0 && (
+                                    <div>
+                                      <div className="flex items-center gap-2 mb-1">
+                                        <AlertTriangle className="h-3 w-3 text-red-500" />
+                                        <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Affected Versions</span>
+                                      </div>
+                                      <div className="flex flex-wrap gap-1.5">
+                                        {vuln.affected_versions.map((version, idx) => (
+                                          <span key={idx} className="px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-xs rounded-md font-mono border border-red-200 dark:border-red-800/40">
+                                            {version}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                  {vuln.fixed_versions && vuln.fixed_versions.length > 0 && (
+                                    <div>
+                                      <div className="flex items-center gap-2 mb-1">
+                                        <CheckCircle2 className="h-3 w-3 text-green-500" />
+                                        <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Fixed in Versions</span>
+                                      </div>
+                                      <div className="flex flex-wrap gap-1.5">
+                                        {vuln.fixed_versions.map((version, idx) => (
+                                          <span key={idx} className="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs rounded-md font-mono border border-green-200 dark:border-green-800/40">
+                                            {version}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                  {vuln.introduced_versions && vuln.introduced_versions.length > 0 && (
+                                    <div>
+                                      <div className="flex items-center gap-2 mb-1">
+                                        <Activity className="h-3 w-3 text-orange-500" />
+                                        <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Introduced in</span>
+                                      </div>
+                                      <div className="flex flex-wrap gap-1.5">
+                                        {vuln.introduced_versions.map((version, idx) => (
+                                          <span key={idx} className="px-2 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 text-xs rounded-md font-mono border border-orange-200 dark:border-orange-800/40">
+                                            {version}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                  {vuln.last_affected_versions && vuln.last_affected_versions.length > 0 && (
+                                    <div>
+                                      <div className="flex items-center gap-2 mb-1">
+                                        <XCircle className="h-3 w-3 text-gray-500" />
+                                        <span className="text-xs font-medium text-gray-700 dark:text-gray-300">Last Affected</span>
+                                      </div>
+                                      <div className="flex flex-wrap gap-1.5">
+                                        {vuln.last_affected_versions.map((version, idx) => (
+                                          <span key={idx} className="px-2 py-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-xs rounded-md font-mono border border-gray-200 dark:border-gray-700">
+                                            {version}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                  {vuln.is_patched && vuln.patch_age_days && (
+                                    <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+                                      <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                                        <CheckCircle2 className="h-3 w-3 text-green-500" />
+                                        <span>Patched {Math.floor(vuln.patch_age_days / 365)} years and {Math.floor((vuln.patch_age_days % 365) / 30)} months ago</span>
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             )}
@@ -708,6 +943,160 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
             </div>
           )}
 
+          {/* Historical Vulnerabilities (Patched) */}
+          {hasHistoricalVulns && (
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-8 h-8 rounded-lg bg-green-600 flex items-center justify-center">
+                  <CheckCircle className="h-4 w-4 text-white" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-medium text-white">Security History</h4>
+                  <div className="flex items-center gap-4 text-xs">
+                    <span className="text-green-400">
+                      {historicalVulnCount} patched {historicalVulnCount === 1 ? 'vulnerability' : 'vulnerabilities'}
+                    </span>
+                    {(() => {
+                      const sortedHistoricalVulns = historicalVulns.sort((a, b) => {
+                        const dateA = new Date(a.published || a.modified || '1970-01-01').getTime()
+                        const dateB = new Date(b.published || b.modified || '1970-01-01').getTime()
+                        return dateB - dateA
+                      })
+                      const latestDate = formatVulnerabilityDate(sortedHistoricalVulns[0]?.published || sortedHistoricalVulns[0]?.modified)
+                      const avgPatchTime = historicalVulns.reduce((sum, v) => sum + (v.patch_age_days || 0), 0) / historicalVulns.length
+                      return (
+                        <>
+                          <span className="text-green-300 flex items-center gap-1">
+                            <CheckCircle2 className="h-3 w-3" />
+                            All resolved
+                          </span>
+                          {avgPatchTime > 0 && (
+                            <span className="text-gray-400">
+                              Avg patch: {Math.floor(avgPatchTime / 365)}y ago
+                            </span>
+                          )}
+                          <span className="text-gray-400">Latest: {latestDate.relative}</span>
+                        </>
+                      )
+                    })()}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="space-y-3">
+                {historicalVulns
+                  .sort((a, b) => {
+                    // Sort by patch date first (most recently patched first), then by severity
+                    const patchDateA = a.patch_age_days || 0
+                    const patchDateB = b.patch_age_days || 0
+                    if (patchDateA !== patchDateB) return patchDateA - patchDateB // Most recently patched first
+                    
+                    // Then sort by severity
+                    const severityOrder = { 'critical': 4, 'high': 3, 'medium': 2, 'low': 1, 'unknown': 0 }
+                    const aSeverity = getSeverityLevel(parseCvssScore(a.severity).score || 0)
+                    const bSeverity = getSeverityLevel(parseCvssScore(b.severity).score || 0)
+                    const severityDiff = (severityOrder[bSeverity as keyof typeof severityOrder] || 0) - (severityOrder[aSeverity as keyof typeof severityOrder] || 0)
+                    if (severityDiff !== 0) return severityDiff
+                    
+                    // Finally sort by published date (latest first)
+                    const dateA = new Date(a.published || a.modified || '1970-01-01').getTime()
+                    const dateB = new Date(b.published || b.modified || '1970-01-01').getTime()
+                    return dateB - dateA
+                  })
+                  .map((vuln: OsvVulnerability) => {
+                  const isExpanded = expandedVulns.has(vuln.id)
+                  const theme = getSeverityTheme(vuln)
+                  const publishedDate = formatVulnerabilityDate(vuln.published)
+                  const modifiedDate = formatVulnerabilityDate(vuln.modified)
+                  
+                  return (
+                    <div key={vuln.id} className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800/50 rounded-lg p-4 w-full overflow-hidden">
+                      <div className="w-full">
+                        {/* Vulnerability Header */}
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-xs text-green-700 dark:text-green-300 bg-green-100 dark:bg-green-900/50 px-2.5 py-1 rounded font-medium">
+                                {vuln.id}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1 bg-green-100 dark:bg-green-900/50 px-2 py-0.5 rounded">
+                              <CheckCircle2 className="h-3 w-3 text-green-600 dark:text-green-400" />
+                              <span className="text-xs font-medium text-green-700 dark:text-green-300">Patched</span>
+                            </div>
+                            {vuln.patch_age_days && (
+                              <span className="text-xs text-green-600 dark:text-green-400">
+                                Fixed {Math.floor(vuln.patch_age_days / 365)}y ago
+                              </span>
+                            )}
+                          </div>
+                          
+                          <Collapsible open={isExpanded} onOpenChange={() => toggleVulnExpansion(vuln.id)}>
+                            <CollapsibleTrigger asChild>
+                              <button className="flex items-center gap-1 px-2 py-1 text-xs text-green-700 dark:text-green-300 hover:opacity-80 hover:bg-green-100 dark:hover:bg-green-900/50 rounded-md transition-colors">
+                                {isExpanded ? (
+                                  <>
+                                    <ChevronDown className="h-3 w-3" />
+                                    Less
+                                  </>
+                                ) : (
+                                  <>
+                                    <ChevronRight className="h-3 w-3" />
+                                    More
+                                  </>
+                                )}
+                              </button>
+                            </CollapsibleTrigger>
+                          </Collapsible>
+                        </div>
+                        
+                        {/* Vulnerability Summary */}
+                        <div className="mb-3">
+                          <h5 className="text-sm font-medium text-green-900 dark:text-green-100 leading-tight mb-2">
+                            {vuln.summary.split('.')[0]}.
+                          </h5>
+                          {vuln.summary.split('.').length > 1 && (
+                            <p className="text-xs text-green-700 dark:text-green-200 leading-relaxed mb-2">
+                              {vuln.summary.split('.').slice(1).join('.').trim()}
+                            </p>
+                          )}
+                          {vuln.fixed_versions && vuln.fixed_versions.length > 0 && (
+                            <div className="mt-2 p-2 bg-white dark:bg-green-950/40 border border-green-200 dark:border-green-800/40 rounded">
+                              <div className="flex items-center gap-2 text-xs text-green-700 dark:text-green-300">
+                                <CheckCircle2 className="h-3 w-3" />
+                                <span className="font-medium">Fixed in: {vuln.fixed_versions.join(', ')}</span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Expandable Details - Same as active vulnerabilities but with green theme */}
+                        <Collapsible open={isExpanded} onOpenChange={() => toggleVulnExpansion(vuln.id)}>
+                          <CollapsibleContent className="space-y-4 pt-3 border-t border-green-300 dark:border-green-700">
+                            {/* Add same expandable content as active vulnerabilities but with green styling */}
+                            {vuln.severity && (
+                              <div className="bg-white dark:bg-green-950/40 rounded-lg p-3 border border-green-200 dark:border-green-800/40">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Shield className="h-4 w-4 text-green-600" />
+                                  <span className="text-xs font-semibold text-green-700 dark:text-green-300 uppercase tracking-wide">
+                                    CVSS Score (PATCHED)
+                                  </span>
+                                </div>
+                                <code className="text-xs text-green-700 dark:text-green-300 bg-green-100 dark:bg-green-900/50 px-2 py-1 rounded block break-all font-mono">
+                                  {vuln.severity}
+                                </code>
+                              </div>
+                            )}
+                          </CollapsibleContent>
+                        </Collapsible>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Key Metrics */}
           <div>
             <h4 className="text-sm font-medium text-white mb-3">Key Metrics</h4>
@@ -807,17 +1196,31 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
           </div>
 
           {/* No Vulnerabilities State */}
-          {!hasVulns && (
+          {!hasActiveVulns && !hasHistoricalVulns && (
             <div>
               <h4 className="text-sm font-medium text-white mb-3">Security Status</h4>
               <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800/50 rounded-lg p-3">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 mb-2">
                   <CheckCircle className="h-4 w-4 text-green-500" />
                   <span className="text-sm font-medium text-green-700 dark:text-green-300">No known vulnerabilities</span>
                 </div>
-                <p className="text-green-600 dark:text-green-400 text-xs mt-1">
-                  This package appears to be secure according to OSV database
+                <p className="text-green-600 dark:text-green-400 text-xs mb-2">
+                  This package appears to be secure according to OSV database with intelligent filtering
                 </p>
+                <div className="text-xs text-green-600 dark:text-green-400 border-t border-green-200 dark:border-green-800 pt-2 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-3 w-3" />
+                    <span>No unpatched vulnerabilities</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-3 w-3" />
+                    <span>No recent security issues</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-3 w-3" />
+                    <span>Smart filtering excludes old patched issues</span>
+                  </div>
+                </div>
               </div>
             </div>
           )}
