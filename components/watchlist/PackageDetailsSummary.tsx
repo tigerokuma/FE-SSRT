@@ -22,6 +22,7 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [expandedVulns, setExpandedVulns] = useState<Set<string>>(new Set())
+  const [isHistoryExpanded, setIsHistoryExpanded] = useState(false)
 
   useEffect(() => {
     if (pkg) {
@@ -159,6 +160,21 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
     if (score >= 4.0) return 'medium'
     if (score >= 0.1) return 'low'
     return 'unknown'
+  }
+
+  // Helper function to format patch age in a more readable way
+  const formatPatchAge = (patchAgeDays?: number): string => {
+    if (!patchAgeDays) return ''
+    
+    if (patchAgeDays < 30) {
+      return `${patchAgeDays} ${patchAgeDays === 1 ? 'day' : 'days'} ago`
+    } else if (patchAgeDays < 365) {
+      const months = Math.floor(patchAgeDays / 30)
+      return `${months} ${months === 1 ? 'month' : 'months'} ago`
+    } else {
+      const years = Math.floor(patchAgeDays / 365)
+      return `${years} ${years === 1 ? 'year' : 'years'} ago`
+    }
   }
 
   // Helper function to determine if current package version is affected
@@ -403,6 +419,12 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                     <span className="text-red-400">
                       {activeVulnCount} unpatched {activeVulnCount === 1 ? 'vulnerability' : 'vulnerabilities'}
                     </span>
+                    <Badge 
+                      variant="secondary" 
+                      className="text-xs bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700 font-medium"
+                    >
+                      <img src="/osv_logo.svg" alt="OSV.dev" className="h-3 w-auto" />
+                    </Badge>
                     {(() => {
                       const sortedActiveVulns = activeVulns.sort((a, b) => {
                         const dateA = new Date(a.published || a.modified || '1970-01-01').getTime()
@@ -490,7 +512,7 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                                 </span>
                                 {vuln.is_patched && vuln.patch_age_days && (
                                   <span className="text-xs text-green-600 dark:text-green-400">
-                                    ({Math.floor(vuln.patch_age_days / 365)}y ago)
+                                    ({formatPatchAge(vuln.patch_age_days)})
                                   </span>
                                 )}
                               </div>
@@ -644,7 +666,7 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                                     <span className="text-xs text-gray-600 dark:text-gray-400">Patch Status:</span>
                                     <div className="text-right">
                                       <div className="text-xs font-medium text-green-700 dark:text-green-300">
-                                        Fixed {Math.floor(vuln.patch_age_days / 365)}y {Math.floor((vuln.patch_age_days % 365) / 30)}m ago
+                                        Fixed {formatPatchAge(vuln.patch_age_days)}
                                       </div>
                                       <div className="text-xs text-gray-500">Patched vulnerability</div>
                                     </div>
@@ -752,7 +774,7 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                                     <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
                                       <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
                                         <CheckCircle2 className="h-3 w-3 text-green-500" />
-                                        <span>Patched {Math.floor(vuln.patch_age_days / 365)} years and {Math.floor((vuln.patch_age_days % 365) / 30)} months ago</span>
+                                        <span>Patched {formatPatchAge(vuln.patch_age_days)}</span>
                                       </div>
                                     </div>
                                   )}
@@ -943,159 +965,7 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
             </div>
           )}
 
-          {/* Historical Vulnerabilities (Patched) */}
-          {hasHistoricalVulns && (
-            <div>
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-8 h-8 rounded-lg bg-green-600 flex items-center justify-center">
-                  <CheckCircle className="h-4 w-4 text-white" />
-                </div>
-                <div>
-                  <h4 className="text-sm font-medium text-white">Security History</h4>
-                  <div className="flex items-center gap-4 text-xs">
-                    <span className="text-green-400">
-                      {historicalVulnCount} patched {historicalVulnCount === 1 ? 'vulnerability' : 'vulnerabilities'}
-                    </span>
-                    {(() => {
-                      const sortedHistoricalVulns = historicalVulns.sort((a, b) => {
-                        const dateA = new Date(a.published || a.modified || '1970-01-01').getTime()
-                        const dateB = new Date(b.published || b.modified || '1970-01-01').getTime()
-                        return dateB - dateA
-                      })
-                      const latestDate = formatVulnerabilityDate(sortedHistoricalVulns[0]?.published || sortedHistoricalVulns[0]?.modified)
-                      const avgPatchTime = historicalVulns.reduce((sum, v) => sum + (v.patch_age_days || 0), 0) / historicalVulns.length
-                      return (
-                        <>
-                          <span className="text-green-300 flex items-center gap-1">
-                            <CheckCircle2 className="h-3 w-3" />
-                            All resolved
-                          </span>
-                          {avgPatchTime > 0 && (
-                            <span className="text-gray-400">
-                              Avg patch: {Math.floor(avgPatchTime / 365)}y ago
-                            </span>
-                          )}
-                          <span className="text-gray-400">Latest: {latestDate.relative}</span>
-                        </>
-                      )
-                    })()}
-                  </div>
-                </div>
-              </div>
-              
-              <div className="space-y-3">
-                {historicalVulns
-                  .sort((a, b) => {
-                    // Sort by patch date first (most recently patched first), then by severity
-                    const patchDateA = a.patch_age_days || 0
-                    const patchDateB = b.patch_age_days || 0
-                    if (patchDateA !== patchDateB) return patchDateA - patchDateB // Most recently patched first
-                    
-                    // Then sort by severity
-                    const severityOrder = { 'critical': 4, 'high': 3, 'medium': 2, 'low': 1, 'unknown': 0 }
-                    const aSeverity = getSeverityLevel(parseCvssScore(a.severity).score || 0)
-                    const bSeverity = getSeverityLevel(parseCvssScore(b.severity).score || 0)
-                    const severityDiff = (severityOrder[bSeverity as keyof typeof severityOrder] || 0) - (severityOrder[aSeverity as keyof typeof severityOrder] || 0)
-                    if (severityDiff !== 0) return severityDiff
-                    
-                    // Finally sort by published date (latest first)
-                    const dateA = new Date(a.published || a.modified || '1970-01-01').getTime()
-                    const dateB = new Date(b.published || b.modified || '1970-01-01').getTime()
-                    return dateB - dateA
-                  })
-                  .map((vuln: OsvVulnerability) => {
-                  const isExpanded = expandedVulns.has(vuln.id)
-                  const theme = getSeverityTheme(vuln)
-                  const publishedDate = formatVulnerabilityDate(vuln.published)
-                  const modifiedDate = formatVulnerabilityDate(vuln.modified)
-                  
-                  return (
-                    <div key={vuln.id} className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800/50 rounded-lg p-4 w-full overflow-hidden">
-                      <div className="w-full">
-                        {/* Vulnerability Header */}
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-3">
-                            <div className="flex items-center gap-2">
-                              <span className="font-mono text-xs text-green-700 dark:text-green-300 bg-green-100 dark:bg-green-900/50 px-2.5 py-1 rounded font-medium">
-                                {vuln.id}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-1 bg-green-100 dark:bg-green-900/50 px-2 py-0.5 rounded">
-                              <CheckCircle2 className="h-3 w-3 text-green-600 dark:text-green-400" />
-                              <span className="text-xs font-medium text-green-700 dark:text-green-300">Patched</span>
-                            </div>
-                            {vuln.patch_age_days && (
-                              <span className="text-xs text-green-600 dark:text-green-400">
-                                Fixed {Math.floor(vuln.patch_age_days / 365)}y ago
-                              </span>
-                            )}
-                          </div>
-                          
-                          <Collapsible open={isExpanded} onOpenChange={() => toggleVulnExpansion(vuln.id)}>
-                            <CollapsibleTrigger asChild>
-                              <button className="flex items-center gap-1 px-2 py-1 text-xs text-green-700 dark:text-green-300 hover:opacity-80 hover:bg-green-100 dark:hover:bg-green-900/50 rounded-md transition-colors">
-                                {isExpanded ? (
-                                  <>
-                                    <ChevronDown className="h-3 w-3" />
-                                    Less
-                                  </>
-                                ) : (
-                                  <>
-                                    <ChevronRight className="h-3 w-3" />
-                                    More
-                                  </>
-                                )}
-                              </button>
-                            </CollapsibleTrigger>
-                          </Collapsible>
-                        </div>
-                        
-                        {/* Vulnerability Summary */}
-                        <div className="mb-3">
-                          <h5 className="text-sm font-medium text-green-900 dark:text-green-100 leading-tight mb-2">
-                            {vuln.summary.split('.')[0]}.
-                          </h5>
-                          {vuln.summary.split('.').length > 1 && (
-                            <p className="text-xs text-green-700 dark:text-green-200 leading-relaxed mb-2">
-                              {vuln.summary.split('.').slice(1).join('.').trim()}
-                            </p>
-                          )}
-                          {vuln.fixed_versions && vuln.fixed_versions.length > 0 && (
-                            <div className="mt-2 p-2 bg-white dark:bg-green-950/40 border border-green-200 dark:border-green-800/40 rounded">
-                              <div className="flex items-center gap-2 text-xs text-green-700 dark:text-green-300">
-                                <CheckCircle2 className="h-3 w-3" />
-                                <span className="font-medium">Fixed in: {vuln.fixed_versions.join(', ')}</span>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                        
-                        {/* Expandable Details - Same as active vulnerabilities but with green theme */}
-                        <Collapsible open={isExpanded} onOpenChange={() => toggleVulnExpansion(vuln.id)}>
-                          <CollapsibleContent className="space-y-4 pt-3 border-t border-green-300 dark:border-green-700">
-                            {/* Add same expandable content as active vulnerabilities but with green styling */}
-                            {vuln.severity && (
-                              <div className="bg-white dark:bg-green-950/40 rounded-lg p-3 border border-green-200 dark:border-green-800/40">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <Shield className="h-4 w-4 text-green-600" />
-                                  <span className="text-xs font-semibold text-green-700 dark:text-green-300 uppercase tracking-wide">
-                                    CVSS Score (PATCHED)
-                                  </span>
-                                </div>
-                                <code className="text-xs text-green-700 dark:text-green-300 bg-green-100 dark:bg-green-900/50 px-2 py-1 rounded block break-all font-mono">
-                                  {vuln.severity}
-                                </code>
-                              </div>
-                            )}
-                          </CollapsibleContent>
-                        </Collapsible>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          )}
+
 
           {/* Key Metrics */}
           <div>
@@ -1169,6 +1039,158 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
             </div>
           </div>
 
+          {/* Security History (Collapsible) */}
+          {hasHistoricalVulns && (
+            <div>
+              <Collapsible open={isHistoryExpanded} onOpenChange={setIsHistoryExpanded}>
+                <CollapsibleTrigger asChild>
+                  <button className="w-full flex items-center justify-between p-3 bg-gray-900 rounded-lg border border-gray-800 hover:bg-gray-800 transition-colors">
+                    <div className="flex items-center gap-3">
+                      <div className="w-6 h-6 rounded-lg bg-green-600 flex items-center justify-center">
+                        <CheckCircle className="h-3 w-3 text-white" />
+                      </div>
+                      <div className="text-left">
+                        <h4 className="text-sm font-medium text-white">Security History</h4>
+                        <div className="flex items-center gap-2 text-xs">
+                          <span className="text-green-400">{historicalVulnCount} patched {historicalVulnCount === 1 ? 'vulnerability' : 'vulnerabilities'}</span>
+                          <Badge 
+                            variant="secondary" 
+                            className="text-xs bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800 font-medium"
+                          >
+                            <img src="/osv_logo.svg" alt="OSV.dev" className="h-3 w-auto" />
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-400">
+                        {isHistoryExpanded ? 'Hide' : 'Show'}
+                      </span>
+                      {isHistoryExpanded ? (
+                        <ChevronDown className="h-4 w-4 text-gray-400" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4 text-gray-400" />
+                      )}
+                    </div>
+                  </button>
+                </CollapsibleTrigger>
+                
+                <CollapsibleContent className="mt-3">
+                  <div className="space-y-3">
+                    {historicalVulns
+                      .sort((a, b) => {
+                        // Sort by patch date first (most recently patched first), then by severity
+                        const patchDateA = a.patch_age_days || 0
+                        const patchDateB = b.patch_age_days || 0
+                        if (patchDateA !== patchDateB) return patchDateA - patchDateB // Most recently patched first
+                        
+                        // Then sort by severity
+                        const severityOrder = { 'critical': 4, 'high': 3, 'medium': 2, 'low': 1, 'unknown': 0 }
+                        const aSeverity = getSeverityLevel(parseCvssScore(a.severity).score || 0)
+                        const bSeverity = getSeverityLevel(parseCvssScore(b.severity).score || 0)
+                        const severityDiff = (severityOrder[bSeverity as keyof typeof severityOrder] || 0) - (severityOrder[aSeverity as keyof typeof severityOrder] || 0)
+                        if (severityDiff !== 0) return severityDiff
+                        
+                        // Finally sort by published date (latest first)
+                        const dateA = new Date(a.published || a.modified || '1970-01-01').getTime()
+                        const dateB = new Date(b.published || b.modified || '1970-01-01').getTime()
+                        return dateB - dateA
+                      })
+                      .map((vuln: OsvVulnerability) => {
+                      const isExpanded = expandedVulns.has(vuln.id)
+                      const theme = getSeverityTheme(vuln)
+                      const publishedDate = formatVulnerabilityDate(vuln.published)
+                      const modifiedDate = formatVulnerabilityDate(vuln.modified)
+                      
+                      return (
+                        <div key={vuln.id} className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800/50 rounded-lg p-4 w-full overflow-hidden">
+                          <div className="w-full">
+                            {/* Vulnerability Header */}
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-mono text-xs text-green-700 dark:text-green-300 bg-green-100 dark:bg-green-900/50 px-2.5 py-1 rounded font-medium">
+                                    {vuln.id}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1 bg-green-100 dark:bg-green-900/50 px-2 py-0.5 rounded">
+                                  <CheckCircle2 className="h-3 w-3 text-green-600 dark:text-green-400" />
+                                  <span className="text-xs font-medium text-green-700 dark:text-green-300">Patched</span>
+                                </div>
+                                {vuln.patch_age_days && (
+                                  <span className="text-xs text-green-600 dark:text-green-400">
+                                    Fixed {formatPatchAge(vuln.patch_age_days)}
+                                  </span>
+                                )}
+                              </div>
+                              
+                              <Collapsible open={isExpanded} onOpenChange={() => toggleVulnExpansion(vuln.id)}>
+                                <CollapsibleTrigger asChild>
+                                  <button className="flex items-center gap-1 px-2 py-1 text-xs text-green-700 dark:text-green-300 hover:opacity-80 hover:bg-green-100 dark:hover:bg-green-900/50 rounded-md transition-colors">
+                                    {isExpanded ? (
+                                      <>
+                                        <ChevronDown className="h-3 w-3" />
+                                        Less
+                                      </>
+                                    ) : (
+                                      <>
+                                        <ChevronRight className="h-3 w-3" />
+                                        More
+                                      </>
+                                    )}
+                                  </button>
+                                </CollapsibleTrigger>
+                              </Collapsible>
+                            </div>
+                            
+                            {/* Vulnerability Summary */}
+                            <div className="mb-3">
+                              <h5 className="text-sm font-medium text-green-900 dark:text-green-100 leading-tight mb-2">
+                                {vuln.summary.split('.')[0]}.
+                              </h5>
+                              {vuln.summary.split('.').length > 1 && (
+                                <p className="text-xs text-green-700 dark:text-green-200 leading-relaxed mb-2">
+                                  {vuln.summary.split('.').slice(1).join('.').trim()}
+                                </p>
+                              )}
+                              {vuln.fixed_versions && vuln.fixed_versions.length > 0 && (
+                                <div className="mt-2 p-2 bg-white dark:bg-green-950/40 border border-green-200 dark:border-green-800/40 rounded">
+                                  <div className="flex items-center gap-2 text-xs text-green-700 dark:text-green-300">
+                                    <CheckCircle2 className="h-3 w-3" />
+                                    <span className="font-medium">Fixed in: {vuln.fixed_versions.join(', ')}</span>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                            
+                            {/* Expandable Details */}
+                            <Collapsible open={isExpanded} onOpenChange={() => toggleVulnExpansion(vuln.id)}>
+                              <CollapsibleContent className="space-y-4 pt-3 border-t border-green-300 dark:border-green-700">
+                                {vuln.severity && (
+                                  <div className="bg-white dark:bg-green-950/40 rounded-lg p-3 border border-green-200 dark:border-green-800/40">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <Shield className="h-4 w-4 text-green-600" />
+                                      <span className="text-xs font-semibold text-green-700 dark:text-green-300 uppercase tracking-wide">
+                                        CVSS Score (PATCHED)
+                                      </span>
+                                    </div>
+                                    <code className="text-xs text-green-700 dark:text-green-300 bg-green-100 dark:bg-green-900/50 px-2 py-1 rounded block break-all font-mono">
+                                      {vuln.severity}
+                                    </code>
+                                  </div>
+                                )}
+                              </CollapsibleContent>
+                            </Collapsible>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            </div>
+          )}
+
           {/* Package Info */}
           <div>
             <h4 className="text-sm font-medium text-white mb-3">Package Info</h4>
@@ -1204,9 +1226,17 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                   <CheckCircle className="h-4 w-4 text-green-500" />
                   <span className="text-sm font-medium text-green-700 dark:text-green-300">No known vulnerabilities</span>
                 </div>
-                <p className="text-green-600 dark:text-green-400 text-xs mb-2">
-                  This package appears to be secure according to OSV database with intelligent filtering
-                </p>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-green-600 dark:text-green-400 text-xs">
+                    This package appears to be secure according to OSV.dev database with intelligent filtering
+                  </p>
+                  <Badge 
+                    variant="secondary" 
+                    className="text-xs bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800 font-medium"
+                  >
+                    <img src="/osv_logo.svg" alt="OSV.dev" className="h-3 w-auto" />
+                  </Badge>
+                </div>
                 <div className="text-xs text-green-600 dark:text-green-400 border-t border-green-200 dark:border-green-800 pt-2 space-y-1">
                   <div className="flex items-center gap-2">
                     <CheckCircle className="h-3 w-3" />
