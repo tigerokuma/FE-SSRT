@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { Input } from "@/components/ui/input"
 
 const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), { ssr: false });
+const API_PROXY_PATH = process.env.NEXT_PUBLIC_API_PROXY_PATH || '/api/backend'
 
 function structuredGraphOutput(data: { nodes: any[]; links: any[] }) {
   if (!data.nodes.length) return data;
@@ -75,9 +76,9 @@ export default function MyGraphComponent({
         const encodedNode = encodeURIComponent(currentNodeId);
         const vulnsParam = encodeURIComponent(vulnerablePackages.join(","));
         let url = "";
-        if (watchlistId) url = `http://localhost:3000/sbom/graph-dependencies/${encodedWatchlist}/${encodedNode}?vulns=${vulnsParam}`;
+        if (watchlistId) url = `${API_PROXY_PATH}/sbom/graph-dependencies/${encodedWatchlist}/${encodedNode}?vulns=${vulnsParam}`;
         else if (userWatchlistId)
-          url = `http://localhost:3000/sbom/user-graph-dependencies/${encodedUserWatchlist}/${encodedNode}?vulns=${vulnsParam}`;
+          url = `${API_PROXY_PATH}/sbom/user-graph-dependencies/${encodedUserWatchlist}/${encodedNode}?vulns=${vulnsParam}`;
 
         const res = await fetch(url);
         const json = await res.json();

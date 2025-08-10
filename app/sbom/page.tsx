@@ -14,6 +14,8 @@ import DependencySelector from "@/components/sbom/DependencySelector";
 import MetadataCard from "@/components/sbom/MetadataCard";
 import VulnerablePackagesList from "@/components/sbom/VulnerablePackagesList";
 
+const API_PROXY_PATH = process.env.NEXT_PUBLIC_API_PROXY_PATH || '/api/backend'
+
 export default function SbomSearchPage() {
   const userRepositories = [{ id: "user-123", label: "main" }];
   const userId = "user-123";
@@ -44,7 +46,7 @@ export default function SbomSearchPage() {
   useEffect(() => {
     async function loadDependencyPackages() {
       try {
-        const res = await fetch(`http://localhost:3000/sbom/dep-list/${userId}`);
+        const res = await fetch(`${API_PROXY_PATH}/sbom/dep-list/${userId}`);
         const data = await res.json();
         const formatted = data.map((item: any) => ({
           id: item.watchlist_id,
@@ -63,8 +65,8 @@ export default function SbomSearchPage() {
     async function fetchMetadata() {
       try {
         let url = "";
-        if (watchlistId) url = `http://localhost:3000/sbom/watchlist-metadata/${watchlistId}`;
-        else if (userWatchlistId) url = `http://localhost:3000/sbom/user-watchlist-metadata/${userWatchlistId}`;
+        if (watchlistId) url = `${API_PROXY_PATH}/sbom/watchlist-metadata/${watchlistId}`;
+        else if (userWatchlistId) url = `${API_PROXY_PATH}/sbom/user-watchlist-metadata/${userWatchlistId}`;
 
         const res = await fetch(url);
         const data = await res.json();
@@ -102,8 +104,8 @@ export default function SbomSearchPage() {
     }
     try {
       let url = "";
-      if (watchlistId) url = `http://localhost:3000/sbom/search/${watchlistId}/${encodeURIComponent(query)}`;
-      else if (userWatchlistId) url = `http://localhost:3000/sbom/user-search/${userWatchlistId}/${encodeURIComponent(query)}`;
+      if (watchlistId) url = `${API_PROXY_PATH}/sbom/search/${watchlistId}/${encodeURIComponent(query)}`;
+      else if (userWatchlistId) url = `${API_PROXY_PATH}/sbom/user-search/${userWatchlistId}/${encodeURIComponent(query)}`;
 
       const res = await fetch(url);
       const data = await res.json();
@@ -126,8 +128,8 @@ export default function SbomSearchPage() {
   async function handleDownloadSbom() {
     try {
       let url = "";
-      if (watchlistId) url = `http://localhost:3000/sbom/watchlist/${watchlistId}`;
-      else if (userWatchlistId) url = `http://localhost:3000/sbom/user-watchlist/${userWatchlistId}`;
+      if (watchlistId) url = `${API_PROXY_PATH}/sbom/watchlist/${watchlistId}`;
+      else if (userWatchlistId) url = `${API_PROXY_PATH}/sbom/user-watchlist/${userWatchlistId}`;
 
       const res = await fetch(url);
       if (!res.ok) throw new Error("Failed to fetch SBOM");
