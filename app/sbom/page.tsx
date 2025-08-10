@@ -7,8 +7,6 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { PageHeader } from "@/components/page-header"
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
-
 import { MainContent } from "@/components/main-content"
 
 import dynamic from "next/dynamic";
@@ -51,11 +49,14 @@ function structuredGraphOutput(data: { nodes: any[]; links: any[] }) {
   return { nodes: [mainNode, ...leftNodes, ...rightNodes], links: data.links };
 }
 
-
 // Graph component
 
-
 export default function SbomSearchPage() {
+  const userRepositories = [
+    { id: "user-123", label: "main" }, 
+  ];
+  const userId = 'user-123';
+
   const [infQuery, setInfQuery] = useState("");
   const [showResults, setShowResults] = useState(false);
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -71,29 +72,11 @@ export default function SbomSearchPage() {
     riskSummary: {}
   });
   const [selectedSbom, setSelectedSbom] = useState<string>("");
-  const [dependencyPackages, setDependencyPackages] = useState<
-    { id: string; label: string }[]
-  >([]);
-
-
-  const userRepositories = [
-    { id: "user-123", label: "main" }, 
-  ];
-  const userId = 'user-123';
-  const [history, setHistory] = useState<string[]>([metadata.sbomPackage]);
+  const [dependencyPackages, setDependencyPackages] = useState<{ id: string; label: string } []>([]);
+  const [history, setHistory] = useState<string[]>([]);
   const [watchlistId, setWatchlistId] = useState<string>("");
-  const [userWatchlistId, setUserWatchlistId] = useState<string>("user-123");
-
-
-  function selectWatchlist(id: string) {
-    setWatchlistId(id);
-    setUserWatchlistId(""); // clear the other
-  }
-
-  function selectUserWatchlist(id: string) {
-    setUserWatchlistId(id);
-    setWatchlistId(""); // clear the other
-  }
+  const [userWatchlistId, setUserWatchlistId] = useState<string>(userId);
+  const [currentNodeId, setCurrentNodeId] = useState<string>(`pkg:user/${userId}@latest`);
 
   function MyGraphComponent({ onNodeClick }: { onNodeClick: (nodeId: string) => void }) {
   const [data, setData] = useState<{ nodes: any[]; links: any[] }>({ nodes: [], links: [] });
@@ -132,103 +115,105 @@ export default function SbomSearchPage() {
     }, [metadata, watchlistId, currentNodeId, vulnerablePackages]);
     if(viewMode == "graph"){
       return (
-        <ForceGraph2D
-          graphData={data}
-          d3AlphaDecay={0.01} 
-          d3VelocityDecay={1} 
-          
-          nodeCanvasObject={(node, ctx, globalScale) => {
-            const label = node.name || node.id;
-            const fontSize = 12 / globalScale;
+        <div className="border border-2 rounded-md">
+          <ForceGraph2D
+            graphData={data}
+            d3AlphaDecay={0} 
+            d3VelocityDecay={1} 
+            height={655}
+            width={1100}
+            
+            nodeCanvasObject={(node, ctx, globalScale) => {
+              const label = node.name || node.id;
+              const fontSize = 12 / globalScale;
 
-            ctx.font = `${fontSize}px Sans-Serif`;
-            const textWidth = ctx.measureText(label).width;
+              ctx.font = `${fontSize}px Sans-Serif`;
+              const textWidth = ctx.measureText(label).width;
 
-            const paddingX = 2;
-            const paddingY = 2;
-            const rectWidth = textWidth + paddingX * 2;
-            const rectHeight = fontSize + paddingY * 2;
+              const paddingX = 2;
+              const paddingY = 2;
+              const rectWidth = textWidth + paddingX * 2;
+              const rectHeight = fontSize + paddingY * 2;
 
-            const x = node.x!;
-            const y = node.y!;
+              const x = node.x!;
+              const y = node.y!;
 
-            (node as any).__width = rectWidth;
-            (node as any).__height = rectHeight;
+              (node as any).__width = rectWidth;
+              (node as any).__height = rectHeight;
 
-            ctx.fillStyle = node.color || 'lightblue';
-          
-            ctx.beginPath();
-            ctx.rect(x - rectWidth / 2, y - rectHeight / 2, rectWidth, rectHeight);
-            ctx.fill();
+              ctx.fillStyle = node.color || 'lightblue';
+            
+              ctx.beginPath();
+              ctx.rect(x - rectWidth / 2, y - rectHeight / 2, rectWidth, rectHeight);
+              ctx.fill();
 
-            ctx.fillStyle = 'black';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(label, x, y);
+              ctx.fillStyle = 'black';
+              ctx.textAlign = 'center';
+              ctx.textBaseline = 'middle';
+              ctx.fillText(label, x, y);
 
-          }}
+            }}
 
-          nodePointerAreaPaint={(node, color, ctx) => {
-            const width = (node as any).__width || 20;
-            const height = (node as any).__height || 10;
-            const x = node.x!;
-            const y = node.y!;
-            ctx.fillStyle = color;
-            ctx.fillRect(x - width / 2, y - height / 2, width, height);
-          }}
+            nodePointerAreaPaint={(node, color, ctx) => {
+              const width = (node as any).__width || 20;
+              const height = (node as any).__height || 10;
+              const x = node.x!;
+              const y = node.y!;
+              ctx.fillStyle = color;
+              ctx.fillRect(x - width / 2, y - height / 2, width, height);
+            }}
 
-          nodeLabel="name"
-          linkDirectionalArrowLength={3}
-          onNodeClick={(node) => { onNodeClick(String(node.id)); console.log('here')} }
-        />
+            nodeLabel="name"
+            linkDirectionalArrowLength={3}
+            onNodeClick={(node) => { onNodeClick(String(node.id)) } }
+          />
+        </div>
       );
     }
     else {
       return (
-        
+        <div className="relative overflow-y-auto h-[655px] w-[1104px] space-y-2">
+          {/* Search Input */}
+          <div className="mt-2 ml-2">
+            <div className="flex items-center">
+              <Input
+                placeholder="Search packages..."
+                value={eQuery}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setEQuery(value);
+                  handleSearch("E", value); // pass input value to search function
+                }}
+                className="flex-1 max-w-xs"
+              />
+            </div>
+          </div>
 
-     <div className="relative h-[75vh] overflow-y-auto space-y-2">
-  {/* Search Input */}
-  <div className="mt-6">
-    <div className="flex items-center">
-      <Input
-        placeholder="Search packages..."
-        value={eQuery}
-        onChange={(e) => {
-    const value = e.target.value;
-    setEQuery(value);
-    handleSearch("E", value); // pass input value to search function
-  }}
-        className="flex-1 max-w-xs"
-      />
-    </div>
-  </div>
-
-  {/* Node List */}
-  <ul className="space-y-2">
-    {(showEResults && searchEResults.length > 0
-      ? searchEResults.map((result) => result.node)
-      : data.nodes.slice(1)
-    ).map((node) => (
-      <li
-        key={node.id}
-        className="p-2 rounded border border-gray-300 cursor-pointer hover:bg-blue-200"
-        onClick={() => {onNodeClick(node.id); setEShowResults(false)}}
-        style={{ backgroundColor: node.color || 'transparent' }}
-      >
-        <div className="font-medium">{node.name || node.id}</div>
-        {node.group && (
-          <div className="text-sm text-gray-500">Group: {node.group}</div>
-        )}
-      </li>
-    ))}
-  </ul>
-</div>
-    );
+          {/* Node List */}
+          <ul className="space-y-2 ml-2">
+            {(showEResults && searchEResults.length > 0
+              ? searchEResults.map((result) => result.node)
+              : data.nodes.slice(1)
+            ).map((node) => (
+              <li
+                key={node.id}
+                className="p-2 rounded border border-gray-300 cursor-pointer hover:bg-blue-200"
+                onClick={() => {onNodeClick(node.id); setEShowResults(false)}}
+                style={{ backgroundColor: node.color || 'transparent' }}
+              >
+                <div className="font-medium">{node.name || node.id}</div>
+                {node.group && (
+                  <div className="text-sm text-gray-500">Group: {node.group}</div>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      );
     }
   }
 
-  let currentNodeId = history[history.length - 1];
+
 
   useEffect(() => {
     async function loadDependencyPackages() {
@@ -269,8 +254,8 @@ export default function SbomSearchPage() {
         setMetadata(data);
         setHistory([data.sbomPackage]);
         console.log('metadata change:', data.sbomPackage);
-
-        currentNodeId = history[history.length - 1];
+        console.log('metadata change:', history);
+        setCurrentNodeId(data.sbomPackage);
       } catch (error) {
         console.error("Failed to fetch metadata:", error);
       }
@@ -282,7 +267,7 @@ export default function SbomSearchPage() {
 
   function handleNodeClick(newNodeId: string) {
     console.log("Clicked node:", newNodeId);
-
+    setCurrentNodeId(newNodeId);
     setHistory((prev) => [...prev, newNodeId]); // push new node to history
   }
 
@@ -307,7 +292,6 @@ export default function SbomSearchPage() {
         url
       );
       const data = await res.json();
-      console.log("Search results:", data);
 
       if (data.length > 0) {
         if(searchBar=='Inf'){
@@ -358,7 +342,9 @@ export default function SbomSearchPage() {
 
   function handleGoBack() {
     if (history.length > 1) {
+      setCurrentNodeId(history[history.length - 2]);
       setHistory((prev) => prev.slice(0, -1)); // pop last node
+      
     }
   }
 
@@ -484,26 +470,26 @@ export default function SbomSearchPage() {
 
         {/* Show metadata at the top */}
         {metadata && (
-          <Card className="h-[30vh]">
-            <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4">
+          <Card className="h-60 w-400">
+            <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 h-full">
               {/* Total Components */}
-              <div className="flex flex-col  items-center justify-center bg-white rounded shadow p-4">
-                <h3 className="text-lg font-bold mb-2">Total Components</h3>
-                <p className="text-2xl font-bold">{metadata.directDependencies + metadata.transitiveDependencies}</p>
-                <div className="flex flex-row items-center">
-                  <div className="flex flex-col items-center p-3">
-                    <h3 className="text-md font-bold mb-2">Direct Components</h3>
-                    <p className="text-1xl font-bold">{metadata.directDependencies}</p>
+              <Card className = "h-full flex flex-col items-center justify-center bg-white rounded shadow p-4">
+                  <h3 className="text-lg font-bold mb-2">Total Components</h3>
+                  <p className="text-2xl font-bold">{metadata.directDependencies + metadata.transitiveDependencies}</p>
+                  <div className="flex flex-row items-center">
+                    <div className="flex flex-col items-center p-3">
+                      <h3 className="text-md font-bold mb-2">Direct Components</h3>
+                      <p className="text-1xl font-bold">{metadata.directDependencies}</p>
+                    </div>
+                    <div className="flex flex-col items-center p-3">
+                      <h3 className="text-md font-bold mb-2">Indirect Components</h3>
+                      <p className="text-1xl font-bold">{metadata.transitiveDependencies}</p>
+                    </div>
                   </div>
-                  <div className="flex flex-col items-center p-3">
-                    <h3 className="text-md font-bold mb-2">Indirect Components</h3>
-                    <p className="text-1xl font-bold">{metadata.transitiveDependencies}</p>
-                  </div>
-                </div>
-              </div>
+              </Card>
 
-              {/* License Summary Pie Chart */}
-              <div className="bg-white rounded shadow p-4 w-[55vh] h-[28vh] overflow-y-auto">
+              {/* License Summary */}
+              <Card className = "h-full overflow-y-auto rounded shadow p-4 overflow-y-auto">
                 <h3 className="text-lg font-bold mb-2">License Summary</h3>
                 <ul className="space-y-2 overflow-auto">
                   {licenseData.map((entry, index) => (
@@ -516,10 +502,10 @@ export default function SbomSearchPage() {
                     </li>
                   ))}
                 </ul>
-              </div>
+              </Card>
 
               {/* Risk Summary Bar Chart */}
-              <div className="bg-white rounded shadow p-4 w-[55vh] h-[28vh] overflow-y-auto">
+              <Card className = "h-full overflow-y-auto rounded shadow p-4 overflow-y-auto">
                 <h3 className="text-lg font-bold mb-4">License Explorer</h3>
                 
                 {!selectedLicense ? (
@@ -553,37 +539,40 @@ export default function SbomSearchPage() {
                     </ul>
                   </div>
                 )}
-            </div>
+
+            </Card>
           </CardContent>
         </Card>
         )}
         <div>
           <CardHeader className="flex justify-center items-center text-2xl font-bold">
               Sbom Exploration
-            </CardHeader>
-          <Card className="flex flex-row w-full mx-auto gap-4">
+          </CardHeader>
+
+          <Card className="flex flex-row h-[800px] mx-auto gap-4">
             
-          <Card>
-              <h2 className="text-xl pt-4 pl-4 pr-2 font-semibold"> Dependency Influence</h2>
-            <CardContent className="w-72 flex-shrink-0 max-h-[80vh]">
+          <Card className="h-full">
+            <h2 className="text-xl pt-4 pl-4 pr-2 font-semibold"> Dependency Influence</h2>
+            
+            <CardContent className="w-72">
               {/* Search Row */}
-                <div className="relative mt-3">
-                  <div className="flex items-center">
-                    <Input
-                      placeholder="Search packages..."
-                      value={infQuery}
-                            onChange={(e) => {
-                            const value = e.target.value;
-                            setInfQuery(value);
-                            handleSearch("Inf", value); // pass input value to search function
-                          }}
-                      className="flex-1 max-w-xs" // limit width
-                    />
-                  </div>
+              <div className="relative mt-3">
+                <div className="flex items-center">
+                  <Input
+                    placeholder="Search packages..."
+                    value={infQuery}
+                          onChange={(e) => {
+                          const value = e.target.value;
+                          setInfQuery(value);
+                          handleSearch("Inf", value); // pass input value to search function
+                        }}
+                    className="flex-1 max-w-xs" // limit width
+                  />
+                </div>
 
-
+                {/* Search Results */}
                 {showResults && searchResults.length > 0 && (
-                  <div className="absolute top-full left-0 w-full bg-white border shadow-lg max-h-64 overflow-y-auto z-50">
+                  <Card className="absolute w-full bg-white border shadow-lg max-h-64 overflow-y-auto z-50">
                     {searchResults.map((result) => (
                       <div
                         key={result.node.id}
@@ -591,20 +580,19 @@ export default function SbomSearchPage() {
                         onClick={() => {
                           // 1. Close popup
                           setShowResults(false);
-                          setVulnerablePackages((prev) => [...prev, result.node.id]);
+                          setVulnerablePackages((prev) => prev.includes(result.node.id) ? prev : [...prev, result.node.id]);
 
-                          console.log(result.node.id, vulnerablePackages)
                         }}
                       >
                         {result.node.name || result.node.id}
                       </div>
                     ))}
-                  </div>
+                  </Card>
                 )}
 
-                {/* Vulnerable Packages Chips */}
-                {vulnerablePackages.length > 0 && (
-                  <div className="mt-4 flex flex-wrap gap-2">
+                {/* Vulnerable Packages */}
+                
+                <Card className="w-full h-[680px] overflow-y-auto border-0 mt-2 flex flex-col flex-1 gap-2">
                     {vulnerablePackages.map((pkg, index) => (
                       <div
                         key={index}
@@ -621,51 +609,53 @@ export default function SbomSearchPage() {
                         > ✕ </button>
                       </div>
                     ))}
-                  </div>
-                )}
+                </Card>
 
               </div>
 
             </CardContent>
           </Card>
-          <Card className="w-[90vw] h-[90vh] overflow-hidden">
-            <div className="flex justify-between items-center p-4">
-              <h2 className="text-xl font-semibold">Dependency Explorer</h2>
-              <button
-                onClick={() => setViewMode(viewMode === "graph" ? "list" : "graph")}
-                className="px-3 py-1 bg-blue-500 text-white rounded"
-              >
-                Switch to {viewMode === "graph" ? "List" : "Graph"} View
-              </button>
-            </div>
+            <Card className="overflow-hidden">
+              <div className="flex justify-between items-center p-4">
+                <h2 className="text-xl font-semibold">Dependency Explorer</h2>
+                <button
+                  onClick={() => setViewMode(viewMode === "graph" ? "list" : "graph")}
+                  className="px-3 py-1 bg-blue-500 text-white rounded"
+                >
+                  Switch to {viewMode === "graph" ? "List" : "Graph"} View
+                </button>
+              </div>
 
-            <div className="flex-1 w-full px-4">
-              {/* Top row: Go Back + History display */}
-              <div className="flex items-center mb-4">
-                {history.length > 1 && (
-                  <>
-                    <button
-                      onClick={handleGoBack}
-                      className="p-2 rounded border border-gray-300"
-                    >
-                      Go Back
-                    </button>
+              <div className="flex-1 w-full px-4">
+                {/* Top row: Go Back + History display */}
+                <div className="flex items-center mb-4">
+                  <button
+                    onClick={handleGoBack}
+                    disabled={history.length <= 1}
+                    className={`p-2 rounded border ${
+                      history.length <= 1
+                        ? "border-gray-300 text-gray-400 bg-gray-100 cursor-not-allowed"
+                        : "border-gray-300 hover:bg-gray-200"
+                    }`}
+                  >
+                    Go Back
+                  </button>
 
-                    <div className="flex-1 flex justify-center">
+                  <div className="flex-1 flex justify-center">
+                    {history.length >= 1 && (
                       <div className="underline font-semibold">
-                        {history[history.length - 2]}
+                        {history[history.length - 1]}
                       </div>
-                    </div>
-                  </>
-                )}
-              </div>
+                    )}
+                  </div>
+                </div>
 
-              {/* Graph Component */}
-              <div className="h-[calc(100%-100px)]"> {/* Adjust height if needed */}
-                <MyGraphComponent onNodeClick={handleNodeClick} />
+                {/* Graph/List Component */}
+                <div>
+                  <MyGraphComponent onNodeClick={handleNodeClick} />
+                </div>
               </div>
-            </div>
-          </Card>
+            </Card>
           </Card>
         </div>
       </MainContent>
