@@ -769,6 +769,44 @@ export default function PackageDetailsPage() {
     return "bg-gray-500" // -1 or below
   }
 
+  const getAlertIcon = (alertType: string) => {
+    switch (alertType) {
+      case 'ai_powered_anomaly_detection':
+        return <Brain className="h-4 w-4 text-indigo-400" />
+      case 'lines_added_deleted':
+        return <Activity className="h-4 w-4 text-emerald-400" />
+      case 'files_changed':
+        return <FileText className="h-4 w-4 text-cyan-400" />
+      case 'suspicious_author_timestamps':
+        return <User className="h-4 w-4 text-orange-400" />
+      case 'new_vulnerabilities_detected':
+        return <Shield className="h-4 w-4 text-red-400" />
+      case 'health_score_decreases':
+        return <TrendingDown className="h-4 w-4 text-yellow-400" />
+      case 'high_churn':
+        return <MessageSquare className="h-4 w-4 text-indigo-400" />
+      case 'ancestry_breaks':
+        return <GitBranch className="h-4 w-4 text-blue-500" />
+      default:
+        return <AlertTriangle className="h-4 w-4 text-gray-400" />
+    }
+  }
+
+  const getAlertTitle = (alert: any) => {
+    switch (alert.type) {
+      case 'ai_powered_anomaly_detection':
+        return 'Anomaly Detection'
+      case 'lines_added_deleted':
+        return 'Lines Changed Alert'
+      case 'files_changed':
+        return 'Files Changed Alert'
+      case 'high_churn':
+        return 'High Churn Alert'
+      default:
+        return alert.message || 'Alert'
+    }
+  }
+
   const handleSummarizeCommits = async () => {
     if (!userWatchlistId) return
     
@@ -825,8 +863,8 @@ export default function PackageDetailsPage() {
       console.log('Alert settings:', editedAlertSettings)
       
       // Call API to update alert settings
-      const response = await fetch(`/api/backend/activity/user-watchlist/${userWatchlistId}/alerts`, {
-        method: 'PATCH',
+      const response = await fetch(`/api/backend/activity/user-watchlist-alerts/${userWatchlistId}`, {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -1064,83 +1102,66 @@ export default function PackageDetailsPage() {
                 </Card>
 
                 {/* Enhanced Alerts Display */}
-                {packageData.alerts.length > 0 && (
-                  <Card className="bg-gray-900/50 border-gray-800">
-                    <CardHeader>
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="flex items-center gap-2 text-white">
-                          <AlertTriangle className="h-5 w-5 text-yellow-400" />
-                          Active Alerts ({packageData.alerts.length})
-                        </CardTitle>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          onClick={() => setActiveTab("alerts")}
-                          className="text-blue-400 hover:text-blue-300"
-                        >
-                          View All
-                        </Button>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="grid gap-3">
-                        {packageData.alerts.slice(0, 2).map((alert) => (
-                          <div 
-                            key={alert.id} 
-                            className={`p-4 rounded-lg border ${
-                              alert.severity === 'high' 
-                                ? 'bg-red-900/20 border-red-800' 
-                                : alert.severity === 'medium'
-                                ? 'bg-yellow-900/20 border-yellow-800'
-                                : 'bg-blue-900/20 border-blue-800'
-                            }`}
+                {(() => {
+                  const nonResolvedAlerts = packageData.alerts.filter(alert => !alert.isResolved);
+                  const displayAlerts = nonResolvedAlerts.slice(0, 3);
+                  
+                  return nonResolvedAlerts.length > 0 ? (
+                    <Card className="bg-gray-900/50 border-gray-800">
+                      <CardHeader>
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="flex items-center gap-2 text-white">
+                            <AlertTriangle className="h-5 w-5 text-yellow-400" />
+                            Active Alerts ({nonResolvedAlerts.length})
+                          </CardTitle>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            onClick={() => setActiveTab("alerts")}
+                            className="text-blue-400 hover:text-blue-300"
                           >
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <AlertTriangle className={`h-4 w-4 ${
-                                    alert.severity === 'high' 
-                                      ? 'text-red-400' 
-                                      : alert.severity === 'medium'
-                                      ? 'text-yellow-400'
-                                      : 'text-blue-400'
-                                  }`} />
-                                  <span className="font-medium text-white">{alert.message}</span>
-                                  <Badge 
-                                    variant="outline" 
-                                    className={`text-xs ${
-                                      alert.severity === 'high' 
-                                        ? 'border-red-600 text-red-400' 
-                                        : alert.severity === 'medium'
-                                        ? 'border-yellow-600 text-yellow-400'
-                                        : 'border-blue-600 text-blue-400'
-                                    }`}
-                                  >
-                                    {alert.severity}
-                                  </Badge>
-                                </div>
-                                <p className="text-sm text-gray-300">{alert.description}</p>
-                              </div>
-                              <span className="text-xs text-gray-400 whitespace-nowrap">{alert.time}</span>
-                            </div>
-                          </div>
-                        ))}
-                        {packageData.alerts.length > 2 && (
-                          <div className="text-center py-2">
-                            <Button 
-                              variant="ghost" 
-                              size="sm"
-                              onClick={() => setActiveTab("alerts")}
-                              className="text-blue-400 hover:text-blue-300"
+                            View All
+                          </Button>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid gap-3">
+                          {displayAlerts.map((alert) => (
+                            <div 
+                              key={alert.id} 
+                              className="p-4 rounded-lg border bg-yellow-900/20 border-yellow-800"
                             >
-                              +{packageData.alerts.length - 2} more alerts
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    {getAlertIcon(alert.type)}
+                                    <span className="font-medium text-white">
+                                      {getAlertTitle(alert)}
+                                    </span>
+                                  </div>
+                                  <p className="text-sm text-gray-300">{alert.description}</p>
+                                </div>
+                                <span className="text-xs text-gray-400 whitespace-nowrap">{alert.time}</span>
+                              </div>
+                            </div>
+                          ))}
+                          {nonResolvedAlerts.length > 3 && (
+                            <div className="text-center py-2">
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => setActiveTab("alerts")}
+                                className="text-blue-400 hover:text-blue-300"
+                              >
+                                +{nonResolvedAlerts.length - 3} more alerts
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ) : null;
+                })()}
 
                 {/* Security Vulnerabilities - Full Width */}
                 <Card className="bg-gray-900/50 border-gray-800">
@@ -1723,36 +1744,7 @@ export default function PackageDetailsPage() {
                   </CardContent>
                 </Card>
 
-                {/* Graph Section - Full Width */}
-                <Card className="bg-gray-900/50 border-gray-800 group relative">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-white">
-                      <BarChart3 className="h-5 w-5" />
-                      Dependency Graph
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-center py-12">
-                      <BarChart3 className="h-16 w-16 mx-auto mb-4 text-gray-400" />
-                      <h3 className="text-lg font-semibold text-white mb-2">Graph Analysis</h3>
-                      <p className="text-gray-400 mb-4">
-                        This feature is currently under development by the graph team.
-                      </p>
-                    </div>
-                  </CardContent>
-                  
-                  {/* Small hover button in corner */}
-                  <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                    <Button 
-                      onClick={handleViewFullGraph}
-                      size="sm"
-                      className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg"
-                    >
-                      <Eye className="h-3 w-3 mr-1" />
-                      View Full Graph
-                    </Button>
-                  </div>
-                </Card>
+
               </div>
             </div>
           </TabsContent>
@@ -1951,26 +1943,10 @@ export default function PackageDetailsPage() {
                         <Card key={alert.id} className={`bg-gray-900/50 border-gray-800 ${alert.isResolved ? 'opacity-75' : ''}`}>
                           <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                             <div className="flex items-center gap-2">
-                              <AlertTriangle className={`h-4 w-4 ${
-                                alert.severity === 'high' 
-                                  ? 'text-red-400' 
-                                  : alert.severity === 'medium'
-                                  ? 'text-yellow-400'
-                                  : 'text-blue-400'
-                              }`} />
-                              <span className="text-lg font-semibold text-white">{alert.message}</span>
-                              <Badge 
-                                variant="outline" 
-                                className={`text-xs ${
-                                  alert.severity === 'high' 
-                                    ? 'border-red-600 text-red-400' 
-                                    : alert.severity === 'medium'
-                                    ? 'border-yellow-600 text-yellow-400'
-                                    : 'border-blue-600 text-blue-400'
-                                }`}
-                              >
-                                {alert.severity}
-                              </Badge>
+                              {getAlertIcon(alert.type)}
+                              <span className="text-lg font-semibold text-white">
+                                {getAlertTitle(alert)}
+                              </span>
                               {alert.isResolved && (
                                 <Badge variant="secondary" className="text-xs">
                                   Resolved
@@ -1979,8 +1955,6 @@ export default function PackageDetailsPage() {
                             </div>
                             <div className="flex items-center gap-2 text-sm text-gray-400">
                               <span>{alert.time}</span>
-                              <span>•</span>
-                              <span className="capitalize">{alert.type.replace('_', ' ')}</span>
                             </div>
                           </CardHeader>
                           <CardContent>
@@ -1988,16 +1962,56 @@ export default function PackageDetailsPage() {
                             <div className="mt-4 flex items-center justify-between">
                               <div className="flex items-center gap-4 text-sm text-gray-400">
                                 <span>Alert ID: {alert.id}</span>
-                                <span>Type: {alert.type}</span>
                                 <span>Status: {alert.isResolved ? 'Resolved' : 'Active'}</span>
                               </div>
                               <div className="flex items-center gap-2">
-                                <Button variant="outline" size="sm" className="text-xs">
+                                <Button 
+                                  variant="outline" 
+                                  size="sm" 
+                                  className="text-xs"
+                                  onClick={() => handleViewCommitOnGitHub(alert.commitHash)}
+                                >
                                   <ExternalLink className="h-3 w-3 mr-1" />
                                   View Commit
                                 </Button>
                                 {!alert.isResolved && (
-                                  <Button variant="outline" size="sm" className="text-xs">
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    className="text-xs"
+                                    onClick={async () => {
+                                      try {
+                                        // Convert the numeric ID back to the original UUID format
+                                        // The alert ID was converted from UUID to number for display
+                                        // We need to find the original alert to get the UUID
+                                        const alertsResponse = await fetch(`/api/backend/activity/alerts/${userWatchlistId}`)
+                                        if (alertsResponse.ok) {
+                                          const alertsData = await alertsResponse.json()
+                                          const originalAlert = alertsData.alerts.find((a: any) => 
+                                            parseInt(a.id.replace(/-/g, '').substring(0, 8), 16) === alert.id
+                                          )
+                                          
+                                          if (originalAlert) {
+                                            const response = await fetch(`/api/backend/activity/alerts/${originalAlert.id}/resolve`, {
+                                              method: 'PATCH',
+                                              headers: { 'Content-Type': 'application/json' },
+                                            });
+                                            if (response.ok) {
+                                              // Update the alert in local state
+                                              setPackageData(prev => prev ? {
+                                                ...prev,
+                                                alerts: prev.alerts.map(a => 
+                                                  a.id === alert.id ? { ...a, isResolved: true } : a
+                                                )
+                                              } : null);
+                                            }
+                                          }
+                                        }
+                                      } catch (error) {
+                                        console.error('Error resolving alert:', error);
+                                      }
+                                    }}
+                                  >
                                     Mark Resolved
                                   </Button>
                                 )}
@@ -2014,6 +2028,9 @@ export default function PackageDetailsPage() {
                   );
                 })()}
               </div>
+              
+              {/* Add space above footer */}
+              <div className="h-8"></div>
               
               {/* Footer section to make alerts tab full width */}
               <Card className="bg-gray-900/50 border-gray-800">
@@ -2422,12 +2439,12 @@ export default function PackageDetailsPage() {
                                 <Slider
                                   value={[alertSettings.health_score_decreases.minimum_health_change]}
                                   onValueChange={(value) => handleUpdateAlertThreshold('health_score_decreases', 'minimum_health_change', value[0])}
-                                  max={20}
-                                  min={1}
-                                  step={1}
+                                  max={5}
+                                  min={0.5}
+                                  step={0.1}
                                   className="w-full"
                                 />
-                                <p className="text-xs text-gray-500 mt-1">Alert when health score decreases by this amount or more</p>
+                                <p className="text-xs text-gray-500 mt-1">Alert when health score decreases by this amount or more (0.5 to 5.0 points)</p>
                               </div>
                             </div>
                           )}

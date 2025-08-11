@@ -49,13 +49,13 @@ export function AlertSettings({
     },
     health_score_decreases: {
       enabled: false,
-      minimum_health_change: 5
+      minimum_health_change: 1.0
     }
   })
   const [isSaving, setIsSaving] = useState(false)
 
   const handleAlertToggle = (alertKey: keyof typeof alerts, enabled: boolean) => {
-    setAlerts(prev => ({
+    setAlerts((prev: typeof alerts) => ({
       ...prev,
       [alertKey]: {
         ...prev[alertKey],
@@ -138,7 +138,7 @@ export function AlertSettings({
                     </div>
                     <Slider
                       value={[alerts.lines_added_deleted.contributor_variance]}
-                      onValueChange={(value) => setAlerts(prev => ({
+                      onValueChange={(value) => setAlerts((prev: typeof alerts) => ({
                         ...prev,
                         lines_added_deleted: {
                           ...prev.lines_added_deleted,
@@ -158,7 +158,7 @@ export function AlertSettings({
                       </div>
                       <Slider
                         value={[alerts.lines_added_deleted.repository_variance]}
-                        onValueChange={(value) => setAlerts(prev => ({
+                        onValueChange={(value) => setAlerts((prev: typeof alerts) => ({
                           ...prev,
                           lines_added_deleted: {
                             ...prev.lines_added_deleted,
@@ -180,7 +180,7 @@ export function AlertSettings({
                         const value = e.target.value;
                         const numValue = value === '' ? 0 : parseInt(value, 10);
                         if (!isNaN(numValue)) {
-                          setAlerts(prev => ({
+                          setAlerts((prev: typeof alerts) => ({
                             ...prev,
                             lines_added_deleted: {
                               ...prev.lines_added_deleted,
@@ -225,7 +225,7 @@ export function AlertSettings({
                     </div>
                     <Slider
                       value={[alerts.files_changed.contributor_variance]}
-                      onValueChange={(value) => setAlerts(prev => ({
+                      onValueChange={(value) => setAlerts((prev: typeof alerts) => ({
                         ...prev,
                         files_changed: {
                           ...prev.files_changed,
@@ -246,7 +246,7 @@ export function AlertSettings({
                     </div>
                     <Slider
                       value={[alerts.files_changed.repository_variance]}
-                      onValueChange={(value) => setAlerts(prev => ({
+                      onValueChange={(value) => setAlerts((prev: typeof alerts) => ({
                         ...prev,
                         files_changed: {
                           ...prev.files_changed,
@@ -269,7 +269,7 @@ export function AlertSettings({
                         const value = e.target.value;
                         const numValue = value === '' ? 0 : parseInt(value, 10);
                         if (!isNaN(numValue)) {
-                          setAlerts(prev => ({
+                          setAlerts((prev: typeof alerts) => ({
                             ...prev,
                             files_changed: {
                               ...prev.files_changed,
@@ -351,19 +351,19 @@ export function AlertSettings({
                   </div>
                   <Slider
                     value={[alerts.health_score_decreases.minimum_health_change]}
-                    onValueChange={(value) => setAlerts(prev => ({
+                    onValueChange={(value) => setAlerts((prev: typeof alerts) => ({
                       ...prev,
                       health_score_decreases: {
                         ...prev.health_score_decreases,
                         minimum_health_change: value[0]
                       }
                     }))}
-                    max={20}
-                    min={1}
-                    step={1}
+                    max={5}
+                    min={0.5}
+                    step={0.1}
                     className="w-full"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Alert when health score decreases by this amount or more</p>
+                  <p className="text-xs text-gray-500 mt-1">Alert when health score decreases by this amount or more (0.5 to 5.0 points)</p>
                 </div>
               </CardContent>
             )}

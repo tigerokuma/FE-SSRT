@@ -37,11 +37,6 @@ export function AppSidebar() {
       icon: Home
     },
     {
-      title: "Repository Activity",
-      href: "/repository",
-      icon: GitBranch
-    },
-    {
       title: "Alert Center",
       href: "/alerts",
       icon: AlertTriangle
@@ -90,15 +85,7 @@ export function AppSidebar() {
             </SidebarTrigger>
           )}
         </div>
-        <div className={cn(
-          "px-4 pb-3 transition-all duration-300",
-          isCollapsed && !isMobile && "hidden"
-        )}>
-          <Input 
-            placeholder="Search repositories..." 
-            className="h-9"
-          />
-        </div>
+
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
@@ -133,64 +120,7 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-        <div className={cn(
-          "transition-all duration-300",
-          isCollapsed && !isMobile && "hidden"
-        )}>
-          <SidebarSeparator className="my-4" />
-          <SidebarGroup>
-            <SidebarGroupLabel>Recent Repositories</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu className="space-y-1">
-                <SidebarMenuItem>
-                  <SidebarMenuButton 
-                    asChild 
-                    tooltip={isCollapsed && !isMobile ? "lodash/lodash" : undefined}
-                    className={cn(
-                      "flex items-center rounded-md transition-colors w-full",
-                      isCollapsed && !isMobile ? "justify-center py-2" : "px-4 py-2"
-                    )}
-                  >
-                    <Link href="/repository?repo=lodash/lodash" className="flex items-center gap-3">
-                      <GitBranch className="h-5 w-5 shrink-0 text-muted-foreground" />
-                      {(!isCollapsed || isMobile) && <span className="truncate">lodash/lodash</span>}
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton 
-                    asChild 
-                    tooltip={isCollapsed && !isMobile ? "vercel/next.js" : undefined}
-                    className={cn(
-                      "flex items-center rounded-md transition-colors w-full",
-                      isCollapsed && !isMobile ? "justify-center py-2" : "px-4 py-2"
-                    )}
-                  >
-                    <Link href="/repository?repo=vercel/next.js" className="flex items-center gap-3">
-                      <GitBranch className="h-5 w-5 shrink-0 text-muted-foreground" />
-                      {(!isCollapsed || isMobile) && <span className="truncate">vercel/next.js</span>}
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton 
-                    asChild 
-                    tooltip={isCollapsed && !isMobile ? "facebook/react" : undefined}
-                    className={cn(
-                      "flex items-center rounded-md transition-colors w-full",
-                      isCollapsed && !isMobile ? "justify-center py-2" : "px-4 py-2"
-                    )}
-                  >
-                    <Link href="/repository?repo=facebook/react" className="flex items-center gap-3">
-                      <GitBranch className="h-5 w-5 shrink-0 text-muted-foreground" />
-                      {(!isCollapsed || isMobile) && <span className="truncate">facebook/react</span>}
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        </div>
+
       </SidebarContent>
       <SidebarFooter>
         {isCollapsed && !isMobile ? (

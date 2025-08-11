@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { AlertTriangle, Check, Filter, Plus, X, RefreshCw } from "lucide-react"
+import { AlertTriangle, Check, Filter, Plus, X, RefreshCw, Brain, Activity, FileText, User, Shield, TrendingDown, MessageSquare, MessageCircle, Mail, GitBranch } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -58,10 +58,21 @@ export default function AlertsPage() {
     const loadWatchlistItems = async () => {
       try {
         const items = await fetchWatchlistItems()
+        console.log('📋 Loaded watchlist items:', items)
         setWatchlistItems(items)
-        // Select the first item by default if available
-        if (items.length > 0 && !selectedUserWatchlistId) {
+        
+        // Try to find the specific user watchlist ID we created the alert for
+        const targetUserWatchlistId = "user_watchlist_user-123_watchlist_expressjs_express_1754171072961"
+        const targetItem = items.find(item => item.id === targetUserWatchlistId)
+        
+        if (targetItem) {
+          console.log('✅ Found target user watchlist:', targetItem)
+          setSelectedUserWatchlistId(targetUserWatchlistId)
+        } else if (items.length > 0 && !selectedUserWatchlistId) {
+          console.log('⚠️ Target user watchlist not found, using first item:', items[0])
           setSelectedUserWatchlistId(items[0].id)
+        } else {
+          console.log('❌ No watchlist items found')
         }
       } catch (error) {
         console.error('Error loading watchlist items:', error)
@@ -73,6 +84,7 @@ export default function AlertsPage() {
 
   // Transform backend alerts to frontend format
   const transformAlerts = (backendAlerts: any[]): AlertDisplay[] => {
+    console.log('🔄 Transforming alerts:', backendAlerts)
     return backendAlerts.map(alert => {
       const status = alert.resolved_at ? "resolved" : "open"
       const createdDate = new Date(alert.created_at)
@@ -105,6 +117,29 @@ export default function AlertsPage() {
     if (diffInSeconds < 2592000) return `${Math.floor(diffInSeconds / 86400)} days ago`
     if (diffInSeconds < 31536000) return `${Math.floor(diffInSeconds / 2592000)} months ago`
     return `${Math.floor(diffInSeconds / 31536000)} years ago`
+  }
+
+  const getAlertIcon = (metric: string) => {
+    switch (metric) {
+      case 'ai_powered_anomaly_detection':
+        return <Brain className="h-4 w-4 text-indigo-400" />
+      case 'lines_added_deleted':
+        return <Activity className="h-4 w-4 text-emerald-400" />
+      case 'files_changed':
+        return <FileText className="h-4 w-4 text-cyan-400" />
+      case 'suspicious_author_timestamps':
+        return <User className="h-4 w-4 text-orange-400" />
+      case 'new_vulnerabilities_detected':
+        return <Shield className="h-4 w-4 text-red-400" />
+      case 'health_score_decreases':
+        return <TrendingDown className="h-4 w-4 text-yellow-400" />
+      case 'high_churn':
+        return <MessageSquare className="h-4 w-4 text-indigo-400" />
+      case 'ancestry_breaks':
+        return <GitBranch className="h-4 w-4 text-blue-500" />
+      default:
+        return <AlertTriangle className="h-4 w-4 text-gray-400" />
+    }
   }
 
   const getStatusBadge = (status: string) => {
@@ -293,7 +328,10 @@ export default function AlertsPage() {
                     <div key={alert.id} className="rounded-lg border bg-card p-4 space-y-3">
                       <div className="flex flex-col gap-1">
                         <div className="flex items-start justify-between gap-2">
-                          <span className="font-medium line-clamp-1 min-w-0">{alert.rule}</span>
+                          <div className="flex items-center gap-2 min-w-0">
+                            {getAlertIcon(alert.metric)}
+                            <span className="font-medium line-clamp-1">{alert.rule}</span>
+                          </div>
                           <div className="shrink-0">
                             {getStatusBadge(alert.status)}
                           </div>
@@ -342,7 +380,10 @@ export default function AlertsPage() {
                     <div key={alert.id} className="rounded-lg border bg-card p-4 space-y-3">
                       <div className="flex flex-col gap-1">
                         <div className="flex items-start justify-between gap-2">
-                          <span className="font-medium line-clamp-1 min-w-0">{alert.rule}</span>
+                          <div className="flex items-center gap-2 min-w-0">
+                            {getAlertIcon(alert.metric)}
+                            <span className="font-medium line-clamp-1">{alert.rule}</span>
+                          </div>
                           <div className="shrink-0">
                             {getStatusBadge(alert.status)}
                           </div>
@@ -387,7 +428,10 @@ export default function AlertsPage() {
                     <div key={alert.id} className="rounded-lg border bg-card p-4 space-y-3">
                       <div className="flex flex-col gap-1">
                         <div className="flex items-start justify-between gap-2">
-                          <span className="font-medium line-clamp-1 min-w-0">{alert.rule}</span>
+                          <div className="flex items-center gap-2 min-w-0">
+                            {getAlertIcon(alert.metric)}
+                            <span className="font-medium line-clamp-1">{alert.rule}</span>
+                          </div>
                           <div className="shrink-0">
                             {getStatusBadge(alert.status)}
                           </div>
@@ -414,6 +458,8 @@ export default function AlertsPage() {
           </Tabs>
         )}
       </FullWidthContainer>
+      {/* Add space above footer */}
+      <div className="h-16"></div>
     </FullWidthPage>
   )
 }
