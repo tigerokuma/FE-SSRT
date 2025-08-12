@@ -1,8 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
-import { Plus, Package, Search, TrendingUp, Shield, Clock, Download, Star, Users, Loader2 } from "lucide-react"
+import { Plus, Package, Search, TrendingUp, Shield, Clock, Download, Star, Users, Loader2, Bell, Activity, Users2, TrendingDown, Calendar } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -17,10 +17,27 @@ import {
   useWatchlist,
   WatchlistSearchDialog
 } from '@/lib/watchlist'
+import { checkRepositoryStatus } from '@/lib/watchlist/api'
+
+// Utility function to format large numbers
+const formatNumber = (num: number | string | null | undefined): string => {
+  if (num === null || num === undefined || num === '') return '0'
+  
+  const value = typeof num === 'string' ? parseInt(num) : num
+  if (isNaN(value)) return '0'
+  
+  if (value >= 1000000) {
+    return (value / 1000000).toFixed(1) + 'M'
+  } else if (value >= 1000) {
+    return (value / 1000).toFixed(1) + 'K'
+  } else {
+    return value.toString()
+  }
+}
 
 // Extended type for display - now handles partial data
 interface DisplayDependency {
-  id: number
+  id: string
   name: string
   version: string
   type: string
@@ -34,29 +51,155 @@ interface DisplayDependency {
   isGitHubDataLoaded?: boolean
   forks?: number | null
   contributors?: number | null
+  // Status tracking
+  status?: 'processing' | 'ready' | 'error'
+  repoUrl?: string
+  // New enriched data fields from backend
+  activity_score?: number
+  bus_factor?: number
+  health_score?: number
+  notification_count?: number
+  tracking_duration?: string
+  vulnerability_summary?: {
+    total_count: number
+    critical_count: number
+    high_count: number
+    medium_count: number
+    low_count: number
+    last_updated: string
+  }
 }
 
 export default function DependenciesPage() {
+  const { items: userDependencies, isLoading, refreshItems } = useWatchlist()
   const router = useRouter()
-  // Use the modularized watchlist hook
-  const { items: userDependencies, isLoading } = useWatchlist()
+  const [isVisible, setIsVisible] = useState(true)
+  const [dependencyStatuses, setDependencyStatuses] = useState<Record<string, 'processing' | 'ready' | 'error'>>({})
   
+  // Refresh watchlist when component mounts or when returning to this page
+  useEffect(() => {
+    console.log('🔄 Initial watchlist refresh...')
+    refreshItems()
+    
+    // Also refresh when the page becomes visible (user returns from another page)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log('🔄 Visibility change - refreshing watchlist...')
+        refreshItems()
+      }
+    }
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [refreshItems])
+  
+  // Use status directly from watchlist data (no separate API calls needed!)
+  useEffect(() => {
+    console.log('🚀 Processing watchlist data with built-in status:', userDependencies.length, 'items')
+    console.log('📋 Current watchlist items:', userDependencies.map(item => ({ name: item.name, status: item.status })))
+    
+    const statuses: Record<string, 'processing' | 'ready' | 'error'> = {}
+    
+    for (const item of userDependencies) {
+      console.log(`🔍 Item: ${item.name}, status from backend: ${item.status}`)
+      statuses[item.name] = (item.status as 'processing' | 'ready' | 'error') || 'ready'
+    }
+    
+    console.log('🎯 Final statuses from backend:', statuses)
+    setDependencyStatuses(statuses)
+  }, [userDependencies])
+
+  // Poll for processing package statuses
+  useEffect(() => {
+    const checkProcessingStatuses = async () => {
+      const processingPackages = userDependencies.filter(dep => dep.status === 'processing')
+      
+      if (processingPackages.length === 0) return
+      
+      console.log(`🔍 Checking status for ${processingPackages.length} processing packages`)
+      
+      const statusPromises = processingPackages.map(async (pkg) => {
+        try {
+          const status = await checkRepositoryStatus(pkg.watchlist_id || '')
+          return {
+            watchlistId: pkg.watchlist_id,
+            status: status.status
+          }
+        } catch (error) {
+          console.error(`Error checking status for ${pkg.name}:`, error)
+          return {
+            watchlistId: pkg.watchlist_id,
+            status: 'error' as const
+          }
+        }
+      })
+      
+      const results = await Promise.all(statusPromises)
+      
+      // Update statuses for packages that have changed
+      const newStatuses = { ...dependencyStatuses }
+      let hasChanges = false
+      
+      results.forEach(result => {
+        if (result.watchlistId) {
+          const watchlistId = result.watchlistId
+          if (result.status !== dependencyStatuses[watchlistId]) {
+            newStatuses[watchlistId] = result.status
+            hasChanges = true
+            console.log(`📊 Status updated for ${watchlistId}: ${result.status}`)
+          }
+        }
+      })
+      
+      if (hasChanges) {
+        setDependencyStatuses(newStatuses)
+        // Only refresh watchlist if any package finished processing (status changed to 'ready')
+        const finishedProcessing = results.some(result => 
+          result.watchlistId && result.status === 'ready' && dependencyStatuses[result.watchlistId] === 'processing'
+        )
+        if (finishedProcessing) {
+          console.log('🔄 Package finished processing, refreshing watchlist data...')
+          refreshItems()
+        }
+      }
+    }
+    
+    // Check immediately
+    checkProcessingStatuses()
+    
+    // Then check every 3 seconds
+    const interval = setInterval(checkProcessingStatuses, 3000)
+    
+    return () => clearInterval(interval)
+  }, [userDependencies, dependencyStatuses, refreshItems])
+
   // Transform user dependencies to display format
-  const allDependencies: DisplayDependency[] = userDependencies.map(item => ({
-    id: item.id,
-    name: item.name,
-    version: item.version,
-    type: item.type,
-    risk: item.risk,
-    stars: item.stars,
-    maintainers: item.maintainers,
-    lastUpdate: item.lastUpdate,
-    downloads: null, // Not available from backend yet
-    description: `${item.type} dependency`,
-    isGitHubDataLoaded: !!item.stars && item.stars !== '0', // Assume loaded if we have stars
-    forks: null, // Not available from backend yet
-    contributors: item.maintainers
-  }))
+  const allDependencies: DisplayDependency[] = useMemo(() => {
+    return userDependencies.map(dep => ({
+      id: dep.id,
+      name: dep.name,
+      version: dep.version || 'latest',
+      type: dep.type,
+      risk: dep.risk,
+      stars: dep.stars,
+      maintainers: dep.maintainers,
+      lastUpdate: dep.lastUpdate,
+      downloads: dep.downloads?.toString() || null,
+      description: dep.description,
+      status: dependencyStatuses[dep.watchlist_id || ''] || dep.status,
+      repoUrl: dep.repo_url,
+      activity_score: dep.activity_score,
+      bus_factor: dep.bus_factor,
+      health_score: dep.health_score,
+      notification_count: dep.notification_count || 0,
+      tracking_duration: dep.tracking_duration,
+      // Vulnerability data
+      vulnerability_summary: dep.vulnerability_summary
+    }))
+  }, [userDependencies, dependencyStatuses])
 
   const getRiskBadge = (risk: string) => {
     switch (risk) {
@@ -89,7 +232,7 @@ export default function DependenciesPage() {
     value: string | number | null | undefined
     isLoading: boolean 
   }) => {
-    if (isLoading || value === null || value === undefined) {
+    if (isLoading || value === null || value === undefined || value === '') {
       return (
         <div className="flex items-center gap-1 text-gray-500">
           <Icon className="h-3 w-3" />
@@ -101,9 +244,51 @@ export default function DependenciesPage() {
     return (
       <div className="flex items-center gap-1">
         <Icon className="h-3 w-3" />
-        <span>{value}</span>
+        <span>{formatNumber(value)}</span>
       </div>
     )
+  }
+
+  // Helper function to get activity color and label
+  const getActivityDisplay = (score: number | null | undefined) => {
+    if (score === null || score === undefined) return { color: 'text-gray-400', borderColor: 'border-gray-600', label: 'Unknown' }
+    if (score === 0) return { color: 'text-red-400', borderColor: 'border-red-500/30', label: 'No Activity' }
+    if (score >= 65) return { color: 'text-green-400', borderColor: 'border-green-500/30', label: 'Very Active' }
+    if (score >= 30) return { color: 'text-yellow-400', borderColor: 'border-yellow-500/30', label: 'Moderate Activity' }
+    return { color: 'text-red-400', borderColor: 'border-red-500/30', label: 'Inactive' }
+  }
+
+  // Helper function to get bus factor risk level
+  const getBusFactorDisplay = (factor: number | null | undefined) => {
+    if (!factor) return { color: 'text-gray-400', borderColor: 'border-gray-600', label: 'Unknown' }
+    if (factor >= 5) return { color: 'text-green-400', borderColor: 'border-green-500/30', label: 'No Bus Factor Risk' }
+    if (factor >= 3) return { color: 'text-yellow-400', borderColor: 'border-yellow-500/30', label: 'Bus Factor Risk' }
+    return { color: 'text-red-400', borderColor: 'border-red-500/30', label: 'Bus Factor Risk' }
+  }
+
+  // Helper function to get health color and label
+  // Note: Backend returns health scores on 0-10 scale, not 0-100
+  const getHealthDisplay = (score: number | null | undefined) => {
+    if (!score) return { color: 'text-gray-400', borderColor: 'border-gray-600', label: 'Unknown' }
+    if (score >= 7.5) return { color: 'text-green-400', borderColor: 'border-green-500/30', label: 'Good Health' }
+    if (score >= 4) return { color: 'text-yellow-400', borderColor: 'border-yellow-500/30', label: 'Fair Health' }
+    return { color: 'text-red-400', borderColor: 'border-red-500/30', label: 'Poor Health' }
+  }
+
+  const getVulnerabilityDisplay = (summary: any) => {
+    if (!summary || summary.total_count === 0) {
+      return { label: 'No Vulnerabilities', color: 'text-green-400', borderColor: 'border-green-500/30' }
+    }
+    if (summary.critical_count > 0 || summary.high_count > 0) {
+      return { label: 'Critical Risk', color: 'text-red-400', borderColor: 'border-red-500/30' }
+    }
+    if (summary.medium_count > 0) {
+      return { label: 'Medium Risk', color: 'text-yellow-400', borderColor: 'border-yellow-500/30' }
+    }
+    if (summary.low_count > 0) {
+      return { label: 'Low Risk', color: 'text-blue-400', borderColor: 'border-blue-500/30' }
+    }
+    return { label: 'Unknown', color: 'text-gray-400', borderColor: 'border-gray-600' }
   }
 
   return (
@@ -125,37 +310,12 @@ export default function DependenciesPage() {
               </Button>
             }
             defaultType="production"
+            onRepositoryAdded={refreshItems}
           />
         </div>
       </PageHeader>
       
       <FullWidthContainer>
-        {/* Stats Section */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-gray-900/50 border-gray-800 backdrop-blur-sm border rounded-lg p-4 text-center">
-            <div className="text-2xl font-bold text-white">{allDependencies.length}</div>
-            <div className="text-sm text-gray-400">Total Dependencies</div>
-          </div>
-          <div className="bg-gray-900/50 border-gray-800 backdrop-blur-sm border rounded-lg p-4 text-center">
-            <div className="text-2xl font-bold text-white">
-              {allDependencies.filter(d => d.risk === 'low').length}
-            </div>
-            <div className="text-sm text-gray-400">Low Risk</div>
-          </div>
-          <div className="bg-gray-900/50 border-gray-800 backdrop-blur-sm border rounded-lg p-4 text-center">
-            <div className="text-2xl font-bold text-white">
-              {allDependencies.filter(d => d.risk === 'medium').length}
-            </div>
-            <div className="text-sm text-gray-400">Medium Risk</div>
-          </div>
-          <div className="bg-gray-900/50 border-gray-800 backdrop-blur-sm border rounded-lg p-4 text-center">
-            <div className="text-2xl font-bold text-white">
-              {allDependencies.filter(d => d.risk === 'high').length}
-            </div>
-            <div className="text-sm text-gray-400">High Risk</div>
-          </div>
-        </div>
-
         {/* Dependencies Grid */}
         <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4">
           {/* Add New Dependency Card */}
@@ -189,58 +349,107 @@ export default function DependenciesPage() {
           )}
 
           {/* Dependency Cards */}
-          {!isLoading && allDependencies.map((item) => (
-            <div key={item.id} className="bg-gray-900/50 border-gray-800 backdrop-blur-sm rounded-lg border p-4 space-y-3 group hover:border-gray-700 transition-colors">
-              <div className="flex flex-col gap-1">
-                <div className="flex items-start justify-between gap-2">
-                  <span className="font-medium line-clamp-1 min-w-0 text-white group-hover:text-gray-100 transition-colors">
-                    {item.name}
-                  </span>
-                  <Badge variant="outline" className="text-xs flex-shrink-0 border-gray-700 text-gray-300">
-                    {item.version}
-                  </Badge>
+          {!isLoading && allDependencies.map((item) => {
+            console.log('📦 Item:', item.name, 'vulnerability_summary:', item.vulnerability_summary)
+            return (
+              <div
+                key={item.id}
+                className={`bg-gray-900/50 border-gray-800 backdrop-blur-sm rounded-lg border p-4 space-y-3 group transition-colors ${
+                  item.status === 'processing' 
+                    ? 'animate-pulse cursor-not-allowed' 
+                    : 'hover:border-gray-700 cursor-pointer'
+                }`}
+                onClick={() => {
+                  if (item.status !== 'processing') {
+                    router.push(`/package-details?id=${item.id}`)
+                  }
+                }}
+              >
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="font-medium line-clamp-1 min-w-0 text-white group-hover:text-gray-100 transition-colors">
+                      {item.name.split('/').pop() || item.name}
+                    </span>
+                  </div>
                 </div>
-                <span className="text-sm text-gray-400 line-clamp-1">
-                  {item.description || `${item.type} dependency`}
-                </span>
-              </div>
-              
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="shrink-0">{getRiskBadge(item.risk)}</div>
-                <div className="shrink-0">{getTypeBadge(item.type)}</div>
-                {!item.isGitHubDataLoaded && (
-                  <Badge variant="outline" className="border-blue-700/50 text-blue-400/80 text-xs">
-                    Loading...
-                  </Badge>
-                )}
-              </div>
+                
+                <div className="flex flex-wrap items-center gap-2">
+                  {item.status === 'processing' ? (
+                    <Badge variant="outline" className="border-blue-500 text-blue-500 text-xs">
+                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                      Processing...
+                    </Badge>
+                  ) : (
+                    <>
+                        <Badge variant="outline" className={`${getActivityDisplay(item.activity_score).borderColor} text-gray-300 text-xs`}>
+                          <Activity className={`mr-1 h-3 w-3 ${getActivityDisplay(item.activity_score).color}`} />
+                          {getActivityDisplay(item.activity_score).label}
+                        </Badge>
+                        <Badge variant="outline" className={`${getBusFactorDisplay(item.bus_factor).borderColor} text-gray-300 text-xs`}>
+                          <Users2 className={`mr-1 h-3 w-3 ${getBusFactorDisplay(item.bus_factor).color}`} />
+                          {getBusFactorDisplay(item.bus_factor).label}
+                        </Badge>
+                        <Badge variant="outline" className={`${getHealthDisplay(item.health_score).borderColor} text-gray-300 text-xs`}>
+                          <Shield className={`mr-1 h-3 w-3 ${getHealthDisplay(item.health_score).color}`} />
+                          {getHealthDisplay(item.health_score).label}
+                        </Badge>
+                        <Badge variant="outline" className={`${getVulnerabilityDisplay(item.vulnerability_summary).borderColor} text-gray-300 text-xs`}>
+                          <Shield className={`mr-1 h-3 w-3 ${getVulnerabilityDisplay(item.vulnerability_summary).color}`} />
+                          {getVulnerabilityDisplay(item.vulnerability_summary).label}
+                        </Badge>
+                    </>
+                  )}
+                </div>
 
-              <div className="flex items-center gap-4 text-sm text-gray-400">
-                <StatWithLoading 
-                  icon={Star} 
-                  value={item.stars} 
-                  isLoading={!item.isGitHubDataLoaded}
-                />
-                <StatWithLoading 
-                  icon={Download} 
-                  value={item.downloads} 
-                  isLoading={!item.isGitHubDataLoaded}
-                />
+                {/* Notification Counter */}
+                {(item.notification_count || 0) > 0 && (
+                  <div className="flex items-center gap-2">
+                    <Bell className="h-4 w-4 text-orange-500" />
+                    <span className="text-sm text-orange-500 font-medium">
+                      {item.notification_count || 0} new alerts
+                    </span>
+                  </div>
+                )}
+
+                {/* Stats Icons */}
+                <div className="flex items-center gap-4 text-sm text-gray-400">
+                  <StatWithLoading 
+                    icon={Star} 
+                    value={item.stars} 
+                    isLoading={isLoading} 
+                  />
+                  <StatWithLoading 
+                    icon={Download} 
+                    value={item.downloads} 
+                    isLoading={isLoading} 
+                  />
+                  <StatWithLoading 
+                    icon={Users} 
+                    value={item.maintainers} 
+                    isLoading={isLoading} 
+                  />
+                </div>
+                
+                {/* Tracking Duration */}
+                <div className="flex items-center justify-between text-xs text-gray-400">
+                  <div className="flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    <span>Tracking for {item.tracking_duration || '0 days'}</span>
+                  </div>
+                  {item.status !== 'processing' && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 hover:text-white h-6 px-2 text-xs"
+                      onClick={() => router.push(`/package-details?id=${item.id}`)}
+                    >
+                      View
+                    </Button>
+                  )}
+                </div>
               </div>
-              
-              <div className="flex items-center justify-between text-xs text-gray-400">
-                <span>{item.lastUpdate}</span>
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 hover:text-white h-6 px-2 text-xs"
-                  onClick={() => router.push(`/package-details?name=${encodeURIComponent(item.name)}`)}
-                >
-                  {item.isGitHubDataLoaded ? 'View' : 'View Details'}
-                </Button>
-              </div>
-            </div>
-          ))}
+            )
+          })}
 
           {/* Empty State */}
           {!isLoading && allDependencies.length === 0 && (
@@ -263,6 +472,7 @@ export default function DependenciesPage() {
                     </Button>
                   }
                   defaultType="production"
+                  onRepositoryAdded={refreshItems}
                 />
               </div>
             </div>

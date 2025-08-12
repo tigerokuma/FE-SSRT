@@ -10,8 +10,8 @@ const nextConfig = {
     unoptimized: true,
   },
   async rewrites() {
-    // API base URL - defaults to remote, falls back to localhost
-    const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://34.94.83.163:3000'
+    // API base URL - temporarily set to localhost for testing new endpoint
+    const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000'
     
     return [
       {

@@ -19,29 +19,29 @@ import type { Package as PackageType, WatchlistItem } from '../../lib/watchlist/
 import { usePackageSearch, useWatchlist } from '../../lib/watchlist/index'
 import { hasVulnerabilities, hasActiveVulnerabilities, getVulnerabilityCount, getHighestSeverity } from '../../lib/watchlist/utils'
 import { PackageCard } from './PackageCard'
-import { PackageDetailsSummary } from './PackageDetailsSummary'
-import { AlertConfigurationDialog } from "./AlertConfigurationDialog"
-import { addRepositoryToWatchlist } from "../../lib/watchlist/api"
+import { PackageDetailsPanel } from './PackageDetailsPanel'
+import { addRepositoryToWatchlist, fetchWatchlistItems } from "../../lib/watchlist/api"
 
 interface WatchlistSearchDialogProps {
   trigger?: React.ReactNode
   onPackagePreview?: (pkg: PackageType, type: 'npm' | 'github') => void
   defaultType?: WatchlistItem['type']
+  onRepositoryAdded?: () => void
 }
 
 export function WatchlistSearchDialog({ 
   trigger, 
   onPackagePreview,
-  defaultType = 'production' 
+  defaultType = 'production',
+  onRepositoryAdded
 }: WatchlistSearchDialogProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedPackage, setSelectedPackage] = useState<PackageType | null>(null)
-  const [showAlertConfig, setShowAlertConfig] = useState(false)
   const [isAdding, setIsAdding] = useState(false)
   const [securityFilter, setSecurityFilter] = useState<'all' | 'secure' | 'vulnerable'>('all')
 
-  const { isAdding: isAddingToWatchlist, addItem } = useWatchlist()
+  const { isAdding: isAddingToWatchlist, addItem, refreshItems } = useWatchlist()
   const {
     searchResults,
     isSearching,
@@ -102,77 +102,70 @@ export function WatchlistSearchDialog({
   }
 
   const handleAddToWatchlist = async (pkg: PackageType) => {
-    // Always show alert config dialog for all packages
-    setSelectedPackage(pkg)
-    setShowAlertConfig(true)
-    setIsOpen(false) // Close search dialog when opening alert config
-  }
-
-  const handleAlertConfigAdd = async (config: {
-    repo_url: string
-    added_by: string
-    notes?: string
-    alerts: {
-      ai_powered_anomaly_detection: {
-        enabled: boolean
-      }
-      lines_added_deleted: {
-        enabled: boolean
-        contributor_variance: number
-        repository_variance: number
-        hardcoded_threshold: number
-      }
-      files_changed: {
-        enabled: boolean
-        contributor_variance: number
-        repository_variance: number
-        hardcoded_threshold: number
-      }
-      high_churn: {
-        enabled: boolean
-        multiplier: number
-        hardcoded_threshold: number
-      }
-      ancestry_breaks: {
-        enabled: boolean
-      }
-      unusual_author_activity: {
-        enabled: boolean
-        percentage_outside_range: number
-      }
-    }
-  }) => {
-    if (!selectedPackage) return
-    
     setIsAdding(true)
     try {
-      await addRepositoryToWatchlist(config)
-      setShowAlertConfig(false)
+      console.log('🔄 Adding repository to watchlist:', pkg.repo_url || pkg.name)
+      
+      // Create default alert configuration with all alerts disabled
+      const defaultAlertConfig = {
+        repo_url: pkg.repo_url || `https://github.com/${pkg.name}`,
+        added_by: "user-123", // TODO: Get actual user ID
+        alerts: {
+          ai_powered_anomaly_detection: {
+            enabled: false
+          },
+          lines_added_deleted: {
+            enabled: false,
+            contributor_variance: 3.0,
+            repository_variance: 3.5,
+            hardcoded_threshold: 1000
+          },
+          files_changed: {
+            enabled: false,
+            contributor_variance: 2.5,
+            repository_variance: 3.0,
+            hardcoded_threshold: 20
+          },
+          suspicious_author_timestamps: {
+            enabled: false
+          },
+          new_vulnerabilities_detected: {
+            enabled: false
+          },
+          health_score_decreases: {
+            enabled: false,
+            minimum_health_change: 5
+          }
+        }
+      }
+      
+      // Use addRepositoryToWatchlist which calls the correct /activity/user-watchlist-added endpoint
+      const result = await addRepositoryToWatchlist(defaultAlertConfig)
+      console.log('✅ Repository added successfully:', result)
+      
       setIsOpen(false)
       setSearchQuery("")
       setSelectedPackage(null)
       clearSearch()
+      
+      // Notify parent component that a repository was added - this should trigger refresh
+      console.log('🔄 Notifying parent to refresh watchlist...')
+      onRepositoryAdded?.()
+      
+      // Also force a page refresh after a short delay as backup
+      setTimeout(() => {
+        console.log('🔄 Force refreshing page as backup...')
+        window.location.reload()
+      }, 2000)
+      
     } catch (error) {
-      console.error('Error adding repository to watchlist:', error)
+      console.error('❌ Error adding repository to watchlist:', error)
     } finally {
       setIsAdding(false)
     }
   }
 
-  const handleAlertConfigBack = () => {
-    setShowAlertConfig(false)
-    setIsOpen(true) // Reopen search dialog when going back
-  }
-
-  const handleAlertConfigClose = () => {
-    setShowAlertConfig(false)
-    setIsOpen(false)
-    setSelectedPackage(null)
-    setSearchQuery("")
-    clearSearch()
-  }
-
-  const hasResults = filteredResults.length > 0
+  const hasResults = searchResults.length > 0
 
   return (
     <>
@@ -270,10 +263,10 @@ export function WatchlistSearchDialog({
                           key={pkg.name}
                           pkg={pkg}
                           onSelect={handlePackageSelect}
-                          onAdd={handleAddToWatchlist}
                           searchQuery={searchQuery}
                           isSelected={selectedPackage?.name === pkg.name}
-                          isAdding={isAddingToWatchlist}
+                          onAdd={handleAddToWatchlist}
+                          isAdding={isAdding}
                         />
                       ))}
                     </div>
@@ -305,27 +298,16 @@ export function WatchlistSearchDialog({
 
             {/* Right Panel - Package Details */}
             <div className="w-1/2 flex flex-col min-h-0">
-              <PackageDetailsSummary
+              <PackageDetailsPanel
                 pkg={selectedPackage}
                 onAdd={handleAddToWatchlist}
                 isAdding={isAddingToWatchlist}
+                onClose={() => setSelectedPackage(null)}
               />
             </div>
           </div>
         </DialogContent>
       </Dialog>
-
-      {/* Alert Configuration Dialog */}
-      {selectedPackage && (
-        <AlertConfigurationDialog
-          pkg={selectedPackage}
-          isOpen={showAlertConfig}
-          onClose={handleAlertConfigClose}
-          onBack={handleAlertConfigBack}
-          onAdd={handleAlertConfigAdd}
-          isAdding={isAdding}
-        />
-      )}
     </>
   )
 } 

@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { AlertTriangle, Check, Filter, Plus, X } from "lucide-react"
+import { useState, useEffect } from "react"
+import { AlertTriangle, Check, Filter, Plus, X, RefreshCw, Brain, Activity, FileText, User, Shield, TrendingDown, MessageSquare, MessageCircle, Mail, GitBranch } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -21,77 +21,124 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { PageHeader } from "@/components/page-header"
-import { MainContent } from "@/components/main-content"
+import { FullWidthPage, FullWidthContainer } from "@/components/full-width-container"
+import { useAlerts } from "@/lib/alerts"
+import { fetchWatchlistItems } from "@/lib/watchlist/api"
 
-const alertsData = [
-  {
-    id: 1,
-    rule: "High LOC PR",
-    repository: "lodash/lodash",
-    team: "Core",
-    severity: "medium",
-    status: "open",
-    created: "2 days ago",
-    description: "PR #1234 contains over 500 lines of code",
-  },
-  {
-    id: 2,
-    rule: "Risky Import",
-    repository: "vercel/next.js",
-    team: "Frontend",
-    severity: "high",
-    status: "open",
-    created: "3 days ago",
-    description: "New dependency added with low maintainer score",
-  },
-  {
-    id: 3,
-    rule: "CVE Alert",
-    repository: "facebook/react",
-    team: "Frontend",
-    severity: "critical",
-    status: "open",
-    created: "4 days ago",
-    description: "Dependency has a new CVE: CVE-2023-1234",
-  },
-  {
-    id: 4,
-    rule: "Inactive Maintainer",
-    repository: "tailwindlabs/tailwindcss",
-    team: "Design",
-    severity: "low",
-    status: "resolved",
-    created: "1 week ago",
-    description: "Primary maintainer has been inactive for over 30 days",
-  },
-  {
-    id: 5,
-    rule: "Dependency Version",
-    repository: "lodash/lodash",
-    team: "Core",
-    severity: "low",
-    status: "resolved",
-    created: "1 week ago",
-    description: "Using outdated version of dependency with known issues",
-  },
-]
+interface AlertDisplay {
+  id: string
+  rule: string
+  repository: string
+  team?: string
+  severity: string
+  status: "open" | "resolved"
+  created: string
+  description: string
+  commitSha: string
+  contributor: string
+  metric: string
+  value: number
+  thresholdValue: number
+}
 
 export default function AlertsPage() {
-  const [alerts] = useState(alertsData)
   const [isCreateRuleOpen, setIsCreateRuleOpen] = useState(false)
+  const [selectedUserWatchlistId, setSelectedUserWatchlistId] = useState<string | undefined>()
+  const [watchlistItems, setWatchlistItems] = useState<any[]>([])
 
-  const getSeverityBadge = (severity: string) => {
-    switch (severity) {
-      case "critical":
-        return <Badge variant="destructive">Critical</Badge>
-      case "high":
-        return <Badge className="bg-red-500">High</Badge>
-      case "medium":
-        return <Badge className="bg-yellow-500">Medium</Badge>
-      case "low":
-        return <Badge className="bg-green-500">Low</Badge>
+  // Get alerts for the selected user watchlist
+  const { alerts, loading, error, refetch } = useAlerts({
+    userWatchlistId: selectedUserWatchlistId,
+    autoRefresh: true,
+    refreshInterval: 30000, // Refresh every 30 seconds
+  })
+
+  // Load watchlist items to get user watchlist IDs
+  useEffect(() => {
+    const loadWatchlistItems = async () => {
+      try {
+        const items = await fetchWatchlistItems()
+        console.log('📋 Loaded watchlist items:', items)
+        setWatchlistItems(items)
+        
+        // Try to find the specific user watchlist ID we created the alert for
+        const targetUserWatchlistId = "user_watchlist_user-123_watchlist_expressjs_express_1754171072961"
+        const targetItem = items.find(item => item.id === targetUserWatchlistId)
+        
+        if (targetItem) {
+          console.log('✅ Found target user watchlist:', targetItem)
+          setSelectedUserWatchlistId(targetUserWatchlistId)
+        } else if (items.length > 0 && !selectedUserWatchlistId) {
+          console.log('⚠️ Target user watchlist not found, using first item:', items[0])
+          setSelectedUserWatchlistId(items[0].id)
+        } else {
+          console.log('❌ No watchlist items found')
+        }
+      } catch (error) {
+        console.error('Error loading watchlist items:', error)
+      }
+    }
+
+    loadWatchlistItems()
+  }, [])
+
+  // Transform backend alerts to frontend format
+  const transformAlerts = (backendAlerts: any[]): AlertDisplay[] => {
+    console.log('🔄 Transforming alerts:', backendAlerts)
+    return backendAlerts.map(alert => {
+      const status = alert.resolved_at ? "resolved" : "open"
+      const createdDate = new Date(alert.created_at)
+      const timeAgo = getTimeAgo(createdDate)
+      
+      return {
+        id: alert.id,
+        rule: `${alert.metric.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())} Alert`,
+        repository: alert.watchlist?.package?.repo_name || 'Unknown Repository',
+        severity: alert.alert_level || 'moderate',
+        status,
+        created: timeAgo,
+        description: alert.description,
+        commitSha: alert.commit_sha,
+        contributor: alert.contributor,
+        metric: alert.metric,
+        value: alert.value,
+        thresholdValue: alert.threshold_value,
+      }
+    })
+  }
+
+  const getTimeAgo = (date: Date): string => {
+    const now = new Date()
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000)
+    
+    if (diffInSeconds < 60) return `${diffInSeconds} seconds ago`
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} minutes ago`
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`
+    if (diffInSeconds < 2592000) return `${Math.floor(diffInSeconds / 86400)} days ago`
+    if (diffInSeconds < 31536000) return `${Math.floor(diffInSeconds / 2592000)} months ago`
+    return `${Math.floor(diffInSeconds / 31536000)} years ago`
+  }
+
+  const getAlertIcon = (metric: string) => {
+    switch (metric) {
+      case 'ai_powered_anomaly_detection':
+        return <Brain className="h-4 w-4 text-indigo-400" />
+      case 'lines_added_deleted':
+        return <Activity className="h-4 w-4 text-emerald-400" />
+      case 'files_changed':
+        return <FileText className="h-4 w-4 text-cyan-400" />
+      case 'suspicious_author_timestamps':
+        return <User className="h-4 w-4 text-orange-400" />
+      case 'new_vulnerabilities_detected':
+        return <Shield className="h-4 w-4 text-red-400" />
+      case 'health_score_decreases':
+        return <TrendingDown className="h-4 w-4 text-yellow-400" />
+      case 'high_churn':
+        return <MessageSquare className="h-4 w-4 text-indigo-400" />
+      case 'ancestry_breaks':
+        return <GitBranch className="h-4 w-4 text-blue-500" />
       default:
-        return <Badge variant="outline">Unknown</Badge>
+        return <AlertTriangle className="h-4 w-4 text-gray-400" />
     }
   }
 
@@ -116,13 +163,53 @@ export default function AlertsPage() {
     }
   }
 
+  const transformedAlerts = transformAlerts(alerts)
+  const openAlerts = transformedAlerts.filter(alert => alert.status === "open")
+  const resolvedAlerts = transformedAlerts.filter(alert => alert.status === "resolved")
+
   return (
-    <div className="flex flex-col min-h-screen">
+    <FullWidthPage>
       <PageHeader title="Alert Center" description="Monitor and manage security and activity alerts">
         <div className="flex flex-col sm:flex-row gap-2">
-          <Button variant="outline" size="sm" className="sm:w-auto">
-            <Filter className="mr-2 h-4 w-4" />
-            Filter
+          <Select value={selectedUserWatchlistId} onValueChange={setSelectedUserWatchlistId}>
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="Select repository" />
+            </SelectTrigger>
+            <SelectContent>
+              {watchlistItems.map((item) => (
+                <SelectItem key={item.id} value={item.id}>
+                  {item.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button variant="outline" size="sm" onClick={refetch} disabled={loading}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={async () => {
+              if (!selectedUserWatchlistId) {
+                alert('Please select a repository first');
+                return;
+              }
+              try {
+                const response = await fetch('/api/backend/activity/alerts/test/create-sample', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ userWatchlistId: selectedUserWatchlistId }),
+                });
+                const result = await response.json();
+                alert(`Created ${result.alerts?.length || 0} sample alerts`);
+                refetch(); // Refresh the alerts
+              } catch (error) {
+                alert('Error creating sample alerts: ' + (error instanceof Error ? error.message : 'Unknown error'));
+              }
+            }}
+          >
+            Create Sample Alerts
           </Button>
           <Dialog open={isCreateRuleOpen} onOpenChange={setIsCreateRuleOpen}>
             <DialogTrigger asChild>
@@ -193,71 +280,89 @@ export default function AlertsPage() {
         </div>
       </PageHeader>
 
-      <MainContent>
-        <Tabs defaultValue="all">
-          <div className="flex flex-col gap-4 mb-4">
-            <h2 className="text-xl font-bold tracking-tight">Active Alerts</h2>
-            <TabsList className="grid grid-cols-3 max-w-md">
-              <TabsTrigger value="all">All</TabsTrigger>
-              <TabsTrigger value="open">Open</TabsTrigger>
-              <TabsTrigger value="resolved">Resolved</TabsTrigger>
-            </TabsList>
+      <FullWidthContainer>
+        {error && (
+          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-red-800">Error loading alerts: {error}</p>
           </div>
+        )}
 
-          <TabsContent value="all" className="space-y-6">
-            <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4">
-              {alerts.map((alert) => (
-                <div key={alert.id} className="rounded-lg border bg-card p-4 space-y-3">
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-start justify-between gap-2">
-                      <span className="font-medium line-clamp-1 min-w-0">{alert.rule}</span>
-                      <div className="shrink-0">
-                        {getStatusBadge(alert.status)}
-                      </div>
-                    </div>
-                    <span className="text-sm text-muted-foreground line-clamp-1">{alert.repository}</span>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <div className="shrink-0">{getSeverityBadge(alert.severity)}</div>
-                    <span className="text-sm text-muted-foreground">{alert.created}</span>
-                    {alert.team && (
-                      <Badge variant="outline" className="text-xs shrink-0">
-                        {alert.team}
-                      </Badge>
-                    )}
-                  </div>
-                  <p className="text-sm text-muted-foreground line-clamp-2">{alert.description}</p>
-                </div>
-              ))}
+        {!selectedUserWatchlistId && (
+          <div className="flex flex-col items-center justify-center rounded-lg border bg-card p-8">
+            <AlertTriangle className="h-12 w-12 text-muted-foreground" />
+            <h3 className="mt-4 text-lg font-medium">No Repository Selected</h3>
+            <p className="mt-2 text-sm text-muted-foreground text-center">
+              Please select a repository from the dropdown to view its alerts.
+            </p>
+          </div>
+        )}
+
+        {selectedUserWatchlistId && (
+          <Tabs defaultValue="all">
+            <div className="flex flex-col gap-4 mb-4">
+              <h2 className="text-xl font-bold tracking-tight">Active Alerts</h2>
+              <TabsList className="grid grid-cols-3 max-w-md">
+                <TabsTrigger value="all">All ({transformedAlerts.length})</TabsTrigger>
+                <TabsTrigger value="open">Open ({openAlerts.length})</TabsTrigger>
+                <TabsTrigger value="resolved">Resolved ({resolvedAlerts.length})</TabsTrigger>
+              </TabsList>
             </div>
-          </TabsContent>
 
-          <TabsContent value="open" className="space-y-6">
-            <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4">
-              {alerts.filter(alert => alert.status === "open").map((alert) => (
-                <div key={alert.id} className="rounded-lg border bg-card p-4 space-y-3">
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-start justify-between gap-2">
-                      <span className="font-medium line-clamp-1 min-w-0">{alert.rule}</span>
-                      <div className="shrink-0">
-                        {getStatusBadge(alert.status)}
+            <TabsContent value="all" className="space-y-6">
+              {loading ? (
+                <div className="flex items-center justify-center p-8">
+                  <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+                  <span className="ml-2 text-muted-foreground">Loading alerts...</span>
+                </div>
+              ) : transformedAlerts.length === 0 ? (
+                <div className="col-span-full flex flex-col items-center justify-center rounded-lg border bg-card p-8">
+                  <Check className="h-12 w-12 text-muted-foreground" />
+                  <h3 className="mt-4 text-lg font-medium">No Alerts Found</h3>
+                  <p className="mt-2 text-sm text-muted-foreground text-center">
+                    No alerts have been triggered for this repository yet.
+                  </p>
+                </div>
+              ) : (
+                <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4">
+                  {transformedAlerts.map((alert) => (
+                    <div key={alert.id} className="rounded-lg border bg-card p-4 space-y-3">
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            {getAlertIcon(alert.metric)}
+                            <span className="font-medium line-clamp-1">{alert.rule}</span>
+                          </div>
+                          <div className="shrink-0">
+                            {getStatusBadge(alert.status)}
+                          </div>
+                        </div>
+                        <span className="text-sm text-muted-foreground line-clamp-1">{alert.repository}</span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm text-muted-foreground">{alert.created}</span>
+                        <Badge variant="outline" className="text-xs shrink-0">
+                          {alert.contributor}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground line-clamp-2">{alert.description}</p>
+                      <div className="text-xs text-muted-foreground">
+                        <p>Metric: {alert.metric}</p>
+                        <p>Value: {alert.value} (threshold: {alert.thresholdValue})</p>
+                        <p>Commit: {alert.commitSha.substring(0, 8)}</p>
                       </div>
                     </div>
-                    <span className="text-sm text-muted-foreground line-clamp-1">{alert.repository}</span>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <div className="shrink-0">{getSeverityBadge(alert.severity)}</div>
-                    <span className="text-sm text-muted-foreground">{alert.created}</span>
-                    {alert.team && (
-                      <Badge variant="outline" className="text-xs shrink-0">
-                        {alert.team}
-                      </Badge>
-                    )}
-                  </div>
-                  <p className="text-sm text-muted-foreground line-clamp-2">{alert.description}</p>
+                  ))}
                 </div>
-              ))}
-              {alerts.filter(alert => alert.status === "open").length === 0 && (
+              )}
+            </TabsContent>
+
+            <TabsContent value="open" className="space-y-6">
+              {loading ? (
+                <div className="flex items-center justify-center p-8">
+                  <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+                  <span className="ml-2 text-muted-foreground">Loading alerts...</span>
+                </div>
+              ) : openAlerts.length === 0 ? (
                 <div className="col-span-full flex flex-col items-center justify-center rounded-lg border bg-card p-8">
                   <Check className="h-12 w-12 text-muted-foreground" />
                   <h3 className="mt-4 text-lg font-medium">No Open Alerts</h3>
@@ -269,36 +374,47 @@ export default function AlertsPage() {
                     Create Rule
                   </Button>
                 </div>
-              )}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="resolved" className="space-y-6">
-            <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4">
-              {alerts.filter(alert => alert.status === "resolved").map((alert) => (
-                <div key={alert.id} className="rounded-lg border bg-card p-4 space-y-3">
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-start justify-between gap-2">
-                      <span className="font-medium line-clamp-1 min-w-0">{alert.rule}</span>
-                      <div className="shrink-0">
-                        {getStatusBadge(alert.status)}
+              ) : (
+                <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4">
+                  {openAlerts.map((alert) => (
+                    <div key={alert.id} className="rounded-lg border bg-card p-4 space-y-3">
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            {getAlertIcon(alert.metric)}
+                            <span className="font-medium line-clamp-1">{alert.rule}</span>
+                          </div>
+                          <div className="shrink-0">
+                            {getStatusBadge(alert.status)}
+                          </div>
+                        </div>
+                        <span className="text-sm text-muted-foreground line-clamp-1">{alert.repository}</span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm text-muted-foreground">{alert.created}</span>
+                        <Badge variant="outline" className="text-xs shrink-0">
+                          {alert.contributor}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground line-clamp-2">{alert.description}</p>
+                      <div className="text-xs text-muted-foreground">
+                        <p>Metric: {alert.metric}</p>
+                        <p>Value: {alert.value} (threshold: {alert.thresholdValue})</p>
+                        <p>Commit: {alert.commitSha.substring(0, 8)}</p>
                       </div>
                     </div>
-                    <span className="text-sm text-muted-foreground line-clamp-1">{alert.repository}</span>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <div className="shrink-0">{getSeverityBadge(alert.severity)}</div>
-                    <span className="text-sm text-muted-foreground">{alert.created}</span>
-                    {alert.team && (
-                      <Badge variant="outline" className="text-xs shrink-0">
-                        {alert.team}
-                      </Badge>
-                    )}
-                  </div>
-                  <p className="text-sm text-muted-foreground line-clamp-2">{alert.description}</p>
+                  ))}
                 </div>
-              ))}
-              {alerts.filter(alert => alert.status === "resolved").length === 0 && (
+              )}
+            </TabsContent>
+
+            <TabsContent value="resolved" className="space-y-6">
+              {loading ? (
+                <div className="flex items-center justify-center p-8">
+                  <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+                  <span className="ml-2 text-muted-foreground">Loading alerts...</span>
+                </div>
+              ) : resolvedAlerts.length === 0 ? (
                 <div className="col-span-full flex flex-col items-center justify-center rounded-lg border bg-card p-8">
                   <AlertTriangle className="h-12 w-12 text-muted-foreground" />
                   <h3 className="mt-4 text-lg font-medium">No Resolved Alerts</h3>
@@ -306,11 +422,44 @@ export default function AlertsPage() {
                     There are no resolved alerts yet. Alerts will appear here once they are addressed.
                   </p>
                 </div>
+              ) : (
+                <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4">
+                  {resolvedAlerts.map((alert) => (
+                    <div key={alert.id} className="rounded-lg border bg-card p-4 space-y-3">
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            {getAlertIcon(alert.metric)}
+                            <span className="font-medium line-clamp-1">{alert.rule}</span>
+                          </div>
+                          <div className="shrink-0">
+                            {getStatusBadge(alert.status)}
+                          </div>
+                        </div>
+                        <span className="text-sm text-muted-foreground line-clamp-1">{alert.repository}</span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm text-muted-foreground">{alert.created}</span>
+                        <Badge variant="outline" className="text-xs shrink-0">
+                          {alert.contributor}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground line-clamp-2">{alert.description}</p>
+                      <div className="text-xs text-muted-foreground">
+                        <p>Metric: {alert.metric}</p>
+                        <p>Value: {alert.value} (threshold: {alert.thresholdValue})</p>
+                        <p>Commit: {alert.commitSha.substring(0, 8)}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
-            </div>
-          </TabsContent>
-        </Tabs>
-      </MainContent>
-    </div>
+            </TabsContent>
+          </Tabs>
+        )}
+      </FullWidthContainer>
+      {/* Add space above footer */}
+      <div className="h-16"></div>
+    </FullWidthPage>
   )
 }

@@ -190,7 +190,8 @@ export function WatchlistStats({ items, className }: WatchlistStatsProps) {
   const productionItems = filterByType(items, 'production').length
   const developmentItems = filterByType(items, 'development').length
   const highRiskItems = items.filter(item => item.risk === 'high').length
-  const lowActivityItems = items.filter(item => item.activity === 'low').length
+
+  const lowActivityItems = items.filter(item => (item.activity_score || 0) < 30).length
   const vulnerableItems = items.filter(item => hasActiveVulnerabilities(item.vulnerabilities)).length
 
   return (

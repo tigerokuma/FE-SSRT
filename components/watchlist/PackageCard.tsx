@@ -9,13 +9,13 @@ import { formatNumber, getVulnerabilityCount, hasVulnerabilities, getHighestSeve
 interface PackageCardProps {
   pkg: PackageType
   onSelect: (pkg: PackageType) => void
-  onAdd: (pkg: PackageType) => void
   searchQuery: string
   isSelected: boolean
-  isAdding?: boolean
+  onAdd: (pkg: PackageType) => void
+  isAdding: boolean
 }
 
-export function PackageCard({ pkg, onSelect, onAdd, searchQuery, isSelected, isAdding }: PackageCardProps) {
+export function PackageCard({ pkg, onSelect, searchQuery, isSelected, onAdd, isAdding }: PackageCardProps) {
   const isExactMatch = pkg.name.toLowerCase() === searchQuery.toLowerCase().trim()
   
   // Separate active (unpatched) and historical (patched) vulnerabilities
