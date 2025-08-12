@@ -1,4 +1,4 @@
-import { AlertTriangle, Check, Clock, Shield, ShieldAlert, ShieldCheck } from "lucide-react"
+import { AlertTriangle, Check, Clock, Shield, ShieldAlert, ShieldCheck, Bug } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import type { WatchlistItem } from '../../lib/watchlist/types'
 
@@ -119,6 +119,38 @@ export function CveBadge({ cveCount, className }: CveBadgeProps) {
   )
 }
 
+interface VulnerabilityBadgeProps {
+  vulnerabilityCount: number
+  severity?: 'critical' | 'high' | 'medium' | 'low' | 'unknown'
+  className?: string
+}
+
+export function VulnerabilityBadge({ vulnerabilityCount, severity, className }: VulnerabilityBadgeProps) {
+  if (vulnerabilityCount === 0) return null
+
+  const getSeverityColor = (severity?: string) => {
+    switch (severity) {
+      case 'critical':
+        return 'border-red-500 text-red-500'
+      case 'high':
+        return 'border-orange-500 text-orange-500'
+      case 'medium':
+        return 'border-yellow-500 text-yellow-500'
+      case 'low':
+        return 'border-green-500 text-green-500'
+      default:
+        return 'border-gray-500 text-gray-500'
+    }
+  }
+
+  return (
+    <Badge variant="outline" className={`${getSeverityColor(severity)} ${className}`}>
+      <Bug className="mr-1 h-3 w-3" />
+      {vulnerabilityCount} {vulnerabilityCount === 1 ? 'vulnerability' : 'vulnerabilities'}
+    </Badge>
+  )
+}
+
 interface WatchlistBadgesProps {
   item: WatchlistItem
   className?: string
@@ -130,6 +162,13 @@ export function WatchlistBadges({ item, className }: WatchlistBadgesProps) {
       <RiskBadge risk={item.risk} />
       <ActivityBadge activity={item.activity_score} />
       <CveBadge cveCount={item.cves} />
+      {/* Add vulnerability badge if we have OSV data */}
+      {item.vulnerabilities && item.vulnerabilities.length > 0 && (
+        <VulnerabilityBadge 
+          vulnerabilityCount={item.vulnerabilities.length}
+          severity={item.vulnerabilities[0]?.severity as 'critical' | 'high' | 'medium' | 'low' | 'unknown'}
+        />
+      )}
     </div>
   )
 } 

@@ -15,6 +15,10 @@ const API_BASE_URL = 'http://localhost:3000'
 // API proxy path for Next.js rewrites
 const API_PROXY_PATH = process.env.NEXT_PUBLIC_API_PROXY_PATH || '/api/backend'
 
+
+
+
+
 /**
  * Search for NPM packages via the new API
  * Returns fast NPM data only - no GitHub fields
@@ -30,6 +34,18 @@ export const searchPackages = async (query: string): Promise<SearchApiResponse> 
     
     const data = await response.json()
     console.log('Raw API response:', data)
+    
+
+    
+    // Debug: Check for vulnerability data in results
+    if (data.results && data.results.length > 0) {
+      console.log('Checking for vulnerability data in results:')
+      data.results.forEach((pkg: any, index: number) => {
+        console.log(`Package ${index + 1}: ${pkg.name}`)
+        console.log(`  - osv_vulnerabilities:`, pkg.osv_vulnerabilities)
+        console.log(`  - vulnerability count:`, pkg.osv_vulnerabilities?.length || 0)
+      })
+    }
     
     // Apply deduplication to prevent React key conflicts
     if (data.results) {

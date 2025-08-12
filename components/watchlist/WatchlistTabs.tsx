@@ -3,10 +3,10 @@ import { useState } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
-import { Plus } from "lucide-react"
+import { Plus, Shield, AlertTriangle } from "lucide-react"
 
 import type { WatchlistItem } from '../../lib/watchlist/types'
-import { filterByType, sortWatchlistItems } from '../../lib/watchlist/utils'
+import { filterByType, sortWatchlistItems, hasVulnerabilities, hasActiveVulnerabilities } from '../../lib/watchlist/utils'
 import { WatchlistItemGrid } from './WatchlistItemCard'
 import { AllDependenciesEmptyState, ProductionEmptyState, DevelopmentEmptyState } from './WatchlistEmptyState'
 import { WatchlistSearchDialog } from './WatchlistSearchDialog'
@@ -19,7 +19,7 @@ interface WatchlistTabsProps {
   className?: string
 }
 
-type SortOption = 'name' | 'risk' | 'activity' | 'lastUpdate'
+type SortOption = 'name' | 'risk' | 'activity' | 'lastUpdate' | 'vulnerabilities'
 type SortOrder = 'asc' | 'desc'
 
 export function WatchlistTabs({ 
@@ -31,11 +31,25 @@ export function WatchlistTabs({
 }: WatchlistTabsProps) {
   const [sortBy, setSortBy] = useState<SortOption>('name')
   const [sortOrder, setSortOrder] = useState<SortOrder>('asc')
+  const [vulnerabilityFilter, setVulnerabilityFilter] = useState<'all' | 'secure' | 'vulnerable'>('all')
 
-  // Filter items by type
-  const allItems = sortWatchlistItems(items, sortBy, sortOrder)
-  const productionItems = sortWatchlistItems(filterByType(items, 'production'), sortBy, sortOrder)
-  const developmentItems = sortWatchlistItems(filterByType(items, 'development'), sortBy, sortOrder)
+  // Filter items by type and vulnerability status
+  const filterItems = (items: WatchlistItem[]) => {
+    let filtered = items
+    
+    // Apply vulnerability filter - use active vulnerabilities for security assessment
+    if (vulnerabilityFilter === 'secure') {
+      filtered = filtered.filter(item => !hasActiveVulnerabilities(item.vulnerabilities))
+    } else if (vulnerabilityFilter === 'vulnerable') {
+      filtered = filtered.filter(item => hasActiveVulnerabilities(item.vulnerabilities))
+    }
+    
+    return sortWatchlistItems(filtered, sortBy, sortOrder)
+  }
+
+  const allItems = filterItems(items)
+  const productionItems = filterItems(filterByType(items, 'production'))
+  const developmentItems = filterItems(filterByType(items, 'development'))
 
   const handleSortChange = (value: string) => {
     const [newSortBy, newSortOrder] = value.split('-') as [SortOption, SortOrder]
@@ -56,21 +70,38 @@ export function WatchlistTabs({
             <TabsTrigger value="development">Development</TabsTrigger>
           </TabsList>
           
-          <Select value={getSortValue()} onValueChange={handleSortChange}>
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder="Sort by" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="name-asc">Name A-Z</SelectItem>
-              <SelectItem value="name-desc">Name Z-A</SelectItem>
-              <SelectItem value="risk-asc">Risk Low-High</SelectItem>
-              <SelectItem value="risk-desc">Risk High-Low</SelectItem>
-              <SelectItem value="activity-asc">Activity Low-High</SelectItem>
-              <SelectItem value="activity-desc">Activity High-Low</SelectItem>
-              <SelectItem value="lastUpdate-desc">Recently Updated</SelectItem>
-              <SelectItem value="lastUpdate-asc">Oldest Updated</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex gap-2">
+            {/* Vulnerability Filter */}
+            <Select value={vulnerabilityFilter} onValueChange={(value) => setVulnerabilityFilter(value as any)}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="Filter by security" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All packages</SelectItem>
+                <SelectItem value="secure">Secure only</SelectItem>
+                <SelectItem value="vulnerable">With vulnerabilities</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* Sort Options */}
+            <Select value={getSortValue()} onValueChange={handleSortChange}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="name-asc">Name A-Z</SelectItem>
+                <SelectItem value="name-desc">Name Z-A</SelectItem>
+                <SelectItem value="risk-asc">Risk Low-High</SelectItem>
+                <SelectItem value="risk-desc">Risk High-Low</SelectItem>
+                <SelectItem value="activity-asc">Activity Low-High</SelectItem>
+                <SelectItem value="activity-desc">Activity High-Low</SelectItem>
+                <SelectItem value="vulnerabilities-desc">Most Vulnerable</SelectItem>
+                <SelectItem value="vulnerabilities-asc">Least Vulnerable</SelectItem>
+                <SelectItem value="lastUpdate-desc">Recently Updated</SelectItem>
+                <SelectItem value="lastUpdate-asc">Oldest Updated</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 
@@ -159,10 +190,12 @@ export function WatchlistStats({ items, className }: WatchlistStatsProps) {
   const productionItems = filterByType(items, 'production').length
   const developmentItems = filterByType(items, 'development').length
   const highRiskItems = items.filter(item => item.risk === 'high').length
+
   const lowActivityItems = items.filter(item => (item.activity_score || 0) < 30).length
+  const vulnerableItems = items.filter(item => hasActiveVulnerabilities(item.vulnerabilities)).length
 
   return (
-    <div className={`grid grid-cols-2 lg:grid-cols-5 gap-4 ${className}`}>
+    <div className={`grid grid-cols-2 lg:grid-cols-6 gap-4 ${className}`}>
       <div className="bg-muted/50 rounded-lg p-3 text-center">
         <div className="text-2xl font-bold">{totalItems}</div>
         <div className="text-sm text-muted-foreground">Total</div>
@@ -182,6 +215,10 @@ export function WatchlistStats({ items, className }: WatchlistStatsProps) {
       <div className="bg-muted/50 rounded-lg p-3 text-center">
         <div className="text-2xl font-bold text-orange-600">{lowActivityItems}</div>
         <div className="text-sm text-muted-foreground">Low Activity</div>
+      </div>
+      <div className="bg-muted/50 rounded-lg p-3 text-center">
+        <div className="text-2xl font-bold text-red-600">{vulnerableItems}</div>
+        <div className="text-sm text-muted-foreground">Vulnerable</div>
       </div>
     </div>
   )
