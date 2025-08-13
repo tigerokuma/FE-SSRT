@@ -22,7 +22,7 @@ function structuredGraphOutput(data: { nodes: any[]; links: any[] }) {
     else rightNodes.push(node);
   });
 
-  const spacing = 20;
+  const spacing = 40;
   leftNodes.forEach((node, i) => {
     node.x = -200;
     node.y = i * spacing - ((leftNodes.length - 1) * spacing) / 2;
@@ -76,7 +76,8 @@ export default function MyGraphComponent({
         const encodedNode = encodeURIComponent(currentNodeId);
         const vulnsParam = encodeURIComponent(vulnerablePackages.join(","));
         let url = "";
-        if (watchlistId) url = `${API_PROXY_PATH}/sbom/graph-dependencies/${encodedWatchlist}/${encodedNode}?vulns=${vulnsParam}`;
+        if (watchlistId) 
+          url = `${API_PROXY_PATH}/sbom/graph-dependencies/${encodedWatchlist}/${encodedNode}?vulns=${vulnsParam}`;
         else if (userWatchlistId)
           url = `${API_PROXY_PATH}/sbom/user-graph-dependencies/${encodedUserWatchlist}/${encodedNode}?vulns=${vulnsParam}`;
 
@@ -95,7 +96,7 @@ export default function MyGraphComponent({
     }
     fetchData();
   }, [watchlistId, currentNodeId, vulnerablePackages, viewMode]);
-
+  
   if (viewMode === "graph") {
     return (
       <div className="border border-2 rounded-md">
@@ -107,20 +108,32 @@ export default function MyGraphComponent({
           width={962}
           nodeCanvasObject={(node, ctx, globalScale) => {
             const label = node.name || node.id;
+            const license = node.license || "";  // Assuming your node has a license property
+
             const fontSize = 12 / globalScale;
+            const licenseFontSize = 10 / globalScale;
+
             ctx.font = `${fontSize}px Sans-Serif`;
             const textWidth = ctx.measureText(label).width;
 
+            ctx.font = `${licenseFontSize}px Sans-Serif`;
+            const licenseWidth = ctx.measureText(license).width;
+
             const paddingX = 6;
             const paddingY = 4;
-            const rectWidth = textWidth + paddingX * 2;
-            const rectHeight = fontSize + paddingY * 2;
+
+            // Width should accommodate the widest text
+            const rectWidth = Math.max(textWidth, licenseWidth) + paddingX * 2;
+
+            // Height for 2 lines + padding between
+            const rectHeight = fontSize + licenseFontSize + paddingY * 3;
 
             const x = node.x!;
             const y = node.y!;
 
             (node as any).__width = rectWidth;
             (node as any).__height = rectHeight;
+
 
             const isDarkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
             let color = node.color || "lightblue";
@@ -155,10 +168,23 @@ export default function MyGraphComponent({
             ctx.closePath();
             ctx.fill();
 
+            // Draw main label
             ctx.fillStyle = "black";
             ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-            ctx.fillText(label, x, y);
+            ctx.textBaseline = "top";
+            ctx.font = `${fontSize}px Sans-Serif`;
+
+            if (!license) {
+              ctx.fillText(label, x, y - fontSize / 2 + 1);
+            } else {
+              ctx.fillText(label, x, y - rectHeight / 2 + 2 + paddingY);
+
+              ctx.fillStyle = "black";
+              ctx.font = `${licenseFontSize}px Sans-Serif`;
+              ctx.textBaseline = "top";
+              ctx.fillText(`lic: ${license}`, x, y - rectHeight / 2 + paddingY + fontSize + 2 + paddingY / 2);
+            }
+
           }}
 
           nodePointerAreaPaint={(node, color, ctx) => {
@@ -181,7 +207,8 @@ export default function MyGraphComponent({
     );
   } else {
     return (
-      <div className="relative overflow-y-auto h-[655px] w-[960px] space-y-2">
+      <div className="relative flex flex-col h-[655px] w-[960px] space-y-2">
+        {/* Search box stays fixed */}
         <div className="mt-2 ml-2">
           <div className="flex items-center">
             <Input
@@ -209,7 +236,6 @@ export default function MyGraphComponent({
                 window.matchMedia("(prefers-color-scheme: dark)").matches;
 
               let color = node.color || "lightblue";
-              if(node.color=='lightblue')
               if (isDarkMode) {
                 switch (color) {
                   case "lightblue":
@@ -230,15 +256,23 @@ export default function MyGraphComponent({
                   className="p-2 rounded border border-gray-900 cursor-pointer
                             bg-gray-600 hover:bg-gray-200
                             dark:hover:bg-gray-700
-                            text-black"
+                            text-black flex justify-between items-center"
                   onClick={() => {
                     onNodeClick(node.id);
                     setEShowResults(false);
                   }}
                   style={{ backgroundColor: color || undefined }}
                 >
-                  <div className="font-medium">{node.name || node.id}</div>
-                  {node.group && <div className="text-sm">Group: {node.group}</div>}
+                  <div>
+                    <div className="font-medium">{node.name || node.id}</div>
+                    {node.group && <div className="text-sm">Group: {node.group}</div>}
+                  </div>
+
+                  {node.license && (
+                    <span className="ml-4 px-2 py-0.5 dark: text-gray-900">
+                      lic: {node.license}
+                    </span>
+                  )}
                 </li>
               );
             })}

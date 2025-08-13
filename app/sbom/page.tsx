@@ -161,7 +161,7 @@ export default function SbomSearchPage() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <PageHeader title="Sbom Search" description="Search through the dependencies and generate sbom ">
+      <PageHeader title="Sbom Search" description="Search through the dependencies and generate sbom">
         <div className="flex flex-col sm:flex-row gap-2">
           <Button variant="outline" size="sm" onClick={handleDownloadSbom}>
             <Download className="mr-2 h-4 w-4" />
