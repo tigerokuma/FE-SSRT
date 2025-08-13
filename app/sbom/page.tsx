@@ -171,6 +171,7 @@ export default function SbomSearchPage() {
       </PageHeader>
 
       <MainContent>
+        <div className=" flex flex-col gap-4">
         <DependencySelector
           userRepositories={userRepositories}
           dependencyPackages={dependencyPackages}
@@ -178,15 +179,15 @@ export default function SbomSearchPage() {
           setSelectedSbom={setSelectedSbom}
           onSelectSbom={onSelectSbom}
         />
-
+        
         <MetadataCard metadata={metadata} />
+        
+        <Card className="p-4">
+        <CardHeader className="p-3 text-2xl font-bold">Sbom Exploration</CardHeader>
 
-        <CardHeader className="flex justify-center items-center text-2xl font-bold">Sbom Exploration</CardHeader>
-
-        <Card className="flex flex-row h-[800px] mx-auto gap-4">
+        <div className="flex flex-row h-[800px] mx-auto gap-4">
           <Card className="h-full">
-            <h2 className="text-xl pt-4 pl-4 pr-2 font-semibold"> Dependency Influence</h2>
-
+            <h2 className="text-xl pt-4 pl-4 pr-2 font-semibold">Dependency Influence</h2>
             <CardContent className="w-72">
               <div className="relative mt-3">
                 <div className="flex items-center">
@@ -203,14 +204,19 @@ export default function SbomSearchPage() {
                 </div>
 
                 {showResults && searchResults.length > 0 && (
-                  <Card className="absolute w-full bg-white border shadow-lg max-h-64 overflow-y-auto z-50">
+                  <Card
+                    className="absolute w-full bg-white border shadow-lg max-h-64 overflow-y-auto z-50
+                              dark:bg-gray-800 dark:border-gray-700 dark:shadow-gray-900"
+                  >
                     {searchResults.map((result) => (
                       <div
                         key={result.node.id}
-                        className="p-2 hover:bg-gray-200 cursor-pointer"
+                        className="p-2 cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 text-black dark:text-gray-100"
                         onClick={() => {
                           setShowResults(false);
-                          setVulnerablePackages((prev) => (prev.includes(result.node.id) ? prev : [...prev, result.node.id]));
+                          setVulnerablePackages((prev) =>
+                            prev.includes(result.node.id) ? prev : [...prev, result.node.id]
+                          );
                         }}
                       >
                         {result.node.name || result.node.id}
@@ -219,11 +225,16 @@ export default function SbomSearchPage() {
                   </Card>
                 )}
 
-                <VulnerablePackagesList vulnerablePackages={vulnerablePackages} onRemovePackage={(pkg) => setVulnerablePackages((prev) => prev.filter((p) => p !== pkg)) }/>
-                  
+                <VulnerablePackagesList
+                  vulnerablePackages={vulnerablePackages}
+                  onRemovePackage={(pkg) =>
+                    setVulnerablePackages((prev) => prev.filter((p) => p !== pkg))
+                  }
+                />
               </div>
             </CardContent>
           </Card>
+
 
           <Card className="overflow-hidden w-[1000px] flex-1 flex flex-col">
             <div className="flex justify-between items-center p-4">
@@ -237,23 +248,27 @@ export default function SbomSearchPage() {
             </div>
 
             <div className="flex-1 w-full px-4 flex flex-col">
-              <div className="flex items-center mb-4">
+              <div className="relative mb-4">
                 <button
                   onClick={handleGoBack}
                   disabled={history.length <= 1}
-                  className={`p-2 rounded border ${
+                  className={`p-1.5 rounded border ${
                     history.length <= 1
-                      ? "border-gray-300 text-gray-400 bg-gray-100 cursor-not-allowed"
-                      : "border-gray-300 hover:bg-gray-200"
+                      ? "border-gray-300 text-gray-400 bg-gray-100 cursor-not-allowed dark:border-gray-700 dark:text-gray-600 dark:bg-gray-800"
+                      : "border-gray-300 hover:bg-gray-200 dark:border-gray-600 dark:hover:bg-gray-700"
                   }`}
                 >
                   Go Back
                 </button>
-
-                <div className="flex-1 flex justify-center">
-                  {history.length >= 1 && <div className="underline font-semibold">{history[history.length - 1]}</div>}
+                <div className="absolute inset-0 flex justify-center items-center pointer-events-none">
+                  {history.length >= 1 && (
+                    <div className="underline font-semibold pointer-events-auto">
+                      {history[history.length - 1]}
+                    </div>
+                  )}
                 </div>
               </div>
+
 
               <MyGraphComponent
                 currentNodeId={currentNodeId}
@@ -272,7 +287,9 @@ export default function SbomSearchPage() {
               />
             </div>
           </Card>
+        </div>
         </Card>
+        </div>
       </MainContent>
     </div>
   );

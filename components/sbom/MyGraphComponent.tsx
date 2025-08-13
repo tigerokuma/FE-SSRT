@@ -108,12 +108,11 @@ export default function MyGraphComponent({
           nodeCanvasObject={(node, ctx, globalScale) => {
             const label = node.name || node.id;
             const fontSize = 12 / globalScale;
-
             ctx.font = `${fontSize}px Sans-Serif`;
             const textWidth = ctx.measureText(label).width;
 
-            const paddingX = 2;
-            const paddingY = 2;
+            const paddingX = 6;
+            const paddingY = 4;
             const rectWidth = textWidth + paddingX * 2;
             const rectHeight = fontSize + paddingY * 2;
 
@@ -123,10 +122,37 @@ export default function MyGraphComponent({
             (node as any).__width = rectWidth;
             (node as any).__height = rectHeight;
 
-            ctx.fillStyle = node.color || "lightblue";
+            const isDarkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            let color = node.color || "lightblue";
+            if(isDarkMode) {
+              switch(color){
+                case 'lightblue': // lightblue: child node not effected
+                  color = "#4e8debff";
+                  break;
+                case 'red': // red: child node effected
+                  color = '#ff3838ff';
+                  break;
+                case 'grey': // grey: parent node
+                  color = '#D3D3D3';
+                  break;
+                
+              }
+            }
 
+            // Fill node background (rounded rect)
+            const radius = 6;
+            ctx.fillStyle = color || "lightblue";
             ctx.beginPath();
-            ctx.rect(x - rectWidth / 2, y - rectHeight / 2, rectWidth, rectHeight);
+            ctx.moveTo(x - rectWidth / 2 + radius, y - rectHeight / 2);
+            ctx.lineTo(x + rectWidth / 2 - radius, y - rectHeight / 2);
+            ctx.quadraticCurveTo(x + rectWidth / 2, y - rectHeight / 2, x + rectWidth / 2, y - rectHeight / 2 + radius);
+            ctx.lineTo(x + rectWidth / 2, y + rectHeight / 2 - radius);
+            ctx.quadraticCurveTo(x + rectWidth / 2, y + rectHeight / 2, x + rectWidth / 2 - radius, y + rectHeight / 2);
+            ctx.lineTo(x - rectWidth / 2 + radius, y + rectHeight / 2);
+            ctx.quadraticCurveTo(x - rectWidth / 2, y + rectHeight / 2, x - rectWidth / 2, y + rectHeight / 2 - radius);
+            ctx.lineTo(x - rectWidth / 2, y - rectHeight / 2 + radius);
+            ctx.quadraticCurveTo(x - rectWidth / 2, y - rectHeight / 2, x - rectWidth / 2 + radius, y - rectHeight / 2);
+            ctx.closePath();
             ctx.fill();
 
             ctx.fillStyle = "black";
@@ -134,6 +160,7 @@ export default function MyGraphComponent({
             ctx.textBaseline = "middle";
             ctx.fillText(label, x, y);
           }}
+
           nodePointerAreaPaint={(node, color, ctx) => {
             const width = (node as any).__width || 20;
             const height = (node as any).__height || 10;
@@ -144,6 +171,8 @@ export default function MyGraphComponent({
           }}
           nodeLabel="name"
           linkDirectionalArrowLength={3}
+          linkColor={() => "grey"} // Change arrows + link color
+          linkDirectionalArrowColor={() => "lightgrey"}
           onNodeClick={(node) => {
             onNodeClick(String(node.id));
           }}
@@ -168,22 +197,53 @@ export default function MyGraphComponent({
           </div>
         </div>
 
-        <ul className="space-y-2 ml-2">
-          {(showEResults && searchEResults.length > 0 ? searchEResults.map((result) => result.node) : data.nodes.slice(1)).map((node) => (
-            <li
-              key={node.id}
-              className="p-2 rounded border border-gray-300 cursor-pointer hover:bg-blue-200"
-              onClick={() => {
-                onNodeClick(node.id);
-                setEShowResults(false);
-              }}
-              style={{ backgroundColor: node.color || "transparent" }}
-            >
-              <div className="font-medium">{node.name || node.id}</div>
-              {node.group && <div className="text-sm text-gray-500">Group: {node.group}</div>}
-            </li>
-          ))}
-        </ul>
+        {/* Scrollable list */}
+        <div className="flex-1 min-h-0 overflow-y-auto space-y-3">
+          <ul className="space-y-2 ml-2">
+            {(showEResults && searchEResults.length > 0
+              ? searchEResults.map((result) => result.node)
+              : data.nodes.slice(1)
+            ).map((node) => {
+              const isDarkMode =
+                window.matchMedia &&
+                window.matchMedia("(prefers-color-scheme: dark)").matches;
+
+              let color = node.color || "lightblue";
+              if(node.color=='lightblue')
+              if (isDarkMode) {
+                switch (color) {
+                  case "lightblue":
+                    color = "#4e8debff";
+                    break;
+                  case "red":
+                    color = "#ff3838ff";
+                    break;
+                  case "grey":
+                    color = "#D3D3D3";
+                    break;
+                }
+              }
+
+              return (
+                <li
+                  key={node.id}
+                  className="p-2 rounded border border-gray-900 cursor-pointer
+                            bg-gray-600 hover:bg-gray-200
+                            dark:hover:bg-gray-700
+                            text-black"
+                  onClick={() => {
+                    onNodeClick(node.id);
+                    setEShowResults(false);
+                  }}
+                  style={{ backgroundColor: color || undefined }}
+                >
+                  <div className="font-medium">{node.name || node.id}</div>
+                  {node.group && <div className="text-sm">Group: {node.group}</div>}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       </div>
     );
   }
