@@ -22,7 +22,7 @@ function structuredGraphOutput(data: { nodes: any[]; links: any[] }) {
     else rightNodes.push(node);
   });
 
-  const spacing = 20;
+  const spacing = 40;
   leftNodes.forEach((node, i) => {
     node.x = -200;
     node.y = i * spacing - ((leftNodes.length - 1) * spacing) / 2;
@@ -76,7 +76,8 @@ export default function MyGraphComponent({
         const encodedNode = encodeURIComponent(currentNodeId);
         const vulnsParam = encodeURIComponent(vulnerablePackages.join(","));
         let url = "";
-        if (watchlistId) url = `${API_PROXY_PATH}/sbom/graph-dependencies/${encodedWatchlist}/${encodedNode}?vulns=${vulnsParam}`;
+        if (watchlistId) 
+          url = `${API_PROXY_PATH}/sbom/graph-dependencies/${encodedWatchlist}/${encodedNode}?vulns=${vulnsParam}`;
         else if (userWatchlistId)
           url = `${API_PROXY_PATH}/sbom/user-graph-dependencies/${encodedUserWatchlist}/${encodedNode}?vulns=${vulnsParam}`;
 
@@ -95,7 +96,7 @@ export default function MyGraphComponent({
     }
     fetchData();
   }, [watchlistId, currentNodeId, vulnerablePackages, viewMode]);
-
+  
   if (viewMode === "graph") {
     return (
       <div className="border border-2 rounded-md">
@@ -107,15 +108,25 @@ export default function MyGraphComponent({
           width={962}
           nodeCanvasObject={(node, ctx, globalScale) => {
             const label = node.name || node.id;
+            const license = node.license || "";  // Assuming your node has a license property
+
             const fontSize = 12 / globalScale;
+            const licenseFontSize = 10 / globalScale;
 
             ctx.font = `${fontSize}px Sans-Serif`;
             const textWidth = ctx.measureText(label).width;
 
-            const paddingX = 2;
-            const paddingY = 2;
-            const rectWidth = textWidth + paddingX * 2;
-            const rectHeight = fontSize + paddingY * 2;
+            ctx.font = `${licenseFontSize}px Sans-Serif`;
+            const licenseWidth = ctx.measureText(license).width;
+
+            const paddingX = 6;
+            const paddingY = 4;
+
+            // Width should accommodate the widest text
+            const rectWidth = Math.max(textWidth, licenseWidth) + paddingX * 2;
+
+            // Height for 2 lines + padding between
+            const rectHeight = fontSize + licenseFontSize + paddingY * 3;
 
             const x = node.x!;
             const y = node.y!;
@@ -123,17 +134,59 @@ export default function MyGraphComponent({
             (node as any).__width = rectWidth;
             (node as any).__height = rectHeight;
 
-            ctx.fillStyle = node.color || "lightblue";
 
+            const isDarkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            let color = node.color || "lightblue";
+            if(isDarkMode) {
+              switch(color){
+                case 'lightblue': // lightblue: child node not effected
+                  color = "#4e8debff";
+                  break;
+                case 'red': // red: child node effected
+                  color = '#ff3838ff';
+                  break;
+                case 'grey': // grey: parent node
+                  color = '#D3D3D3';
+                  break;
+                
+              }
+            }
+
+            // Fill node background (rounded rect)
+            const radius = 6;
+            ctx.fillStyle = color || "lightblue";
             ctx.beginPath();
-            ctx.rect(x - rectWidth / 2, y - rectHeight / 2, rectWidth, rectHeight);
+            ctx.moveTo(x - rectWidth / 2 + radius, y - rectHeight / 2);
+            ctx.lineTo(x + rectWidth / 2 - radius, y - rectHeight / 2);
+            ctx.quadraticCurveTo(x + rectWidth / 2, y - rectHeight / 2, x + rectWidth / 2, y - rectHeight / 2 + radius);
+            ctx.lineTo(x + rectWidth / 2, y + rectHeight / 2 - radius);
+            ctx.quadraticCurveTo(x + rectWidth / 2, y + rectHeight / 2, x + rectWidth / 2 - radius, y + rectHeight / 2);
+            ctx.lineTo(x - rectWidth / 2 + radius, y + rectHeight / 2);
+            ctx.quadraticCurveTo(x - rectWidth / 2, y + rectHeight / 2, x - rectWidth / 2, y + rectHeight / 2 - radius);
+            ctx.lineTo(x - rectWidth / 2, y - rectHeight / 2 + radius);
+            ctx.quadraticCurveTo(x - rectWidth / 2, y - rectHeight / 2, x - rectWidth / 2 + radius, y - rectHeight / 2);
+            ctx.closePath();
             ctx.fill();
 
+            // Draw main label
             ctx.fillStyle = "black";
             ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-            ctx.fillText(label, x, y);
+            ctx.textBaseline = "top";
+            ctx.font = `${fontSize}px Sans-Serif`;
+
+            if (!license) {
+              ctx.fillText(label, x, y - fontSize / 2 + 1);
+            } else {
+              ctx.fillText(label, x, y - rectHeight / 2 + 2 + paddingY);
+
+              ctx.fillStyle = "black";
+              ctx.font = `${licenseFontSize}px Sans-Serif`;
+              ctx.textBaseline = "top";
+              ctx.fillText(`lic: ${license}`, x, y - rectHeight / 2 + paddingY + fontSize + 2 + paddingY / 2);
+            }
+
           }}
+
           nodePointerAreaPaint={(node, color, ctx) => {
             const width = (node as any).__width || 20;
             const height = (node as any).__height || 10;
@@ -144,6 +197,8 @@ export default function MyGraphComponent({
           }}
           nodeLabel="name"
           linkDirectionalArrowLength={3}
+          linkColor={() => "grey"} // Change arrows + link color
+          linkDirectionalArrowColor={() => "lightgrey"}
           onNodeClick={(node) => {
             onNodeClick(String(node.id));
           }}
@@ -152,7 +207,8 @@ export default function MyGraphComponent({
     );
   } else {
     return (
-      <div className="relative overflow-y-auto h-[655px] w-[960px] space-y-2">
+      <div className="relative flex flex-col h-[655px] w-[960px] space-y-2">
+        {/* Search box stays fixed */}
         <div className="mt-2 ml-2">
           <div className="flex items-center">
             <Input
@@ -168,22 +224,60 @@ export default function MyGraphComponent({
           </div>
         </div>
 
-        <ul className="space-y-2 ml-2">
-          {(showEResults && searchEResults.length > 0 ? searchEResults.map((result) => result.node) : data.nodes.slice(1)).map((node) => (
-            <li
-              key={node.id}
-              className="p-2 rounded border border-gray-300 cursor-pointer hover:bg-blue-200"
-              onClick={() => {
-                onNodeClick(node.id);
-                setEShowResults(false);
-              }}
-              style={{ backgroundColor: node.color || "transparent" }}
-            >
-              <div className="font-medium">{node.name || node.id}</div>
-              {node.group && <div className="text-sm text-gray-500">Group: {node.group}</div>}
-            </li>
-          ))}
-        </ul>
+        {/* Scrollable list */}
+        <div className="flex-1 min-h-0 overflow-y-auto space-y-3">
+          <ul className="space-y-2 ml-2">
+            {(showEResults && searchEResults.length > 0
+              ? searchEResults.map((result) => result.node)
+              : data.nodes.slice(1)
+            ).map((node) => {
+              const isDarkMode =
+                window.matchMedia &&
+                window.matchMedia("(prefers-color-scheme: dark)").matches;
+
+              let color = node.color || "lightblue";
+              if (isDarkMode) {
+                switch (color) {
+                  case "lightblue":
+                    color = "#4e8debff";
+                    break;
+                  case "red":
+                    color = "#ff3838ff";
+                    break;
+                  case "grey":
+                    color = "#D3D3D3";
+                    break;
+                }
+              }
+
+              return (
+                <li
+                  key={node.id}
+                  className="p-2 rounded border border-gray-900 cursor-pointer
+                            bg-gray-600 hover:bg-gray-200
+                            dark:hover:bg-gray-700
+                            text-black flex justify-between items-center"
+                  onClick={() => {
+                    onNodeClick(node.id);
+                    setEShowResults(false);
+                  }}
+                  style={{ backgroundColor: color || undefined }}
+                >
+                  <div>
+                    <div className="font-medium">{node.name || node.id}</div>
+                    {node.group && <div className="text-sm">Group: {node.group}</div>}
+                  </div>
+
+                  {node.license && (
+                    <span className="ml-4 px-2 py-0.5 dark: text-gray-900">
+                      lic: {node.license}
+                    </span>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       </div>
     );
   }

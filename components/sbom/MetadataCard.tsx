@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
 interface LicenseDetails {
   id: string;
@@ -24,12 +24,12 @@ interface MetadataCardProps {
 
 
 export default function MetadataCard({ metadata }: MetadataCardProps) {
-  console.log(metadata.licenseSummary)
   return (
-    <Card className="h-60 w-400">
-      <CardContent className="grid grid-cols-[40%_60%] gap-4 p-4 h-full">
+    <Card className="h-[414px] w-[1340px] pr-2">
+      <CardHeader> <h3 className="text-2xl font-bold">Sbom Metadata</h3></CardHeader>
+      <CardContent className="grid grid-cols-[40%_60%] gap-4 h-full">
         {/* Total Components */}
-        <Card className="h-full flex flex-col items-center justify-center bg-white rounded shadow p-4">
+        <Card className="h-[300px] flex flex-col items-center justify-center rounded shadow">
           <h3 className="text-lg font-bold mb-2">Total Components</h3>
           <p className="text-2xl font-bold">
             {metadata.directDependencies + metadata.transitiveDependencies}
@@ -47,10 +47,9 @@ export default function MetadataCard({ metadata }: MetadataCardProps) {
         </Card>
 
         {/* License Count & Info */}
-        <Card className="h-full overflow-y-auto rounded shadow p-4">
+        <Card className="flex-1 h-[300px] rounded shadow p-4 px-5">
           <h3 className="text-lg font-bold mb-4">License Count & Info</h3>
-          
-          <ul className="space-y-3 overflow-auto max-h-[400px]">
+          <ul className="space-y-3 overflow-auto max-h-[220px]">
             {Object.values(metadata.licenseSummary).map((entry, index) => (
               <li key={index} className="flex items-center justify-between border-b pb-2">
                 {/* Left side: name + OSI badge */}
