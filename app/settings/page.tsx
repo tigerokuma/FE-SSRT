@@ -20,6 +20,7 @@ export default function SettingsPage() {
     { value: "YEAR", label: "Year(s)" },
   ];
 
+  const [emailAddress, setEmailAddress] = useState("");
   const [firstEmailTime, setFirstEmailTime] = useState("");
   const [nextEmailTime, setNextEmailTime] = useState("");
   const [waitValue, setWaitValue] = useState<{ value: string; label: string }>(waitValues[0]);
@@ -28,19 +29,26 @@ export default function SettingsPage() {
 
 
   const user_id = "user-123";
+  const api_url = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
   useEffect(() => {
     if (!user_id) return;
 
     const fetchUserInfo = async () => {
       try {
-        const email_con_res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/email/check-confirmation/${user_id}`);
+        const email_address_res = await fetch(`${api_url}/email/get-email/${user_id}`)
+        if (!email_address_res.ok) throw new Error(`HTTP ${email_address_res.status}`);
+        const email_address_data = await email_address_res.json();
+
+        setEmailAddress(email_address_data.email);
+
+        const email_con_res = await fetch(`${api_url}/email/check-confirmation/${user_id}`);
         if (!email_con_res.ok) throw new Error(`HTTP ${email_con_res.status}`);
         const email_con_data = await email_con_res.json();
 
         setEmailConfirmed(email_con_data.email_confirmed);
 
-        const email_time_res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/email/email-time/${user_id}`);
+        const email_time_res = await fetch(`${api_url}/email/email-time/${user_id}`);
         if (!email_time_res.ok) throw new Error(`HTTP ${email_time_res.status}`);
         const text = await email_time_res.text();
 
@@ -63,13 +71,13 @@ export default function SettingsPage() {
           setFirstEmailTime(formattedNow);
         }
 
-        const slack_res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/slack/slack-channel/${user_id}`);
+        const slack_res = await fetch(`${api_url}/slack/slack-channel/${user_id}`);
         if (!slack_res.ok) throw new Error(`HTTP ${slack_res.status}`);
         const slack_data = await slack_res.json();
 
         setSlackChannel(slack_data.name);
 
-        const jira_res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/jira/user-info/${user_id}`);
+        const jira_res = await fetch(`${api_url}/jira/user-info/${user_id}`);
         if (!jira_res.ok) throw new Error(`Failed to fetch Jira info: ${jira_res.status}`);
         const data = await jira_res.json();
 
@@ -86,7 +94,7 @@ export default function SettingsPage() {
   async function sendConfirmation() {
     setSending(true);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/email/send-confirmation`, {
+      const res = await fetch(`${api_url}/email/send-confirmation`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ user_id }),
@@ -109,7 +117,7 @@ export default function SettingsPage() {
         wait_unit: Number(waitUnit),
       };
 
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/email/add-time`, {
+      const res = await fetch(`${api_url}/email/add-time`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -129,7 +137,7 @@ export default function SettingsPage() {
     <div className="flex flex-col w-full overflow-x-hidden">
       <PageHeader title="Settings" description="Manage User Settings"></PageHeader>
 
-      <div className="w-[60vw] ml-8 pt-6">
+      <div className="w-[1200px] mx-8 pt-6">
         <Card>
           <CardHeader>
             <CardTitle className="text-2xl">Settings</CardTitle>
@@ -139,7 +147,11 @@ export default function SettingsPage() {
             <div className="space-y-2">
             <h3 className="text-lg font-semibold">Email</h3>
             <p className="text-sm text-muted-foreground">
-              Primary email: <span className="font-mono"> </span>
+              <span className="text-base text-gray-900 dark:text-white">
+                Primary email:
+              </span>
+
+              <span className="text-gray-700 dark:text-gray-400 font-mono"> {emailAddress}</span>
             </p>
             {!emailConfirmed ? (
               <Button variant="secondary" onClick={sendConfirmation} disabled={sending}>
@@ -261,7 +273,7 @@ export default function SettingsPage() {
                 <Button
                   variant="secondary"
                   onClick={() => {
-                    window.location.href = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'}/slack/start-oauth/${user_id}`;
+                    window.location.href = `${api_url}/slack/start-oauth/${user_id}`;
                   }}
                 >
                   {slackChannel ? ("Re-establish Slack Connection") : ("Connect Slack")}
