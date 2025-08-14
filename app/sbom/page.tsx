@@ -10,6 +10,7 @@ import { PageHeader } from "@/components/page-header";
 import { MainContent } from "@/components/main-content";
 
 import MyGraphComponent from "@/components/sbom/MyGraphComponent";
+import DependencyExplorerOptions from "@/components/sbom/ExplorerOptions";
 import DependencySelector from "@/components/sbom/DependencySelector";
 import MetadataCard from "@/components/sbom/MetadataCard";
 import VulnerablePackagesList from "@/components/sbom/VulnerablePackagesList";
@@ -41,6 +42,10 @@ export default function SbomSearchPage() {
     riskSummary: {},
   });
   const [viewMode, setViewMode] = useState<"graph" | "list">("graph");
+  const [allLicenses, setAllLicenses] = useState<string[]>([]);
+  const [includedLicenses, setIncludedLicenses] = useState<string[]>([]);
+  const [excludedLicenses, setExcludedLicenses] = useState<string[]>([]);
+
 
   // Fetch dependency packages
   useEffect(() => {
@@ -71,6 +76,12 @@ export default function SbomSearchPage() {
         const res = await fetch(url);
         const data = await res.json();
         setMetadata(data);
+
+        const licenseNames = Object.values(data.licenseSummary)
+          .map((entry) => (entry as { id: string }).id)
+          .sort((a, b) => a.localeCompare(b))
+        setAllLicenses(licenseNames);
+
         setHistory([data.sbomPackage]);
         setCurrentNodeId(data.sbomPackage);
       } catch (error) {
@@ -246,9 +257,12 @@ export default function SbomSearchPage() {
                 Switch to {viewMode === "graph" ? "List" : "Graph"} View
               </button>
             </div>
+            
 
+           
             <div className="flex-1 w-full px-4 flex flex-col">
-              <div className="relative mb-4">
+              <div className="mb-4 flex items-center justify-between">
+                {/* Left: Go Back Button */}
                 <button
                   onClick={handleGoBack}
                   disabled={history.length <= 1}
@@ -260,13 +274,24 @@ export default function SbomSearchPage() {
                 >
                   Go Back
                 </button>
-                <div className="absolute inset-0 flex justify-center items-center pointer-events-none">
+
+                {/* Center: History label */}
+                <div className="flex-1 text-center">
                   {history.length >= 1 && (
-                    <div className="underline font-semibold pointer-events-auto">
+                    <div className="underline font-semibold">
                       {history[history.length - 1]}
                     </div>
                   )}
                 </div>
+
+                {/* Right: License filter options */}
+                <DependencyExplorerOptions
+                  allLicenses={allLicenses}
+                  includedLicenses={includedLicenses}
+                  setIncludedLicenses={setIncludedLicenses}
+                  excludedLicenses={excludedLicenses}
+                  setExcludedLicenses={setExcludedLicenses}
+                />
               </div>
 
 
@@ -284,6 +309,8 @@ export default function SbomSearchPage() {
                 searchEResults={searchEResults}
                 setESearchResults={setESearchResults}
                 handleSearch={handleSearch}
+                includedLicenses={includedLicenses}
+                excludedLicenses={excludedLicenses}
               />
             </div>
           </Card>

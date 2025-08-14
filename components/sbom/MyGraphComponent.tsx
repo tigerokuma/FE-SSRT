@@ -49,6 +49,8 @@ interface MyGraphComponentProps {
   searchEResults: any[];
   setESearchResults: React.Dispatch<React.SetStateAction<any[]>>;
   handleSearch: (searchBar: string, query: string) => Promise<void>;
+  includedLicenses: string[];
+  excludedLicenses: string[];
 }
 
 export default function MyGraphComponent({
@@ -64,6 +66,8 @@ export default function MyGraphComponent({
   setEShowResults,
   searchEResults,
   setESearchResults,
+  includedLicenses,
+  excludedLicenses,
   handleSearch,
 }: MyGraphComponentProps) {
   const [data, setData] = useState<{ nodes: any[]; links: any[] }>({ nodes: [], links: [] });
@@ -84,18 +88,42 @@ export default function MyGraphComponent({
         const res = await fetch(url);
         const json = await res.json();
 
+        let filteredData = json;
+
+        // Apply include/exclude filtering
+        if (includedLicenses.length || excludedLicenses.length) {
+          const filteredNodes = (json.nodes || []).filter((node: any) => {
+            if (node.id === currentNodeId) return true;
+            const license = node.license || "";
+            if (includedLicenses.length && !includedLicenses.includes(license)) return false;
+            if (excludedLicenses.length && excludedLicenses.includes(license)) return false;
+            return true;
+          });
+
+          const filteredNodeIds = new Set(filteredNodes.map((n: any) => n.id));
+
+          filteredData = {
+            nodes: filteredNodes,
+            links: (json.links || []).filter((link: any) => 
+              filteredNodeIds.has(link.source) && filteredNodeIds.has(link.target)
+            ),
+          };
+        }
+
+
         if (viewMode === "graph") {
-          const layoutedData = structuredGraphOutput(json);
+          const layoutedData = structuredGraphOutput(filteredData);
           setData(layoutedData);
         } else {
-          setData(json);
+          setData(filteredData);
         }
+
       } catch (error) {
         console.error("Error fetching graph data:", error);
       }
     }
     fetchData();
-  }, [watchlistId, currentNodeId, vulnerablePackages, viewMode]);
+  }, [watchlistId, currentNodeId, vulnerablePackages, viewMode, includedLicenses, excludedLicenses]);
   
   if (viewMode === "graph") {
     return (
@@ -227,55 +255,65 @@ export default function MyGraphComponent({
         {/* Scrollable list */}
         <div className="flex-1 min-h-0 overflow-y-auto space-y-3">
           <ul className="space-y-2 ml-2">
-            {(showEResults && searchEResults.length > 0
-              ? searchEResults.map((result) => result.node)
-              : data.nodes.slice(1)
-            ).map((node) => {
-              const isDarkMode =
-                window.matchMedia &&
-                window.matchMedia("(prefers-color-scheme: dark)").matches;
+            {(
+              showEResults && searchEResults.length > 0
+                ? searchEResults.map((result) => result.node)
+                : data.nodes.slice(1)
+            )
+              // Apply include/exclude license filtering
+              .filter((node) => {
+                if (node.id === currentNodeId) return true;
+                const license = node.license || "";
+                if (includedLicenses.length && !includedLicenses.includes(license)) return false;
+                if (excludedLicenses.length && excludedLicenses.includes(license)) return false;
+                return true;
+              })
+              .map((node) => {
+                const isDarkMode =
+                  window.matchMedia &&
+                  window.matchMedia("(prefers-color-scheme: dark)").matches;
 
-              let color = node.color || "lightblue";
-              if (isDarkMode) {
-                switch (color) {
-                  case "lightblue":
-                    color = "#4e8debff";
-                    break;
-                  case "red":
-                    color = "#ff3838ff";
-                    break;
-                  case "grey":
-                    color = "#D3D3D3";
-                    break;
+                let color = node.color || "lightblue";
+                if (isDarkMode) {
+                  switch (color) {
+                    case "lightblue":
+                      color = "#4e8debff";
+                      break;
+                    case "red":
+                      color = "#ff3838ff";
+                      break;
+                    case "grey":
+                      color = "#D3D3D3";
+                      break;
+                  }
                 }
-              }
 
-              return (
-                <li
-                  key={node.id}
-                  className="p-2 rounded border border-gray-900 cursor-pointer
-                            bg-gray-600 hover:bg-gray-200
-                            dark:hover:bg-gray-700
-                            text-black flex justify-between items-center"
-                  onClick={() => {
-                    onNodeClick(node.id);
-                    setEShowResults(false);
-                  }}
-                  style={{ backgroundColor: color || undefined }}
-                >
-                  <div>
-                    <div className="font-medium">{node.name || node.id}</div>
-                    {node.group && <div className="text-sm">Group: {node.group}</div>}
-                  </div>
+                return (
+                  <li
+                    key={node.id}
+                    className="p-2 rounded border border-gray-900 cursor-pointer
+                              bg-gray-600 hover:bg-gray-200
+                              dark:hover:bg-gray-700
+                              text-black flex justify-between items-center"
+                    onClick={() => {
+                      onNodeClick(node.id);
+                      setEShowResults(false);
+                    }}
+                    style={{ backgroundColor: color || undefined }}
+                  >
+                    <div>
+                      <div className="font-medium">{node.name || node.id}</div>
+                      {node.group && <div className="text-sm">Group: {node.group}</div>}
+                    </div>
 
-                  {node.license && (
-                    <span className="ml-4 px-2 py-0.5 dark: text-gray-900">
-                      lic: {node.license}
-                    </span>
-                  )}
-                </li>
-              );
-            })}
+                    {node.license && (
+                      <span className="ml-4 px-2 py-0.5 dark:text-gray-900">
+                        lic: {node.license}
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
           </ul>
         </div>
       </div>
