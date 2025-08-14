@@ -45,6 +45,7 @@ export default function SbomSearchPage() {
   const [allLicenses, setAllLicenses] = useState<string[]>([]);
   const [includedLicenses, setIncludedLicenses] = useState<string[]>([]);
   const [excludedLicenses, setExcludedLicenses] = useState<string[]>([]);
+  const [showGraphLicense, setShowGraphLicense] = useState(false);
 
 
   // Fetch dependency packages
@@ -261,37 +262,60 @@ export default function SbomSearchPage() {
 
            
             <div className="flex-1 w-full px-4 flex flex-col">
-              <div className="mb-4 flex items-center justify-between">
+              <div className="relative w-full px-4 mb-4 h-10">
                 {/* Left: Go Back Button */}
-                <button
-                  onClick={handleGoBack}
-                  disabled={history.length <= 1}
-                  className={`p-1.5 rounded border ${
-                    history.length <= 1
-                      ? "border-gray-300 text-gray-400 bg-gray-100 cursor-not-allowed dark:border-gray-700 dark:text-gray-600 dark:bg-gray-800"
-                      : "border-gray-300 hover:bg-gray-200 dark:border-gray-600 dark:hover:bg-gray-700"
-                  }`}
-                >
-                  Go Back
-                </button>
+                <div className="absolute left-0 top-0 h-full flex items-center">
+                  <button
+                    onClick={handleGoBack}
+                    disabled={history.length <= 1}
+                    className={`p-1.5 rounded border ${
+                      history.length <= 1
+                        ? "border-gray-300 text-gray-400 bg-gray-100 cursor-not-allowed dark:border-gray-700 dark:text-gray-600 dark:bg-gray-800"
+                        : "border-gray-300 hover:bg-gray-200 dark:border-gray-600 dark:hover:bg-gray-700"
+                    }`}
+                  >
+                    Go Back
+                  </button>
+                </div>
 
-                {/* Center: History label */}
-                <div className="flex-1 text-center">
+                {/* Center: History Label */}
+                <div className="absolute left-1/2 top-0 transform -translate-x-1/2 h-full flex items-center">
                   {history.length >= 1 && (
-                    <div className="underline font-semibold">
+                    <div className="underline font-semibold text-center">
                       {history[history.length - 1]}
                     </div>
                   )}
                 </div>
 
-                {/* Right: License filter options */}
-                <DependencyExplorerOptions
-                  allLicenses={allLicenses}
-                  includedLicenses={includedLicenses}
-                  setIncludedLicenses={setIncludedLicenses}
-                  excludedLicenses={excludedLicenses}
-                  setExcludedLicenses={setExcludedLicenses}
-                />
+                {/* Right: Switch + License Filter */}
+                <div className="absolute right-0 top-0 h-full flex items-center space-x-4">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs whitespace-normal w-20 text-center">
+                      Show Graph Licenses
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowGraphLicense(!showGraphLicense)}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ${
+                        showGraphLicense ? "bg-blue-500" : "bg-gray-300 dark:bg-gray-600"
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 ${
+                          showGraphLicense ? "translate-x-6" : "translate-x-1"
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  <DependencyExplorerOptions
+                    allLicenses={allLicenses}
+                    includedLicenses={includedLicenses}
+                    setIncludedLicenses={setIncludedLicenses}
+                    excludedLicenses={excludedLicenses}
+                    setExcludedLicenses={setExcludedLicenses}
+                  />
+                </div>
               </div>
 
 
@@ -311,6 +335,7 @@ export default function SbomSearchPage() {
                 handleSearch={handleSearch}
                 includedLicenses={includedLicenses}
                 excludedLicenses={excludedLicenses}
+                showGraphLicense={showGraphLicense}
               />
             </div>
           </Card>

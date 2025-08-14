@@ -7,7 +7,10 @@ import { Input } from "@/components/ui/input"
 const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), { ssr: false });
 const API_PROXY_PATH = process.env.NEXT_PUBLIC_API_PROXY_PATH || '/api/backend'
 
-function structuredGraphOutput(data: { nodes: any[]; links: any[] }) {
+function structuredGraphOutput(
+  data: { nodes: any[]; links: any[] },
+  showLicenses: boolean
+) {
   if (!data.nodes.length) return data;
 
   const mainNode = data.nodes[0];
@@ -22,18 +25,22 @@ function structuredGraphOutput(data: { nodes: any[]; links: any[] }) {
     else rightNodes.push(node);
   });
 
-  const spacing = 40;
+  // Adjust horizontal spacing depending on whether licenses are shown
+  const spacingx = showLicenses ? 300 : 200;
+  const spacingy = showLicenses ? 40 : 20;
+  
   leftNodes.forEach((node, i) => {
-    node.x = -200;
-    node.y = i * spacing - ((leftNodes.length - 1) * spacing) / 2;
+    node.x = -spacingx;
+    node.y = i * spacingy - ((leftNodes.length - 1) * spacingy) / 2;
   });
   rightNodes.forEach((node, i) => {
-    node.x = 200;
-    node.y = i * spacing - ((rightNodes.length - 1) * spacing) / 2;
+    node.x = spacingx;
+    node.y = i * spacingy - ((rightNodes.length - 1) * spacingy) / 2;
   });
 
   return { nodes: [mainNode, ...leftNodes, ...rightNodes], links: data.links };
 }
+
 
 interface MyGraphComponentProps {
   currentNodeId: string;
@@ -51,6 +58,7 @@ interface MyGraphComponentProps {
   handleSearch: (searchBar: string, query: string) => Promise<void>;
   includedLicenses: string[];
   excludedLicenses: string[];
+  showGraphLicense: boolean
 }
 
 export default function MyGraphComponent({
@@ -68,6 +76,7 @@ export default function MyGraphComponent({
   setESearchResults,
   includedLicenses,
   excludedLicenses,
+  showGraphLicense,
   handleSearch,
 }: MyGraphComponentProps) {
   const [data, setData] = useState<{ nodes: any[]; links: any[] }>({ nodes: [], links: [] });
@@ -112,7 +121,7 @@ export default function MyGraphComponent({
 
 
         if (viewMode === "graph") {
-          const layoutedData = structuredGraphOutput(filteredData);
+          const layoutedData = structuredGraphOutput(filteredData, showGraphLicense);
           setData(layoutedData);
         } else {
           setData(filteredData);
@@ -123,7 +132,7 @@ export default function MyGraphComponent({
       }
     }
     fetchData();
-  }, [watchlistId, currentNodeId, vulnerablePackages, viewMode, includedLicenses, excludedLicenses]);
+  }, [watchlistId, currentNodeId, vulnerablePackages, viewMode, includedLicenses, excludedLicenses, showGraphLicense]);
   
   if (viewMode === "graph") {
     return (
@@ -136,7 +145,7 @@ export default function MyGraphComponent({
           width={962}
           nodeCanvasObject={(node, ctx, globalScale) => {
             const label = node.name || node.id;
-            const license = node.license || "";  // Assuming your node has a license property
+            const license = node.license || "";  
 
             const fontSize = 12 / globalScale;
             const licenseFontSize = 10 / globalScale;
@@ -148,13 +157,16 @@ export default function MyGraphComponent({
             const licenseWidth = ctx.measureText(license).width;
 
             const paddingX = 6;
-            const paddingY = 4;
+            const paddingY = 3;
 
-            // Width should accommodate the widest text
-            const rectWidth = Math.max(textWidth, licenseWidth) + paddingX * 2;
+            // If license is hidden, rectangle only needs to fit name
+            const rectWidth = showGraphLicense
+              ? Math.max(textWidth, licenseWidth) + paddingX * 2
+              : textWidth + paddingX * 2;
 
-            // Height for 2 lines + padding between
-            const rectHeight = fontSize + licenseFontSize + paddingY * 3;
+            const rectHeight = showGraphLicense
+              ? fontSize + licenseFontSize + paddingY * 3
+              : fontSize + paddingY * 2;
 
             const x = node.x!;
             const y = node.y!;
@@ -162,27 +174,20 @@ export default function MyGraphComponent({
             (node as any).__width = rectWidth;
             (node as any).__height = rectHeight;
 
-
+            // Dark mode color adjustment
             const isDarkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
             let color = node.color || "lightblue";
             if(isDarkMode) {
               switch(color){
-                case 'lightblue': // lightblue: child node not effected
-                  color = "#4e8debff";
-                  break;
-                case 'red': // red: child node effected
-                  color = '#ff3838ff';
-                  break;
-                case 'grey': // grey: parent node
-                  color = '#D3D3D3';
-                  break;
-                
+                case 'lightblue': color = "#4e8debff"; break;
+                case 'red':       color = '#ff3838ff'; break;
+                case 'grey':      color = '#D3D3D3'; break;
               }
             }
 
-            // Fill node background (rounded rect)
+            // Rounded rectangle background
             const radius = 6;
-            ctx.fillStyle = color || "lightblue";
+            ctx.fillStyle = color;
             ctx.beginPath();
             ctx.moveTo(x - rectWidth / 2 + radius, y - rectHeight / 2);
             ctx.lineTo(x + rectWidth / 2 - radius, y - rectHeight / 2);
@@ -196,23 +201,22 @@ export default function MyGraphComponent({
             ctx.closePath();
             ctx.fill();
 
-            // Draw main label
+            // Draw text
             ctx.fillStyle = "black";
             ctx.textAlign = "center";
             ctx.textBaseline = "top";
             ctx.font = `${fontSize}px Sans-Serif`;
 
-            if (!license) {
-              ctx.fillText(label, x, y - fontSize / 2 + 1);
+            if (!showGraphLicense || !license) {
+              ctx.fillText(label, x, y - fontSize / 2);
             } else {
-              ctx.fillText(label, x, y - rectHeight / 2 + 2 + paddingY);
+              ctx.fillText(label, x, y - rectHeight / 2 + 1 + paddingY);
 
               ctx.fillStyle = "black";
               ctx.font = `${licenseFontSize}px Sans-Serif`;
               ctx.textBaseline = "top";
               ctx.fillText(`lic: ${license}`, x, y - rectHeight / 2 + paddingY + fontSize + 2 + paddingY / 2);
             }
-
           }}
 
           nodePointerAreaPaint={(node, color, ctx) => {
