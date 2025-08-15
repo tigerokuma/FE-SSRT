@@ -127,10 +127,10 @@ export default function SlackPage() {
                   <button
                     key={channel.id}
                     onClick={() => handleSelectChannel(channel)}
-                    className={`w-full text-left rounded border px-4 py-2 hover:bg-blue-100
+                    className={`w-full text-left rounded border px-4 py-2 hover:bg-blue-100 darK: hover:bg-blue-900
                       ${
                         selectedChannel?.id === channel.id
-                          ? "border-blue-500 bg-blue-50"
+                          ? "border-blue-500 bg-blue-50 dark: bg-blue-900"
                           : "border-gray-300"
                       }
                     `}
