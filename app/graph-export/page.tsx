@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { PageHeader } from "@/components/page-header";
 import { MainContent } from "@/components/main-content";
 import { GraphPreview } from "./GraphPreview";
+import Spinner from "@/app/graph-export/loading";
 
 const API_BASE = "/api/backend/";
 
@@ -35,7 +36,7 @@ export default function GraphExportPage() {
   const [previewElements, setPreviewElements] = useState<any[]>([]);
   const [previewLoading, setPreviewLoading] = useState(false);
 
-  const GRAPH_HEIGHT = 340; // fixed canvas height to keep layout stable
+  const GRAPH_HEIGHT = 500; // fixed canvas height to keep layout stable
 
   function handleQuerySubmit() {
     if (!selectedRepo || !selectedCommitId || !query) return;
@@ -304,9 +305,9 @@ export default function GraphExportPage() {
               <GraphPreview elements={previewElements} height={GRAPH_HEIGHT} />
 
               {previewLoading && (
-                <div className="absolute inset-0 grid place-items-center text-sm text-muted-foreground bg-background/70 backdrop-blur">
-                  Loading…
-                </div>
+                  <div className="absolute inset-0 flex items-center justify-center bg-white/80">
+                    <Spinner />
+                  </div>
               )}
 
               {!previewLoading && previewElements.length === 0 && (
