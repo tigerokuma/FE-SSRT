@@ -19,8 +19,8 @@ import type { Package as PackageType, WatchlistItem } from '../../lib/watchlist/
 import { usePackageSearch, useWatchlist } from '../../lib/watchlist/index'
 import { hasVulnerabilities, hasActiveVulnerabilities, getVulnerabilityCount, getHighestSeverity } from '../../lib/watchlist/utils'
 import { PackageCard } from './PackageCard'
-import { PackageDetailsPanel } from './PackageDetailsPanel'
-import { addRepositoryToWatchlist, fetchWatchlistItems } from "../../lib/watchlist/api"
+import { PackageDetailsSummary } from './PackageDetailsSummary'
+import { addRepositoryToWatchlist } from "../../lib/watchlist/api"
 
 interface WatchlistSearchDialogProps {
   trigger?: React.ReactNode
@@ -41,7 +41,7 @@ export function WatchlistSearchDialog({
   const [isAdding, setIsAdding] = useState(false)
   const [securityFilter, setSecurityFilter] = useState<'all' | 'secure' | 'vulnerable'>('all')
 
-  const { isAdding: isAddingToWatchlist, addItem, refreshItems } = useWatchlist()
+  const { isAdding: isAddingToWatchlist, addItem } = useWatchlist()
   const {
     searchResults,
     isSearching,
@@ -139,7 +139,7 @@ export function WatchlistSearchDialog({
         }
       }
       
-      // Use addRepositoryToWatchlist which calls the correct /activity/user-watchlist-added endpoint
+      // Use addRepositoryToWatchlist which calls the correct endpoint
       const result = await addRepositoryToWatchlist(defaultAlertConfig)
       console.log('✅ Repository added successfully:', result)
       
@@ -148,15 +148,8 @@ export function WatchlistSearchDialog({
       setSelectedPackage(null)
       clearSearch()
       
-      // Notify parent component that a repository was added - this should trigger refresh
-      console.log('🔄 Notifying parent to refresh watchlist...')
+      // Notify parent component that a repository was added
       onRepositoryAdded?.()
-      
-      // Also force a page refresh after a short delay as backup
-      setTimeout(() => {
-        console.log('🔄 Force refreshing page as backup...')
-        window.location.reload()
-      }, 2000)
       
     } catch (error) {
       console.error('❌ Error adding repository to watchlist:', error)
@@ -298,11 +291,10 @@ export function WatchlistSearchDialog({
 
             {/* Right Panel - Package Details */}
             <div className="w-1/2 flex flex-col min-h-0">
-              <PackageDetailsPanel
+              <PackageDetailsSummary
                 pkg={selectedPackage}
                 onAdd={handleAddToWatchlist}
                 isAdding={isAddingToWatchlist}
-                onClose={() => setSelectedPackage(null)}
               />
             </div>
           </div>
