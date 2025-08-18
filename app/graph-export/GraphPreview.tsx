@@ -128,7 +128,7 @@ export function GraphPreview({ elements, initialLayout = "cose", height = 500 }:
       style: stylesheet as any,
       // Use preset initially; run the chosen layout after elements are added
       layout: { name: "preset" },
-      wheelSensitivity: 0.2,
+      wheelSensitivity: 8,
       pixelRatio: 1,
     });
 
@@ -266,8 +266,8 @@ export function GraphPreview({ elements, initialLayout = "cose", height = 500 }:
               padding: "6px 8px",
               borderRadius: 8,
               border: "1px solid #374151",
-              background: "transparent",
-              color: "#e5e7eb",
+              background: "#1f2937", // slate-800 / dark background
+              color: "#e5e7eb",      // light text
             }}
           >
             <option value="cose">cose (force)</option>

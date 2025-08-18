@@ -234,7 +234,7 @@ export default function DependenciesPage() {
                   variant="ghost" 
                   size="sm" 
                   className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-300 hover:text-white h-6 px-2 text-xs"
-                  onClick={() => router.push(`/package-details?name=${encodeURIComponent(item.name)}`)}
+                  onClick={() => router.push(`/package-details?id=${encodeURIComponent(item.id)}`)}
                 >
                   {item.isGitHubDataLoaded ? 'View' : 'View Details'}
                 </Button>

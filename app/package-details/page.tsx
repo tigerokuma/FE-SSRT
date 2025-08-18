@@ -2,16 +2,16 @@
 
 import { useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
-import { 
-  AlertTriangle, 
-  Calendar, 
-  Code, 
-  ExternalLink, 
-  GitCommit, 
-  GitFork, 
-  GithubIcon, 
-  GitPullRequest, 
-  Star, 
+import {
+  AlertTriangle,
+  Calendar,
+  Code,
+  ExternalLink,
+  GitCommit,
+  GitFork,
+  GithubIcon,
+  GitPullRequest,
+  Star,
   TrendingUp,
   Activity,
   Users,
@@ -49,6 +49,8 @@ import { getRecentCommits, generateCommitSummary } from "@/lib/watchlist/api"
 import { Slider } from "@/components/ui/slider"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
+import {GraphPreview} from "@/app/graph-export/GraphPreview";
+import Spinner from "@/app/graph-export/loading";
 
 interface PackageDetails {
   name: string
@@ -228,6 +230,25 @@ export default function PackageDetailsPage() {
   const [showAllVulnerabilities, setShowAllVulnerabilities] = useState(false)
   const [expandedDescriptions, setExpandedDescriptions] = useState<Set<string>>(new Set())
 
+  // Graph tab state
+  const [graphRepoId, setGraphRepoId] = useState<string>("")
+  const [graphSnapshots, setGraphSnapshots] = useState<{ snapshot_id: string; commit_id?: string; s3_url?: string }[]>([])
+  const [graphCommitId, setGraphCommitId] = useState<string>("")
+  const [graphQuery, setGraphQuery] = useState<string>("")
+  const [graphElements, setGraphElements] = useState<any[]>([])
+  const [graphLoading, setGraphLoading] = useState<boolean>(false)
+  const GRAPH_HEIGHT = 640 // bigger canvas
+  const API_BASE = "/api/backend/"
+
+  useEffect(() => {
+    if (!packageData?.repoUrl) return
+    try {
+      const u = new URL(packageData.repoUrl)
+      const parts = u.pathname.split("/").filter(Boolean) // ["owner","repo",...]
+      const id = parts.slice(0, 2).join("/") // owner/repo
+      setGraphRepoId(id)
+    } catch { /* ignore */ }
+  }, [packageData?.repoUrl])
 
   // Fetch package details from API
   useEffect(() => {
@@ -240,7 +261,7 @@ export default function PackageDetailsPage() {
           throw new Error('Failed to fetch package details')
         }
         const data = await response.json()
-        
+
         // Transform the API data to match our PackageDetails interface
         // Use real data where available, fallback to mock data for now
         const transformedData: PackageDetails = {
@@ -366,7 +387,7 @@ export default function PackageDetailsPage() {
               avatar: "/placeholder-user.jpg",
               initials: (contributor.author || 'U').split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
             })) : [];
-            
+
             // Calculate total commits from all contributors (not just top 5)
             // The backend provides the total commit count for all human contributors
             const totalCommits = data.bus_factor_details.totalCommits || contributors.reduce((sum: number, c: { commits: number }) => sum + c.commits, 0);
@@ -375,7 +396,7 @@ export default function PackageDetailsPage() {
                 contributor.percentage = Math.round((contributor.commits / totalCommits) * 100);
               });
             }
-            
+
             return {
               level: data.bus_factor_details.level || 0,
               risk: data.bus_factor_details.risk || 'LOW',
@@ -621,9 +642,9 @@ export default function PackageDetailsPage() {
              lastUpdated: new Date().toISOString()
            }
         }
-        
+
         setPackageData(transformedData)
-        
+
         // Fetch alerts for this user watchlist
         try {
           const alertsResponse = await fetch(`/api/backend/activity/alerts/${userWatchlistId}`)
@@ -639,7 +660,7 @@ export default function PackageDetailsPage() {
               isResolved: !!alert.resolved_at,
               commitHash: alert.commit_sha,
             }))
-            
+
             setPackageData(prev => prev ? {
               ...prev,
               alerts: transformedAlerts
@@ -664,7 +685,7 @@ export default function PackageDetailsPage() {
   const getTimeAgo = (date: Date): string => {
     const now = new Date()
     const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000)
-    
+
     if (diffInSeconds < 60) return `${diffInSeconds} seconds ago`
     if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} minutes ago`
     if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`
@@ -675,7 +696,7 @@ export default function PackageDetailsPage() {
 
   const fetchCommits = async () => {
     if (!userWatchlistId) return
-    
+
     setIsLoadingCommits(true)
     try {
       const commitsData = await getRecentCommits(userWatchlistId, 50)
@@ -697,7 +718,72 @@ export default function PackageDetailsPage() {
     }
   }, [activeTab, userWatchlistId, commits.length])
 
+  const runGraphQuery = async () => {
+    if (!graphRepoId || !graphCommitId || !graphQuery) return
+    setGraphLoading(true)
+    try {
+      const res = await fetch(
+        `${API_BASE}/graph/subgraph?repoId=${encodeURIComponent(graphRepoId)}&commitId=${encodeURIComponent(graphCommitId)}&q=${encodeURIComponent(graphQuery)}`
+      )
+      const data = await res.json()
+      setGraphElements(data.elements || [])
+    } catch {
+      setGraphElements([])
+    } finally {
+      setGraphLoading(false)
+    }
+  }
 
+  const handleGraphExport = async (format: "json" | "graphml" | "csv") => {
+    const snap = graphSnapshots.find(s => (s.commit_id || "") === graphCommitId)
+    if (!snap?.s3_url) return
+    try {
+      const urls = JSON.parse(snap.s3_url)
+      const makeDownload = async (url: string, filename: string) => {
+        const response = await fetch(url)
+        const blob = await response.blob()
+        const a = document.createElement("a")
+        a.href = URL.createObjectURL(blob)
+        a.download = filename
+        document.body.appendChild(a)
+        a.click()
+        setTimeout(() => {
+          URL.revokeObjectURL(a.href)
+          document.body.removeChild(a)
+        }, 100)
+      }
+
+      if (format === "csv") {
+        if (urls.nodes_csv) await makeDownload(urls.nodes_csv, `graph_${graphCommitId}_nodes.csv`)
+        if (urls.edges_csv) await makeDownload(urls.edges_csv, `graph_${graphCommitId}_edges.csv`)
+        return
+      }
+      if (format === "json" && urls.json) return makeDownload(urls.json, `graph_${graphCommitId}.json`)
+      if (format === "graphml" && urls.graphml) return makeDownload(urls.graphml, `graph_${graphCommitId}.graphml`)
+    } catch {
+      alert("Failed to download file.")
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab !== "graph" || !graphRepoId) return
+    ;(async () => {
+      try {
+        setGraphLoading(true)
+        const res = await fetch(`${API_BASE}/graph/snapshots/by-repo/${encodeURIComponent(graphRepoId)}`)
+        const data = await res.json()
+        setGraphSnapshots(Array.isArray(data) ? data : [])
+        // default to first commit if any
+        if (Array.isArray(data) && data.length && data[0].commit_id) {
+          setGraphCommitId(data[0].commit_id)
+        }
+      } catch {
+        setGraphSnapshots([])
+      } finally {
+        setGraphLoading(false)
+      }
+    })()
+  }, [activeTab, graphRepoId])
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
@@ -809,7 +895,7 @@ export default function PackageDetailsPage() {
 
   const handleSummarizeCommits = async () => {
     if (!userWatchlistId) return
-    
+
     setIsSummarizing(true)
     try {
       const summaryData = await generateCommitSummary(userWatchlistId, 50)
@@ -843,10 +929,10 @@ export default function PackageDetailsPage() {
   }
 
   const handleEditAlertSettings = () => {
-    const currentSettings = packageData?.alertSettings ? 
-      (typeof packageData.alertSettings === 'string' ? JSON.parse(packageData.alertSettings) : packageData.alertSettings) : 
+    const currentSettings = packageData?.alertSettings ?
+      (typeof packageData.alertSettings === 'string' ? JSON.parse(packageData.alertSettings) : packageData.alertSettings) :
       null;
-    
+
     if (currentSettings) {
       setEditedAlertSettings(JSON.parse(JSON.stringify(currentSettings))) // Deep copy
       setIsEditingAlerts(true)
@@ -855,13 +941,13 @@ export default function PackageDetailsPage() {
 
   const handleSaveAlertSettings = async () => {
     if (!editedAlertSettings || !userWatchlistId) return
-    
+
     setIsSavingAlerts(true)
     try {
       console.log('🔄 Saving alert settings...')
       console.log('UserWatchlistId:', userWatchlistId)
       console.log('Alert settings:', editedAlertSettings)
-      
+
       // Call API to update alert settings
       const response = await fetch(`/api/backend/activity/user-watchlist-alerts/${userWatchlistId}`, {
         method: 'PUT',
@@ -872,28 +958,28 @@ export default function PackageDetailsPage() {
           alerts: editedAlertSettings
         }),
       })
-      
+
       console.log('Response status:', response.status)
       console.log('Response ok:', response.ok)
-      
+
       if (!response.ok) {
         const errorText = await response.text()
         console.error('Error response:', errorText)
         throw new Error(`Failed to update alert settings: ${response.statusText} - ${errorText}`)
       }
-      
+
       const result = await response.json()
       console.log('✅ Success response:', result)
-      
+
       // Update local state
       setPackageData(prev => prev ? {
         ...prev,
         alertSettings: editedAlertSettings
       } : null)
-      
+
       setIsEditingAlerts(false)
       setEditedAlertSettings(null)
-      
+
       console.log('Alert settings updated successfully')
     } catch (error) {
       console.error('❌ Error updating alert settings:', error)
@@ -911,33 +997,33 @@ export default function PackageDetailsPage() {
 
   const handleRemoveFromWatchlist = async () => {
     if (!userWatchlistId) return
-    
+
     try {
       console.log('🗑️ Removing from watchlist...')
       console.log('UserWatchlistId:', userWatchlistId)
-      
+
       const response = await fetch(`/api/backend/activity/user-watchlist/${userWatchlistId}`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
         },
       })
-      
+
       console.log('Response status:', response.status)
       console.log('Response ok:', response.ok)
-      
+
       if (!response.ok) {
         const errorText = await response.text()
         console.error('Error response:', errorText)
         throw new Error(`Failed to remove from watchlist: ${response.statusText} - ${errorText}`)
       }
-      
+
       const result = await response.json()
       console.log('✅ Success response:', result)
-      
+
       // Redirect to watchlist page after successful removal
       window.location.href = '/dependencies'
-      
+
     } catch (error) {
       console.error('❌ Error removing from watchlist:', error)
       alert('Failed to remove repository from watchlist. Please try again.')
@@ -951,7 +1037,7 @@ export default function PackageDetailsPage() {
 
   const handleToggleAlert = (alertKey: string, enabled: boolean) => {
     if (!editedAlertSettings) return
-    
+
     setEditedAlertSettings((prev: any) => ({
       ...prev,
       [alertKey]: {
@@ -963,7 +1049,7 @@ export default function PackageDetailsPage() {
 
   const handleUpdateAlertThreshold = (alertKey: string, field: string, value: number) => {
     if (!editedAlertSettings) return
-    
+
     setEditedAlertSettings((prev: any) => ({
       ...prev,
       [alertKey]: {
@@ -1042,8 +1128,8 @@ export default function PackageDetailsPage() {
             </div>
             <div className="flex gap-2">
               {packageData.repoUrl && (
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   size="sm"
                   onClick={() => window.open(packageData.repoUrl, '_blank')}
                 >
@@ -1052,8 +1138,8 @@ export default function PackageDetailsPage() {
                 </Button>
               )}
               {packageData.npmUrl && (
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   size="sm"
                   onClick={() => window.open(packageData.npmUrl, '_blank')}
                 >
@@ -1105,7 +1191,7 @@ export default function PackageDetailsPage() {
                 {(() => {
                   const nonResolvedAlerts = packageData.alerts.filter(alert => !alert.isResolved);
                   const displayAlerts = nonResolvedAlerts.slice(0, 3);
-                  
+
                   return nonResolvedAlerts.length > 0 ? (
                     <Card className="bg-gray-900/50 border-gray-800">
                       <CardHeader>
@@ -1114,9 +1200,9 @@ export default function PackageDetailsPage() {
                             <AlertTriangle className="h-5 w-5 text-yellow-400" />
                             Active Alerts ({nonResolvedAlerts.length})
                           </CardTitle>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
+                          <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => setActiveTab("alerts")}
                             className="text-blue-400 hover:text-blue-300"
                           >
@@ -1127,8 +1213,8 @@ export default function PackageDetailsPage() {
                       <CardContent>
                         <div className="grid gap-3">
                           {displayAlerts.map((alert) => (
-                            <div 
-                              key={alert.id} 
+                            <div
+                              key={alert.id}
                               className="p-4 rounded-lg border bg-yellow-900/20 border-yellow-800"
                             >
                               <div className="flex items-start justify-between gap-3">
@@ -1147,8 +1233,8 @@ export default function PackageDetailsPage() {
                           ))}
                           {nonResolvedAlerts.length > 3 && (
                             <div className="text-center py-2">
-                              <Button 
-                                variant="ghost" 
+                              <Button
+                                variant="ghost"
                                 size="sm"
                                 onClick={() => setActiveTab("alerts")}
                                 className="text-blue-400 hover:text-blue-300"
@@ -1170,8 +1256,8 @@ export default function PackageDetailsPage() {
                       <Shield className="h-5 w-5" />
                       Security Vulnerabilities
                       {packageData.vulnerabilitySummary && packageData.vulnerabilitySummary.totalCount > 0 && (
-                        <Badge 
-                          variant="outline" 
+                        <Badge
+                          variant="outline"
                           className={`ml-2 ${
                             packageData.vulnerabilitySummary.criticalCount > 0 || packageData.vulnerabilitySummary.highCount > 0
                               ? 'border-red-600 text-red-400'
@@ -1209,7 +1295,7 @@ export default function PackageDetailsPage() {
                         <div className="space-y-3">
                           <h4 className="text-sm font-medium text-gray-300 mb-3">Recent Vulnerabilities</h4>
                           {packageData.vulnerabilities?.slice(0, showAllVulnerabilities ? undefined : 1).map((vuln) => (
-                            <div 
+                            <div
                               key={vuln.id}
                               className="p-4 rounded-lg border border-gray-700 bg-gray-900/30"
                             >
@@ -1220,8 +1306,8 @@ export default function PackageDetailsPage() {
                                     <div className="flex items-center gap-2 mb-2">
                                       <Shield className="h-4 w-4 text-gray-500" />
                                       <span className="font-medium text-white">{vuln.title}</span>
-                                      <Badge 
-                                        variant="outline" 
+                                      <Badge
+                                        variant="outline"
                                         className={`text-xs ${
                                           vuln.severity === 'CRITICAL' 
                                             ? 'border-red-500/30 text-red-400' 
@@ -1351,8 +1437,8 @@ export default function PackageDetailsPage() {
                           ))}
                           {packageData.vulnerabilities && packageData.vulnerabilities.length > 1 && (
                             <div className="text-center py-2">
-                              <Button 
-                                variant="ghost" 
+                              <Button
+                                variant="ghost"
                                 size="sm"
                                 onClick={() => setShowAllVulnerabilities(!showAllVulnerabilities)}
                                 className="text-blue-400 hover:text-blue-300 flex items-center gap-2"
@@ -1394,12 +1480,12 @@ export default function PackageDetailsPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <HealthScoreChart 
+                    <HealthScoreChart
                       data={packageData.healthHistory.map(item => ({
                         date: item.date,
                         score: item.score,
                         commitSha: (item as any).commitSha
-                      }))} 
+                      }))}
                       onDataPointSelect={handleHealthDataSelect}
                       scorecardData={packageData.scorecardHealth}
                     />
@@ -1516,7 +1602,7 @@ export default function PackageDetailsPage() {
                           <Clock className="h-4 w-4 text-gray-400" />
                           <span className="text-white font-medium">Activity Statistics</span>
                         </div>
-                        
+
                         {/* Commits per Week */}
                         <div className="mb-4">
                           <div className="flex items-center gap-2 mb-2">
@@ -1548,17 +1634,17 @@ export default function PackageDetailsPage() {
                               (() => {
                                 const dayEntries = Object.entries(packageData.activity_heatmap.dayOfWeek || {});
                                 const maxCommits = Math.max(...dayEntries.map(([_, count]) => count as number), 1);
-                                
+
                                 // Backend now sends data in Monday-first format (0=Monday, 6=Sunday)
                                 const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-                                
+
                                 // Sort day entries to ensure Monday-Sunday order
                                 const sortedDayEntries = dayEntries.sort(([dayA], [dayB]) => {
                                   const dayIndexA = parseInt(dayA);
                                   const dayIndexB = parseInt(dayB);
                                   return dayIndexA - dayIndexB;
                                 });
-                                
+
                                 return sortedDayEntries.map(([day, count]) => {
                                   const dayIndex = parseInt(day);
                                   const dayName = dayNames[dayIndex] || 'Unknown';
@@ -1589,13 +1675,13 @@ export default function PackageDetailsPage() {
                               // Fallback to mock data - show all 7 days
                               (() => {
                                 const maxIntensity = Math.max(...packageData.activityData.activeDays.map(day => day.intensity), 1);
-                                
+
                                 // Sort days to ensure Monday-Sunday order
                                 const sortedDays = packageData.activityData.activeDays.sort((a, b) => {
                                   const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
                                   return dayOrder.indexOf(a.day) - dayOrder.indexOf(b.day);
                                 });
-                                
+
                                 return sortedDays.map((day, index) => (
                                   <div key={index} className="flex items-center justify-between">
                                     <span className="text-sm text-gray-300">{day.day}</span>
@@ -1640,7 +1726,7 @@ export default function PackageDetailsPage() {
                           </TooltipTrigger>
                           <TooltipContent className="max-w-xs">
                             <p className="text-sm">
-                              Bus factor measures knowledge concentration risk. It's the minimum number of contributors 
+                              Bus factor measures knowledge concentration risk. It's the minimum number of contributors
                               who would need to leave before the project can't continue due to knowledge loss.
                             </p>
                           </TooltipContent>
@@ -1705,7 +1791,7 @@ export default function PackageDetailsPage() {
                                         </TooltipContent>
                                       </Tooltip>
                                     </TooltipProvider>
-                                    
+
                                     <TooltipProvider>
                                       <Tooltip>
                                         <TooltipTrigger asChild>
@@ -1720,7 +1806,7 @@ export default function PackageDetailsPage() {
                                         </TooltipContent>
                                       </Tooltip>
                                     </TooltipProvider>
-                                    
+
                                     <TooltipProvider>
                                       <Tooltip>
                                         <TooltipTrigger asChild>
@@ -1777,7 +1863,7 @@ export default function PackageDetailsPage() {
                       Recent Commits
                     </CardTitle>
                     {!commitSummary && (
-                      <Button 
+                      <Button
                         onClick={handleSummarizeCommits}
                         disabled={isSummarizing}
                         className="bg-blue-600 hover:bg-blue-700"
@@ -1843,9 +1929,9 @@ export default function PackageDetailsPage() {
                               <div className="flex items-center gap-4">
                                 <div className="flex items-center gap-2">
                                   <span className="text-xs text-gray-500 font-mono">{commit.sha.substring(0, 8)}</span>
-                                  <Button 
-                                    variant="ghost" 
-                                    size="sm" 
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
                                     className="h-6 px-2"
                                     onClick={() => handleViewCommitOnGitHub(commit.sha)}
                                   >
@@ -1872,7 +1958,7 @@ export default function PackageDetailsPage() {
                   )}
                 </CardContent>
               </Card>
-              
+
               {/* Footer section to make page full width */}
               <Card className="bg-gray-900/50 border-gray-800">
                 <CardContent className="p-6">
@@ -1882,7 +1968,7 @@ export default function PackageDetailsPage() {
                       <span className="text-lg font-medium">Recent Commits</span>
                     </div>
                     <p className="text-gray-300 leading-relaxed">
-                      These are the recent commits from the repository showing development activity and code changes. 
+                      These are the recent commits from the repository showing development activity and code changes.
                       Each commit displays lines added, deleted, and files modified. Feel free to check GitHub for more details.
                     </p>
                     <div className="flex items-center justify-center gap-4 text-sm text-gray-400">
@@ -1928,7 +2014,7 @@ export default function PackageDetailsPage() {
                     </Button>
                   </div>
                 </div>
-                
+
                 {(() => {
                   const filteredAlerts = packageData!.alerts.filter(alert => {
                     if (alertFilter === "all") return true;
@@ -1936,7 +2022,7 @@ export default function PackageDetailsPage() {
                     if (alertFilter === "resolved") return alert.isResolved;
                     return true;
                   });
-                  
+
                   return filteredAlerts.length > 0 ? (
                     <div className="space-y-4">
                       {filteredAlerts.map((alert) => (
@@ -1965,9 +2051,9 @@ export default function PackageDetailsPage() {
                                 <span>Status: {alert.isResolved ? 'Resolved' : 'Active'}</span>
                               </div>
                               <div className="flex items-center gap-2">
-                                <Button 
-                                  variant="outline" 
-                                  size="sm" 
+                                <Button
+                                  variant="outline"
+                                  size="sm"
                                   className="text-xs"
                                   onClick={() => handleViewCommitOnGitHub(alert.commitHash)}
                                 >
@@ -1975,9 +2061,9 @@ export default function PackageDetailsPage() {
                                   View Commit
                                 </Button>
                                 {!alert.isResolved && (
-                                  <Button 
-                                    variant="outline" 
-                                    size="sm" 
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
                                     className="text-xs"
                                     onClick={async () => {
                                       try {
@@ -1987,10 +2073,10 @@ export default function PackageDetailsPage() {
                                         const alertsResponse = await fetch(`/api/backend/activity/alerts/${userWatchlistId}`)
                                         if (alertsResponse.ok) {
                                           const alertsData = await alertsResponse.json()
-                                          const originalAlert = alertsData.alerts.find((a: any) => 
+                                          const originalAlert = alertsData.alerts.find((a: any) =>
                                             parseInt(a.id.replace(/-/g, '').substring(0, 8), 16) === alert.id
                                           )
-                                          
+
                                           if (originalAlert) {
                                             const response = await fetch(`/api/backend/activity/alerts/${originalAlert.id}/resolve`, {
                                               method: 'PATCH',
@@ -2000,7 +2086,7 @@ export default function PackageDetailsPage() {
                                               // Update the alert in local state
                                               setPackageData(prev => prev ? {
                                                 ...prev,
-                                                alerts: prev.alerts.map(a => 
+                                                alerts: prev.alerts.map(a =>
                                                   a.id === alert.id ? { ...a, isResolved: true } : a
                                                 )
                                               } : null);
@@ -2028,10 +2114,10 @@ export default function PackageDetailsPage() {
                   );
                 })()}
               </div>
-              
+
               {/* Add space above footer */}
               <div className="h-8"></div>
-              
+
               {/* Footer section to make alerts tab full width */}
               <Card className="bg-gray-900/50 border-gray-800">
                 <CardContent className="p-6">
@@ -2041,7 +2127,7 @@ export default function PackageDetailsPage() {
                       <span className="text-lg font-medium">Repository Alerts</span>
                     </div>
                     <p className="text-gray-300 leading-relaxed">
-                      Monitor security and activity alerts for this repository. Alerts are triggered based on commit activity, 
+                      Monitor security and activity alerts for this repository. Alerts are triggered based on commit activity,
                       code changes, and security thresholds. You can filter alerts by status and manage their resolution.
                     </p>
                     <div className="flex items-center justify-center gap-4 text-sm text-gray-400">
@@ -2059,42 +2145,102 @@ export default function PackageDetailsPage() {
           </TabsContent>
           <TabsContent value="graph" className="space-y-6">
             <div className="max-w-6xl mx-auto">
-              <div className="space-y-6">
-                <h2 className="text-xl font-semibold text-white">Dependency Graph</h2>
-                
-                <Card className="bg-gray-900/50 border-gray-800">
-                  <CardContent className="p-12">
-                    <div className="text-center">
-                      <BarChart3 className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                      <h3 className="text-lg font-semibold text-white mb-2">Graph Analysis</h3>
-                      <p className="text-gray-400 mb-6">
-                        This feature is currently under development by the graph team. The dependency graph will show the relationships between packages and their dependencies, helping you understand the impact of changes and potential security vulnerabilities.
-                      </p>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-400">
-                        <div className="p-4 bg-gray-800/50 rounded-lg">
-                          <div className="font-medium text-white mb-1">Dependencies</div>
-                          <div>View all package dependencies</div>
-                        </div>
-                        <div className="p-4 bg-gray-800/50 rounded-lg">
-                          <div className="font-medium text-white mb-1">Security</div>
-                          <div>Identify vulnerable dependencies</div>
-                        </div>
-                        <div className="p-4 bg-gray-800/50 rounded-lg">
-                          <div className="font-medium text-white mb-1">Impact</div>
-                          <div>Understand change impact</div>
-                        </div>
-                      </div>
+              <Card className="bg-gray-900/50 border-gray-800">
+                <CardHeader>
+                  <CardTitle className="text-white">Repository Graph</CardTitle>
+                  <CardDescription>Query subgraphs for this package’s repository</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {/* Controls */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Fixed repo badge */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-400">Repo:</span>
+                      <Badge variant="outline" className="border-gray-700 text-gray-200">
+                        {graphRepoId || "—"}
+                      </Badge>
                     </div>
-                  </CardContent>
-                </Card>
-              </div>
+
+                    {/* Commit select */}
+                    <div className="min-w-[240px] ml-auto">
+                      <Label htmlFor="commit-select" className="sr-only">Commit</Label>
+                      <select
+                        id="commit-select"
+                        value={graphCommitId}
+                        onChange={(e) => setGraphCommitId(e.target.value)}
+                        disabled={!graphSnapshots.length}
+                        className="w-full rounded-md border border-gray-700 bg-gray-900 text-gray-100 px-3 py-2 text-sm"
+                      >
+                        <option value="" disabled>Select commit</option>
+                        {graphSnapshots
+                          .map(s => s.commit_id)
+                          .filter(Boolean)
+                          .map((cid, idx) => (
+                            <option key={`${cid}-${idx}`} value={cid!}>{cid}</option>
+                          ))}
+                      </select>
+                    </div>
+
+                    {/* Export */}
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" onClick={() => handleGraphExport("json")}>Export JSON</Button>
+                      <Button variant="outline" size="sm" onClick={() => handleGraphExport("graphml")}>Export GraphML</Button>
+                      <Button variant="outline" size="sm" onClick={() => handleGraphExport("csv")}>Export CSV</Button>
+                    </div>
+                  </div>
+
+                  {/* Query row */}
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Describe the subgraph (e.g., 'show 100 functions')"
+                      value={graphQuery}
+                      onChange={(e) => setGraphQuery(e.target.value)}
+                      className="w-full"
+                    />
+                    <Button onClick={runGraphQuery} disabled={!graphRepoId || !graphCommitId || !graphQuery}>
+                      Query
+                    </Button>
+                  </div>
+
+                  {/* Quick suggestions */}
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" variant="secondary" onClick={() => setGraphQuery("show 100 functions")}>
+                      Top 100 functions
+                    </Button>
+                    <Button size="sm" variant="secondary" onClick={() => setGraphQuery("any calls")}>
+                      Any calls
+                    </Button>
+                    <Button size="sm" variant="secondary" onClick={() => setGraphQuery("if/loop blocks")}>
+                      If/Loop blocks
+                    </Button>
+                    <Button size="sm" variant="secondary" onClick={() => setGraphQuery("contributors")}>
+                      Contributors
+                    </Button>
+                  </div>
+
+                  {/* Graph area */}
+                  <div className="w-full overflow-hidden rounded-md border border-gray-800 relative" style={{ height: GRAPH_HEIGHT }}>
+                    <GraphPreview elements={graphElements} height={GRAPH_HEIGHT} />
+                    {graphLoading && (
+                        <div className="absolute inset-0 flex items-center justify-center bg-white/80">
+                          <Spinner/>
+                        </div>
+                    )}
+                    {!graphLoading && graphElements.length === 0 && (
+                        <div className="absolute inset-0 grid place-items-center text-sm text-gray-500">
+                        No graph yet — pick a commit and run a query.
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </TabsContent>
           <TabsContent value="settings" className="space-y-6">
             <div className="max-w-6xl mx-auto">
               <div className="space-y-6">
                 <h2 className="text-xl font-semibold text-white">Repository Settings</h2>
-                
+
                 {/* Alert Settings */}
                 <Card className="bg-gray-900/50 border-gray-800">
                   <CardHeader>
@@ -2109,8 +2255,8 @@ export default function PackageDetailsPage() {
                         </CardDescription>
                       </div>
                       {!isEditingAlerts && (
-                        <Button 
-                          variant="outline" 
+                        <Button
+                          variant="outline"
                           size="sm"
                           onClick={handleEditAlertSettings}
                         >
@@ -2122,9 +2268,9 @@ export default function PackageDetailsPage() {
                   <CardContent className="space-y-6">
                     {(() => {
                       // Parse the alerts from the package data
-                      const alertSettings = isEditingAlerts ? editedAlertSettings : 
-                        (packageData?.alertSettings ? 
-                          (typeof packageData.alertSettings === 'string' ? JSON.parse(packageData.alertSettings) : packageData.alertSettings) : 
+                      const alertSettings = isEditingAlerts ? editedAlertSettings :
+                        (packageData?.alertSettings ?
+                          (typeof packageData.alertSettings === 'string' ? JSON.parse(packageData.alertSettings) : packageData.alertSettings) :
                           null);
 
                       if (!alertSettings) {
@@ -2201,7 +2347,7 @@ export default function PackageDetailsPage() {
                               </Badge>
                             )}
                           </div>
-                          
+
                           {/* Lines Added/Deleted Configuration */}
                           {isEditingAlerts && alertSettings.lines_added_deleted?.enabled && (
                             <div className="ml-8 p-4 bg-gray-900/50 rounded-lg space-y-4">
@@ -2289,7 +2435,7 @@ export default function PackageDetailsPage() {
                               </Badge>
                             )}
                           </div>
-                          
+
                           {/* Files Changed Configuration */}
                           {isEditingAlerts && alertSettings.files_changed?.enabled && (
                             <div className="ml-8 p-4 bg-gray-900/50 rounded-lg space-y-4">
@@ -2427,7 +2573,7 @@ export default function PackageDetailsPage() {
                               </Badge>
                             )}
                           </div>
-                          
+
                           {/* Health Score Decreases Configuration */}
                           {isEditingAlerts && alertSettings.health_score_decreases?.enabled && (
                             <div className="ml-8 p-4 bg-gray-900/50 rounded-lg space-y-4">
@@ -2452,15 +2598,15 @@ export default function PackageDetailsPage() {
                           {/* Edit Actions */}
                           {isEditingAlerts && (
                             <div className="flex items-center justify-end gap-2 pt-4 border-t border-gray-800">
-                              <Button 
-                                variant="outline" 
+                              <Button
+                                variant="outline"
                                 size="sm"
                                 onClick={handleCancelEdit}
                                 disabled={isSavingAlerts}
                               >
                                 Cancel
                               </Button>
-                              <Button 
+                              <Button
                                 size="sm"
                                 onClick={handleSaveAlertSettings}
                                 disabled={isSavingAlerts}
