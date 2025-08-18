@@ -2,16 +2,16 @@
 
 import { useState, useEffect } from "react"
 import { useSearchParams } from "next/navigation"
-import {
-  AlertTriangle,
-  Calendar,
-  Code,
-  ExternalLink,
-  GitCommit,
-  GitFork,
-  GithubIcon,
-  GitPullRequest,
-  Star,
+import { 
+  AlertTriangle, 
+  Calendar, 
+  Code, 
+  ExternalLink, 
+  GitCommit, 
+  GitFork, 
+  GithubIcon, 
+  GitPullRequest, 
+  Star, 
   TrendingUp,
   Activity,
   Users,
@@ -51,6 +51,8 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import {GraphPreview} from "@/app/graph-export/GraphPreview";
 import Spinner from "@/app/graph-export/loading";
+import JiraLogo from "@/public/jira.svg"
+import { checkJiraLink, createJiraIssue } from "@/lib/alerts/jiraAlerts"
 
 interface PackageDetails {
   name: string
@@ -229,6 +231,7 @@ export default function PackageDetailsPage() {
   const [isLoadingCommits, setIsLoadingCommits] = useState(false)
   const [showAllVulnerabilities, setShowAllVulnerabilities] = useState(false)
   const [expandedDescriptions, setExpandedDescriptions] = useState<Set<string>>(new Set())
+  const [jiraConnection, setJiraConnection] = useState(false);
 
   // Graph tab state
   const [graphRepoId, setGraphRepoId] = useState<string>("")
@@ -785,6 +788,29 @@ export default function PackageDetailsPage() {
     })()
   }, [activeTab, graphRepoId])
 
+  const fetchJiraConn = async () => {
+
+    try {
+      const result = await checkJiraLink(userWatchlistId!);
+      if (result.success) {
+        console.log("result", result);
+        setJiraConnection(true);
+      } else {
+        console.warn(result.message);
+        setJiraConnection(false);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab === "alerts" && userWatchlistId && commits.length === 0) {
+      fetchJiraConn()
+    }
+  }, [activeTab, userWatchlistId])
+
+
   const getSeverityColor = (severity: string) => {
     switch (severity) {
       case "high":
@@ -925,6 +951,22 @@ export default function PackageDetailsPage() {
       // Convert repo URL to commit URL
       const commitUrl = `${packageData.repoUrl}/commit/${commitSha}`
       window.open(commitUrl, '_blank')
+    }
+  }
+
+  const handleSendToJira = async (alert: any) => {
+    if (packageData) {
+       try {
+        await createJiraIssue (
+          userWatchlistId!,
+          packageData.name,
+          getAlertTitle(alert),
+          alert.description
+        )
+       console.log("Jira ticket created successfully");
+      } catch (error) {
+        console.error("Failed to create Jira ticket", error);
+      }
     }
   }
 
@@ -2051,8 +2093,20 @@ export default function PackageDetailsPage() {
                                 <span>Status: {alert.isResolved ? 'Resolved' : 'Active'}</span>
                               </div>
                               <div className="flex items-center gap-2">
+                                {jiraConnection && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="text-xs"
+                                    onClick={() => handleSendToJira(alert)}
+                                  >
+                                    <img src="/jira.svg" className="h-4 w-4 dark:invert" />
+                                    Send to Jira
+                                  </Button>
+                                )}
+
                                 <Button
-                                  variant="outline"
+                                  variant="outline" 
                                   size="sm"
                                   className="text-xs"
                                   onClick={() => handleViewCommitOnGitHub(alert.commitHash)}
