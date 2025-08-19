@@ -305,12 +305,16 @@ export function HealthScoreChart({
               stroke={selectedDataPoint ? getGraphColor(selectedDataPoint.score) : "#10b981"}
               strokeWidth={3}
               fill="url(#healthGradient)"
-              dot={(props) => (
-                <CustomDot
-                  {...props}
-                  isSelected={props.payload.date === currentSelectedDate}
-                />
-              )}
+              dot={(props: any) => {
+                const { key: dotKey, ...rest } = props || {};
+                return (
+                  <CustomDot
+                    key={dotKey}
+                    {...rest}
+                    isSelected={rest.payload?.date === currentSelectedDate}
+                  />
+                );
+              }}
             />
           </AreaChart>
         </ResponsiveContainer>
