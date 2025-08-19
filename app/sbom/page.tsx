@@ -75,16 +75,30 @@ export default function SbomSearchPage() {
         else if (userWatchlistId) url = `${API_PROXY_PATH}/sbom/user-watchlist-metadata/${userWatchlistId}`;
 
         const res = await fetch(url);
-        const data = await res.json();
-        setMetadata(data);
+        if(res.ok){
+          const data = await res.json();
+          setMetadata(data);
+          const licenseNames = Object.values(data.licenseSummary)
+            .map((entry) => (entry as { id: string }).id)
+            .sort((a, b) => a.localeCompare(b))
+          setAllLicenses(licenseNames);
 
-        const licenseNames = Object.values(data.licenseSummary)
-          .map((entry) => (entry as { id: string }).id)
-          .sort((a, b) => a.localeCompare(b))
-        setAllLicenses(licenseNames);
-
-        setHistory([data.sbomPackage]);
-        setCurrentNodeId(data.sbomPackage);
+          setHistory([data.sbomPackage]);
+          setCurrentNodeId(data.sbomPackage);
+        }
+        else {
+          setMetadata({
+            sbomPackage: watchlistId,
+            directDependencies: 0,
+            transitiveDependencies: 0,
+            licenseSummary: {},
+            riskSummary: {},
+          })
+          setAllLicenses([]);
+          console.log("Failed to get response.");
+          setHistory([""]);
+        }
+        
       } catch (error) {
         console.error("Failed to fetch metadata:", error);
       }
