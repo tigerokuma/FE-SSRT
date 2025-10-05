@@ -1,4 +1,4 @@
-// app/graph/loading.tsx (or wherever your route is)
+// (dashboard)/graph/loading.tsx (or wherever your route is)
 import { Loader2 } from "lucide-react"
 
 export default function Spinner() {

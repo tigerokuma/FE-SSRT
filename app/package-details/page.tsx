@@ -558,7 +558,7 @@ export default function PackageDetailsPage() {
                 reason: "binaries present in source code",
                 details: [
                   "Warn: binary detected: apps/bare-expo/android/gradle/wrapper/gradle-wrapper.jar:1",
-                  "Warn: binary detected: apps/expo-go/android/app/src/main/assets/kernel.android.bundle:1",
+                  "Warn: binary detected: apps/expo-go/android/(dashboard)/src/main/assets/kernel.android.bundle:1",
                   "Warn: binary detected: apps/expo-go/android/gradle/wrapper/gradle-wrapper.jar:1"
                 ],
                 documentation: {
