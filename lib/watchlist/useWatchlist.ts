@@ -13,7 +13,7 @@ import {
   searchPackages as apiSearchPackages,
   searchAndEnrichPackages,
   batchEnrichPackages,
-  testEventStreamSearch
+  // testEventStreamSearch
 } from './api'
 
 /**
@@ -122,10 +122,10 @@ export const usePackageSearch = () => {
     }
 
     // Test event-stream specifically
-    if (query.toLowerCase().includes('event-stream')) {
-      console.log('Testing event-stream search...')
-      await testEventStreamSearch()
-    }
+    // if (query.toLowerCase().includes('event-stream')) {
+    //   console.log('Testing event-stream search...')
+    //   await testEventStreamSearch()
+    // }
 
     setIsSearching(true)
     setError(null)

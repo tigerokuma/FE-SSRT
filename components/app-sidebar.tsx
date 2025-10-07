@@ -51,11 +51,11 @@ export function AppSidebar() {
       href: "/graph-export",
       icon: BarChart3
     },
-    {
-      title: "Team Alert Routing",
-      href: "/team-routing",
-      icon: Users
-    },
+    // {
+    //   title: "Team Alert Routing",
+    //   href: "/team-routing",
+    //   icon: Users
+    // },
     {
       title: "Sboms",
       href: "/sbom",
