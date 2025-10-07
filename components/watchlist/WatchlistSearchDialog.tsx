@@ -27,13 +27,15 @@ interface WatchlistSearchDialogProps {
   onPackagePreview?: (pkg: PackageType, type: 'npm' | 'github') => void
   defaultType?: WatchlistItem['type']
   onRepositoryAdded?: () => void
+  projectId?: string
 }
 
 export function WatchlistSearchDialog({ 
   trigger, 
   onPackagePreview,
   defaultType = 'production',
-  onRepositoryAdded
+  onRepositoryAdded,
+  projectId
 }: WatchlistSearchDialogProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
@@ -110,6 +112,7 @@ export function WatchlistSearchDialog({
       const defaultAlertConfig = {
         repo_url: pkg.repo_url || `https://github.com/${pkg.name}`,
         added_by: "user-123", // TODO: Get actual user ID
+        project_id: projectId, // Include project ID
         alerts: {
           ai_powered_anomaly_detection: {
             enabled: false
