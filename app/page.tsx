@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Plus, Search, Star, Shield, AlertCircle, Clock } from "lucide-react"
+import { Plus, Search, Star, Shield, AlertCircle, Clock, User } from "lucide-react"
 import { CreateProjectDialog } from "@/components/CreateProjectDialog"
+import { AuthService } from "@/lib/auth"
 
 interface Project {
   id: string
@@ -23,13 +24,25 @@ export default function Home() {
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [user, setUser] = useState<any>(null)
 
-  // Fetch projects on component mount
+  // Check authentication status and fetch projects on component mount
   useEffect(() => {
-    const fetchProjects = async () => {
+    const checkAuthAndFetchProjects = async () => {
       try {
         setLoading(true)
-        const response = await fetch('http://localhost:3000/projects/user/user-123')
+        
+        // Simple: just set authenticated state for testing
+        setIsAuthenticated(true)
+        setUser({ 
+          name: 'Test User',
+          github_username: 'test-user',
+          email: 'test@example.com'
+        })
+        
+        // Fetch projects with auth headers
+        const response = await AuthService.fetchWithAuth('http://localhost:3000/projects/user/user-123')
         
         if (!response.ok) {
           throw new Error('Failed to fetch projects')
@@ -45,7 +58,7 @@ export default function Home() {
       }
     }
 
-    fetchProjects()
+    checkAuthAndFetchProjects()
   }, [])
 
   // Refresh projects when a new one is created
@@ -73,6 +86,7 @@ export default function Home() {
     router.push(`/project/${projectId}`)
   }
 
+
   return (
     <div className="min-h-screen">
       <div className="container mx-auto px-4 py-8">
@@ -87,6 +101,14 @@ export default function Home() {
                 className="pl-10 bg-gray-900/50 border-gray-700 text-white placeholder-gray-400"
               />
             </div>
+            
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 text-white">
+                <User className="h-4 w-4" />
+                <span className="text-sm">{user?.name || 'Test User'}</span>
+              </div>
+            </div>
+            
             <CreateProjectDialog
               open={isCreateDialogOpen}
               onOpenChange={setIsCreateDialogOpen}

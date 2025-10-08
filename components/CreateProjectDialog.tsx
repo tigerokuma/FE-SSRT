@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -13,7 +13,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Plus, X } from "lucide-react"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Plus, X, Github, Star, GitFork } from "lucide-react"
 
 interface CreateProjectDialogProps {
   trigger: React.ReactNode
@@ -22,11 +29,99 @@ interface CreateProjectDialogProps {
   onProjectCreated?: () => void
 }
 
+interface GitHubRepository {
+  id: number
+  name: string
+  full_name: string
+  description: string
+  html_url: string
+  clone_url: string
+  private: boolean
+  language: string
+  stargazers_count: number
+  forks_count: number
+}
+
 export function CreateProjectDialog({ trigger, open, onOpenChange, onProjectCreated }: CreateProjectDialogProps) {
   const [projectName, setProjectName] = useState("")
   const [description, setDescription] = useState("")
-  const [repositoryUrl, setRepositoryUrl] = useState("")
+  const [selectedRepo, setSelectedRepo] = useState<GitHubRepository | null>(null)
+  const [selectedBranch, setSelectedBranch] = useState("main")
+  const [repositories, setRepositories] = useState<GitHubRepository[]>([])
+  const [isLoadingRepos, setIsLoadingRepos] = useState(false)
+  const [branches, setBranches] = useState<any[]>([])
+  const [isLoadingBranches, setIsLoadingBranches] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // Fetch repositories when dialog opens
+  useEffect(() => {
+    if (open) {
+      fetchRepositories()
+    }
+  }, [open])
+
+  // Fetch branches when repository is selected
+  useEffect(() => {
+    if (selectedRepo) {
+      fetchBranches()
+    }
+  }, [selectedRepo])
+
+  const fetchRepositories = async () => {
+    setIsLoadingRepos(true)
+    try {
+      const response = await fetch('http://localhost:3000/github/repositories')
+      if (response.ok) {
+        const repos = await response.json()
+        setRepositories(repos)
+      } else {
+        console.error('Failed to fetch repositories')
+      }
+    } catch (error) {
+      console.error('Error fetching repositories:', error)
+    } finally {
+      setIsLoadingRepos(false)
+    }
+  }
+
+  const fetchBranches = async () => {
+    if (!selectedRepo) return
+    
+    setIsLoadingBranches(true)
+    try {
+      const response = await fetch(`http://localhost:3000/github/branches?repositoryUrl=${encodeURIComponent(selectedRepo.html_url)}`)
+      if (response.ok) {
+        const data = await response.json()
+        setBranches(data)
+        
+        // Auto-select main or master branch if available
+        const mainBranch = data.find((branch: any) => branch.name === 'main' || branch.name === 'master')
+        if (mainBranch) {
+          setSelectedBranch(mainBranch.name)
+        } else if (data.length > 0) {
+          setSelectedBranch(data[0].name)
+        }
+      } else {
+        console.error('Failed to fetch branches')
+        // Fallback to default branches
+        setBranches([
+          { name: 'main', protected: false },
+          { name: 'master', protected: false },
+          { name: 'develop', protected: false },
+        ])
+      }
+    } catch (error) {
+      console.error('Error fetching branches:', error)
+      // Fallback to default branches
+      setBranches([
+        { name: 'main', protected: false },
+        { name: 'master', protected: false },
+        { name: 'develop', protected: false },
+      ])
+    } finally {
+      setIsLoadingBranches(false)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -41,7 +136,8 @@ export function CreateProjectDialog({ trigger, open, onOpenChange, onProjectCrea
         body: JSON.stringify({
           name: projectName,
           description,
-          repositoryUrl,
+          repositoryUrl: selectedRepo?.html_url || '',
+          branch: selectedBranch,
           userId: 'user-123' // Hardcoded user ID as requested
         })
       })
@@ -56,7 +152,9 @@ export function CreateProjectDialog({ trigger, open, onOpenChange, onProjectCrea
       // Reset form
       setProjectName("")
       setDescription("")
-      setRepositoryUrl("")
+      setSelectedRepo(null)
+      setSelectedBranch("main")
+      setBranches([])
       
       // Close dialog
       onOpenChange?.(false)
@@ -74,7 +172,9 @@ export function CreateProjectDialog({ trigger, open, onOpenChange, onProjectCrea
   const handleCancel = () => {
     setProjectName("")
     setDescription("")
-    setRepositoryUrl("")
+    setSelectedRepo(null)
+    setSelectedBranch("main")
+    setBranches([])
     onOpenChange?.(false)
   }
 
@@ -119,18 +219,98 @@ export function CreateProjectDialog({ trigger, open, onOpenChange, onProjectCrea
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="repository-url" className="text-white">
-              Repository URL
+            <Label htmlFor="repository-select" className="text-white">
+              Select Repository
             </Label>
-            <Input
-              id="repository-url"
-              value={repositoryUrl}
-              onChange={(e) => setRepositoryUrl(e.target.value)}
-              placeholder="https://github.com/username/repository"
-              className="bg-gray-800 border-gray-600 text-white placeholder-gray-400"
-              type="url"
-            />
+            {isLoadingRepos ? (
+              <div className="flex items-center justify-center py-4">
+                <div className="text-gray-400">Loading your repositories...</div>
+              </div>
+            ) : (
+              <Select 
+                value={selectedRepo?.id.toString() || ""} 
+                onValueChange={(value) => {
+                  const repo = repositories.find(r => r.id.toString() === value)
+                  setSelectedRepo(repo || null)
+                }}
+              >
+                <SelectTrigger className="bg-gray-800 border-gray-600 text-white">
+                  <SelectValue placeholder="Choose a repository from your GitHub account" />
+                </SelectTrigger>
+                <SelectContent className="bg-gray-800 border-gray-600">
+                  {repositories.map((repo) => (
+                    <SelectItem key={repo.id} value={repo.id.toString()}>
+                      <div className="flex items-center gap-2">
+                        <Github className="h-4 w-4" />
+                        <div className="flex-1">
+                          <div className="font-medium">{repo.name}</div>
+                          <div className="text-sm text-gray-400">{repo.full_name}</div>
+                          {repo.description && (
+                            <div className="text-xs text-gray-500 truncate">{repo.description}</div>
+                          )}
+                          <div className="flex items-center gap-3 text-xs text-gray-500 mt-1">
+                            {repo.language && <span>{repo.language}</span>}
+                            <div className="flex items-center gap-1">
+                              <Star className="h-3 w-3" />
+                              {repo.stargazers_count}
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <GitFork className="h-3 w-3" />
+                              {repo.forks_count}
+                            </div>
+                            {repo.private && <span className="text-yellow-400">Private</span>}
+                          </div>
+                        </div>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            {selectedRepo && (
+              <div className="text-sm text-gray-400">
+                Selected: <span className="text-blue-400">{selectedRepo.full_name}</span>
+              </div>
+            )}
           </div>
+          
+          {selectedRepo && (
+            <div className="space-y-2">
+              <Label htmlFor="branch-select" className="text-white">
+                Branch to Monitor
+              </Label>
+              {isLoadingBranches ? (
+                <div className="flex items-center gap-2 text-gray-400">
+                  <div className="animate-spin h-4 w-4 border-2 border-blue-400 border-t-transparent rounded-full"></div>
+                  Loading branches...
+                </div>
+              ) : (
+                <Select 
+                  value={selectedBranch} 
+                  onValueChange={setSelectedBranch}
+                >
+                  <SelectTrigger className="bg-gray-800 border-gray-600 text-white">
+                    <SelectValue placeholder="Choose branch to monitor" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-gray-800 border-gray-600">
+                    {branches.map((branch: any) => (
+                      <SelectItem key={branch.name} value={branch.name}>
+                        <div className="flex items-center gap-2">
+                          {branch.name}
+                          {branch.protected && (
+                            <span className="text-xs text-yellow-400">🔒</span>
+                          )}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              <div className="text-xs text-gray-500">
+                Only events from this branch will trigger analysis
+              </div>
+            </div>
+          )}
           
           <DialogFooter className="gap-2">
             <Button
