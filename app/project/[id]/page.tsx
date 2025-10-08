@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ArrowLeft, Calendar, ExternalLink, Github, Search, Plus, MoreHorizontal, User, RefreshCw, Copy, Check } from "lucide-react"
+import { ArrowLeft, Calendar, ExternalLink, Github, Search, Plus, MoreHorizontal, User, RefreshCw, Copy, Check, Trash2 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { toast } from "@/hooks/use-toast"
 import { WatchlistSearchDialog } from "@/components/watchlist/WatchlistSearchDialog"
@@ -67,6 +67,8 @@ export default function ProjectDetailPage() {
   const [showInviteDialog, setShowInviteDialog] = useState(false)
   const [showWatchlistSearchDialog, setShowWatchlistSearchDialog] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   const projectId = params.id as string
 
@@ -233,6 +235,43 @@ export default function ProjectDetailPage() {
       })
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleDeleteProject = async () => {
+    if (!projectId) return
+    
+    try {
+      setDeleting(true)
+      const response = await fetch(`http://localhost:3000/projects/${projectId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to delete project')
+      }
+      
+      toast({
+        title: "Project deleted!",
+        description: "The project has been permanently deleted.",
+      })
+      
+      // Redirect to home page
+      router.push('/')
+      
+    } catch (err) {
+      console.error('Error deleting project:', err)
+      toast({
+        title: "Failed to delete project",
+        description: "Please try again later.",
+        variant: "destructive",
+      })
+    } finally {
+      setDeleting(false)
+      setShowDeleteDialog(false)
     }
   }
 
@@ -664,6 +703,36 @@ export default function ProjectDetailPage() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Danger Zone */}
+            {currentUserRole === 'admin' && (
+              <Card className="bg-red-900/20 border-red-800 backdrop-blur-sm">
+                <CardHeader>
+                  <CardTitle className="text-red-400">Danger Zone</CardTitle>
+                  <p className="text-red-300 text-sm">Irreversible and destructive actions</p>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-4 border border-red-800 rounded-lg bg-red-900/10">
+                      <div>
+                        <h3 className="text-red-400 font-medium">Delete Project</h3>
+                        <p className="text-red-300 text-sm">
+                          Permanently delete this project and all its data. This action cannot be undone.
+                        </p>
+                      </div>
+                      <Button
+                        variant="destructive"
+                        onClick={() => setShowDeleteDialog(true)}
+                        className="bg-red-600 hover:bg-red-700 text-white"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete Project
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
         </Tabs>
       </div>
@@ -699,6 +768,48 @@ export default function ProjectDetailPage() {
                 className="border-gray-600 text-gray-300 hover:bg-gray-800"
               >
                 Close
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent className="bg-gray-900 border-red-800">
+          <DialogHeader>
+            <DialogTitle className="text-red-400">Delete Project</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-gray-300">
+              Are you sure you want to delete <strong className="text-white">{project?.name}</strong>? 
+              This action cannot be undone and will permanently delete:
+            </p>
+            <ul className="text-gray-300 text-sm space-y-1 ml-4">
+              <li>• All project data and settings</li>
+              <li>• All team member associations</li>
+              <li>• All watchlist items</li>
+              <li>• All dependency tracking data</li>
+              {project?.repository_url && (
+                <li>• Monitored branch (if no other projects are tracking it)</li>
+              )}
+            </ul>
+            <div className="flex justify-end space-x-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowDeleteDialog(false)}
+                className="border-gray-600 text-gray-300 hover:bg-gray-800"
+                disabled={deleting}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleDeleteProject}
+                disabled={deleting}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                {deleting ? 'Deleting...' : 'Delete Project'}
               </Button>
             </div>
           </div>
