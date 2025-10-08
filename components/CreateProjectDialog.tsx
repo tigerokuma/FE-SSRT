@@ -324,7 +324,7 @@ export function CreateProjectDialog({ trigger, open, onOpenChange, onProjectCrea
             <Button
               type="submit"
               disabled={!projectName.trim() || isSubmitting}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className="bg-purple-600 hover:bg-purple-700 text-white"
             >
               {isSubmitting ? "Creating..." : "Create Project"}
             </Button>

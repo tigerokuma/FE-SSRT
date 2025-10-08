@@ -115,7 +115,7 @@ export default function Home() {
               onProjectCreated={handleProjectCreated}
               trigger={
                 <Button 
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  className="bg-purple-600 hover:bg-purple-700 text-white"
                   onClick={() => setIsCreateDialogOpen(true)}
                 >
                   <Plus className="mr-2 h-4 w-4" />
