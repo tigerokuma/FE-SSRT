@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Plus, X, Github, Star, GitFork } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 
 interface CreateProjectDialogProps {
   trigger: React.ReactNode
@@ -52,6 +53,7 @@ export function CreateProjectDialog({ trigger, open, onOpenChange, onProjectCrea
   const [branches, setBranches] = useState<any[]>([])
   const [isLoadingBranches, setIsLoadingBranches] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const { toast } = useToast()
 
   // Fetch repositories when dialog opens
   useEffect(() => {
@@ -161,9 +163,20 @@ export function CreateProjectDialog({ trigger, open, onOpenChange, onProjectCrea
       
       // Notify parent component to refresh projects
       onProjectCreated?.()
+      
+      // Show success message
+      toast({
+        title: "Project Created!",
+        description: "Your project is now being set up in the background. You'll see it in your projects list with a 'Creating...' status.",
+        duration: 5000,
+      })
     } catch (error) {
       console.error("Error creating project:", error)
-      alert("Failed to create project. Please try again.")
+      toast({
+        title: "Error",
+        description: "Failed to create project. Please try again.",
+        variant: "destructive",
+      })
     } finally {
       setIsSubmitting(false)
     }

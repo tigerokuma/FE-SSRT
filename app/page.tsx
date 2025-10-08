@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -14,6 +14,8 @@ interface Project {
   name: string
   description?: string
   repository_url?: string
+  status: string
+  error_message?: string
   created_at: string
   updated_at: string
 }
@@ -26,6 +28,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [user, setUser] = useState<any>(null)
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
   // Check authentication status and fetch projects on component mount
   useEffect(() => {
@@ -61,6 +64,51 @@ export default function Home() {
     checkAuthAndFetchProjects()
   }, [])
 
+  // Polling logic for projects with "creating" status
+  useEffect(() => {
+    const hasCreatingProjects = projects.some(project => project.status === 'creating')
+    
+    if (hasCreatingProjects && !pollingIntervalRef.current) {
+      console.log('🔄 Starting polling for creating projects...')
+      // Start polling every 5 seconds
+      const interval = setInterval(async () => {
+        try {
+          console.log('🔄 Polling project status...')
+          const response = await fetch('http://localhost:3000/projects/user/user-123')
+          if (response.ok) {
+            const data = await response.json()
+            console.log('📊 Polling response:', data)
+            setProjects(data)
+            
+            // Check if all projects are ready (no more "creating" status)
+            const stillCreating = data.some((project: Project) => project.status === 'creating')
+            if (!stillCreating) {
+              console.log('✅ All projects ready, stopping polling')
+              clearInterval(interval)
+              pollingIntervalRef.current = null
+            }
+          }
+        } catch (err) {
+          console.error('Error polling project status:', err)
+        }
+      }, 5000)
+      
+      pollingIntervalRef.current = interval
+    } else if (!hasCreatingProjects && pollingIntervalRef.current) {
+      console.log('🛑 No creating projects, clearing polling')
+      // Clear polling if no creating projects
+      clearInterval(pollingIntervalRef.current)
+      pollingIntervalRef.current = null
+    }
+
+    // Cleanup on unmount
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current)
+      }
+    }
+  }, [projects])
+
   // Refresh projects when a new one is created
   const handleProjectCreated = () => {
     const fetchProjects = async () => {
@@ -82,8 +130,11 @@ export default function Home() {
     fetchProjects()
   }
 
-  const handleProjectClick = (projectId: string) => {
-    router.push(`/project/${projectId}`)
+  const handleProjectClick = (project: Project) => {
+    // Only allow clicking on ready projects
+    if (project.status === 'ready') {
+      router.push(`/project/${project.id}`)
+    }
   }
 
 
@@ -150,32 +201,73 @@ export default function Home() {
               </div>
             ) : (
               <div className="space-y-2">
-                {projects.map((project) => (
-                  <div 
-                    key={project.id}
-                    onClick={() => handleProjectClick(project.id)}
-                    className="py-3 px-4 rounded-lg hover:bg-gray-800/50 transition-colors cursor-pointer"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <span className="text-white font-medium text-lg">{project.name}</span>
-                        {project.description && (
-                          <div className="text-gray-400 text-sm mt-1">{project.description}</div>
-                        )}
-                        {project.repository_url && (
-                          <div className="text-blue-400 text-sm mt-1">
-                            <a href={project.repository_url} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                              {project.repository_url}
-                            </a>
+                {projects.map((project) => {
+                  const isCreating = project.status === 'creating'
+                  const isFailed = project.status === 'failed'
+                  const isReady = project.status === 'ready'
+                  
+                  return (
+                    <div 
+                      key={project.id}
+                      onClick={() => handleProjectClick(project)}
+                      className={`py-3 px-4 rounded-lg transition-colors ${
+                        isCreating 
+                          ? 'bg-gray-800/30 cursor-not-allowed opacity-75' 
+                          : isReady 
+                            ? 'hover:bg-gray-800/50 cursor-pointer' 
+                            : 'bg-red-900/20 cursor-not-allowed opacity-75'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-white font-medium text-lg">{project.name}</span>
+                            {isCreating && (
+                              <div className="flex items-center gap-2 text-blue-400 text-sm">
+                                <div className="animate-spin h-4 w-4 border-2 border-blue-400 border-t-transparent rounded-full"></div>
+                                <span>Creating...</span>
+                              </div>
+                            )}
+                            {isFailed && (
+                              <div className="flex items-center gap-2 text-red-400 text-sm">
+                                <AlertCircle className="h-4 w-4" />
+                                <span>Failed</span>
+                              </div>
+                            )}
+                            {isReady && (
+                              <div className="flex items-center gap-2 text-green-400 text-sm">
+                                <Shield className="h-4 w-4" />
+                                <span>Ready</span>
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
-                      <div className="text-gray-500 text-sm">
-                        {new Date(project.created_at).toLocaleDateString()}
+                          
+                          {project.description && (
+                            <div className="text-gray-400 text-sm mt-1">{project.description}</div>
+                          )}
+                          
+                          {project.repository_url && (
+                            <div className="text-blue-400 text-sm mt-1">
+                              <a href={project.repository_url} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                                {project.repository_url}
+                              </a>
+                            </div>
+                          )}
+                          
+                          {isFailed && project.error_message && (
+                            <div className="text-red-400 text-sm mt-1">
+                              Error: {project.error_message}
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="text-gray-500 text-sm">
+                          {new Date(project.created_at).toLocaleDateString()}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </CardContent>
