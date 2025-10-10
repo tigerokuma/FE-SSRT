@@ -30,11 +30,20 @@ interface GitHubBranch {
   protected: boolean
 }
 
+interface GitHubLicense {
+  name: string
+  key: string
+  spdx_id: string | null
+  url: string | null
+  detected: boolean
+  file_name?: string
+}
+
 export default function NewProjectPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [branches, setBranches] = useState<GitHubBranch[]>([])
-  const [selectedBranch, setSelectedBranch] = useState<string>('main')
+  const [selectedBranch, setSelectedBranch] = useState<string>('')
   const [projectName, setProjectName] = useState<string>('')
   const [selectedFramework, setSelectedFramework] = useState<string>('other')
   const [selectedLicense, setSelectedLicense] = useState<string>('MIT')
@@ -42,6 +51,15 @@ export default function NewProjectPage() {
   const [isCreating, setIsCreating] = useState<boolean>(false)
   const [repository, setRepository] = useState<GitHubRepository | null>(null)
   const [showLicense, setShowLicense] = useState<boolean>(false)
+  const [isLoadingBranches, setIsLoadingBranches] = useState<boolean>(false)
+  const [detectedLicense, setDetectedLicense] = useState<GitHubLicense | null>(null)
+  const [isLoadingLicense, setIsLoadingLicense] = useState<boolean>(false)
+  const [detectedLanguage, setDetectedLanguage] = useState<string | null>(null)
+  const [isLoadingLanguage, setIsLoadingLanguage] = useState<boolean>(false)
+  const [hasPackageJson, setHasPackageJson] = useState<boolean | null>(null)
+  const [isCheckingPackageJson, setIsCheckingPackageJson] = useState<boolean>(false)
+  const [packageCount, setPackageCount] = useState<number | null>(null)
+  const [isLoadingPackages, setIsLoadingPackages] = useState<boolean>(false)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -52,6 +70,9 @@ export default function NewProjectPage() {
         setRepository(repoData)
         setProjectName(repoData.name)
         fetchBranches(repoData.full_name)
+        fetchLicense(repoData.full_name)
+        fetchLanguage(repoData.full_name)
+        // Don't check package.json yet - wait for branch selection
       } catch (error) {
         console.error('Error parsing repository data:', error)
         router.push('/create-project')
@@ -61,15 +82,207 @@ export default function NewProjectPage() {
     }
   }, [searchParams, router])
 
+  // Handle framework selection when language and package.json data are available
+  useEffect(() => {
+    if (detectedLanguage && hasPackageJson !== null) {
+      if (detectedLanguage === 'JavaScript' || detectedLanguage === 'TypeScript') {
+        if (hasPackageJson) {
+          console.log('Setting framework to nodejs - package.json confirmed')
+          setSelectedFramework('nodejs')
+        } else {
+          console.log('Setting framework to other - no package.json')
+          setSelectedFramework('other')
+        }
+      }
+    }
+  }, [detectedLanguage, hasPackageJson])
+
+  // Trigger package.json detection when branch is selected
+  useEffect(() => {
+    if (repository && selectedBranch && selectedBranch !== '') {
+      console.log('Branch selected, checking package.json for:', repository.full_name, 'on branch:', selectedBranch)
+      checkPackageJson(repository.full_name)
+      fetchPackageCount(repository.full_name)
+    }
+  }, [selectedBranch, repository])
+
   const fetchBranches = async (repoFullName: string) => {
+    setIsLoadingBranches(true)
     try {
-      const response = await fetch(`http://localhost:3000/github/repositories/${repoFullName}/branches`)
+      console.log('Fetching branches for:', repoFullName)
+      const repositoryUrl = `https://github.com/${repoFullName}`
+      const response = await fetch(`http://localhost:3000/github/branches?repositoryUrl=${encodeURIComponent(repositoryUrl)}`)
+      console.log('Branches API response status:', response.status)
+      
       if (response.ok) {
         const branchesData = await response.json()
+        console.log('Branches data received:', branchesData)
         setBranches(branchesData)
+        // Set the first branch as default if available
+        if (branchesData.length > 0) {
+          setSelectedBranch(branchesData[0].name)
+        }
+      } else {
+        console.error('Failed to fetch branches:', response.status, response.statusText)
+        const errorText = await response.text()
+        console.error('Error response:', errorText)
+        // Fallback to default branches if API fails
+        setBranches([
+          { name: 'main', protected: false },
+          { name: 'master', protected: false },
+          { name: 'develop', protected: false }
+        ])
       }
     } catch (error) {
       console.error('Error fetching branches:', error)
+      // Fallback to default branches if API fails
+      setBranches([
+        { name: 'main', protected: false },
+        { name: 'master', protected: false },
+        { name: 'develop', protected: false }
+      ])
+    } finally {
+      setIsLoadingBranches(false)
+    }
+  }
+
+  const fetchLicense = async (repoFullName: string) => {
+    setIsLoadingLicense(true)
+    try {
+      console.log('Fetching license for:', repoFullName)
+      const repositoryUrl = `https://github.com/${repoFullName}`
+      const response = await fetch(`http://localhost:3000/github/license?repositoryUrl=${encodeURIComponent(repositoryUrl)}`)
+      console.log('License API response status:', response.status)
+      
+      if (response.ok) {
+        const licenseData = await response.json()
+        console.log('License data received:', licenseData)
+        setDetectedLicense(licenseData)
+        
+        // Auto-select the detected license if it's a standard one
+        if (licenseData.detected && licenseData.key !== 'custom' && licenseData.key !== 'none') {
+          setSelectedLicense(licenseData.key)
+          // Don't force showLicense to true - let user decide
+        } else if (!licenseData.detected || licenseData.key === 'none') {
+          // If no license detected, set to MIT as default
+          setSelectedLicense('MIT')
+        }
+      } else {
+        console.error('Failed to fetch license:', response.status, response.statusText)
+        const errorText = await response.text()
+        console.error('Error response:', errorText)
+      }
+    } catch (error) {
+      console.error('Error fetching license:', error)
+    } finally {
+      setIsLoadingLicense(false)
+    }
+  }
+
+  const fetchLanguage = async (repoFullName: string) => {
+    setIsLoadingLanguage(true)
+    try {
+      console.log('Fetching language for:', repoFullName)
+      const repositoryUrl = `https://github.com/${repoFullName}`
+      const response = await fetch(`http://localhost:3000/github/language?repositoryUrl=${encodeURIComponent(repositoryUrl)}`)
+      console.log('Language API response status:', response.status)
+      
+      if (response.ok) {
+        const languageData = await response.json()
+        console.log('Language data received:', languageData)
+        setDetectedLanguage(languageData.language)
+        
+        // Auto-select the detected language if it matches our frameworks
+        if (languageData.language) {
+          const languageMapping: { [key: string]: string } = {
+            'JavaScript': 'nodejs',
+            'TypeScript': 'nodejs',
+            'Python': 'python',
+            'Java': 'java',
+            'Rust': 'rust',
+            'Go': 'go',
+            'Ruby': 'ruby'
+          }
+          
+          const mappedFramework = languageMapping[languageData.language]
+          if (mappedFramework) {
+            // For Node.js, we'll validate with package.json check
+            if (mappedFramework === 'nodejs') {
+              // Don't set yet, wait for package.json check
+              console.log('JavaScript/TypeScript detected, waiting for package.json validation...')
+            } else {
+              console.log(`Setting framework to ${mappedFramework} - non-JS/TS language detected`)
+              setSelectedFramework(mappedFramework)
+            }
+          }
+        }
+      } else {
+        console.error('Failed to fetch language:', response.status, response.statusText)
+        const errorText = await response.text()
+        console.error('Error response:', errorText)
+      }
+    } catch (error) {
+      console.error('Error fetching language:', error)
+    } finally {
+      setIsLoadingLanguage(false)
+    }
+  }
+
+  const checkPackageJson = async (repoFullName: string) => {
+    setIsCheckingPackageJson(true)
+    try {
+      console.log('Checking for package.json in:', repoFullName, 'on branch:', selectedBranch)
+      const repositoryUrl = `https://github.com/${repoFullName}`
+      const response = await fetch(`http://localhost:3000/github/package-json?repositoryUrl=${encodeURIComponent(repositoryUrl)}&branch=${encodeURIComponent(selectedBranch)}`)
+      console.log('Package.json API response status:', response.status)
+      
+      if (response.ok) {
+        const packageJsonData = await response.json()
+        console.log('Package.json data received:', packageJsonData)
+        setHasPackageJson(packageJsonData.exists)
+        
+        // If we detected JavaScript/TypeScript and package.json exists, set to nodejs
+        if (packageJsonData.exists && detectedLanguage && (detectedLanguage === 'JavaScript' || detectedLanguage === 'TypeScript')) {
+          console.log('Setting framework to nodejs - package.json found')
+          setSelectedFramework('nodejs')
+        } else if (detectedLanguage && (detectedLanguage === 'JavaScript' || detectedLanguage === 'TypeScript') && !packageJsonData.exists) {
+          // If JS/TS detected but no package.json, set to other
+          console.log('Setting framework to other - no package.json found')
+          setSelectedFramework('other')
+        }
+      } else {
+        console.error('Failed to check package.json:', response.status, response.statusText)
+        setHasPackageJson(false)
+      }
+    } catch (error) {
+      console.error('Error checking package.json:', error)
+      setHasPackageJson(false)
+    } finally {
+      setIsCheckingPackageJson(false)
+    }
+  }
+
+  const fetchPackageCount = async (repoFullName: string) => {
+    setIsLoadingPackages(true)
+    try {
+      console.log('Fetching package count for:', repoFullName, 'on branch:', selectedBranch)
+      const repositoryUrl = `https://github.com/${repoFullName}`
+      const response = await fetch(`http://localhost:3000/github/package-count?repositoryUrl=${encodeURIComponent(repositoryUrl)}&branch=${encodeURIComponent(selectedBranch)}`)
+      console.log('Package count API response status:', response.status)
+      
+      if (response.ok) {
+        const packageData = await response.json()
+        console.log('Package count data received:', packageData)
+        setPackageCount(packageData.count)
+      } else {
+        console.error('Failed to fetch package count:', response.status, response.statusText)
+        setPackageCount(null)
+      }
+    } catch (error) {
+      console.error('Error fetching package count:', error)
+      setPackageCount(null)
+    } finally {
+      setIsLoadingPackages(false)
     }
   }
 
@@ -106,9 +319,9 @@ export default function NewProjectPage() {
           description: repository.description,
           repositoryUrl: repository.html_url,
           branch: selectedBranch,
-          framework: selectedFramework,
-          license: selectedLicense,
-          collaborationEnabled,
+          type: 'repo', // Repository type
+          language: selectedFramework, // Map framework to language
+          license: showLicense ? selectedLicense : null, // Pass license if toggle is on, null if off
           userId: 'user-123'
         })
       })
@@ -188,27 +401,34 @@ export default function NewProjectPage() {
                           <div className="text-sm text-gray-400">{repository.full_name}</div>
                         </div>
                       </div>
-                      <Select value={selectedBranch} onValueChange={setSelectedBranch}>
-                        <SelectTrigger className="border-gray-700 text-white" style={{ backgroundColor: 'rgb(26, 26, 26)' }}>
-                          <SelectValue placeholder="Select branch" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {branches.length > 0 ? (
-                            branches.map((branch) => (
-                              <SelectItem key={branch.name} value={branch.name}>
-                                {branch.name}
-                              </SelectItem>
-                            ))
-                          ) : (
-                            <>
-                              <SelectItem value="main">main</SelectItem>
-                              <SelectItem value="develop">develop</SelectItem>
-                              <SelectItem value="master">master</SelectItem>
-                              <SelectItem value="staging">staging</SelectItem>
-                            </>
-                          )}
-                        </SelectContent>
-                      </Select>
+                      {isLoadingBranches ? (
+                        <div className="flex items-center gap-2 p-3 rounded-md border border-gray-700" style={{ backgroundColor: 'rgb(26, 26, 26)' }}>
+                          <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-400 border-t-transparent"></div>
+                          <span className="text-gray-400 text-sm">Loading branches...</span>
+                        </div>
+                      ) : (
+                        <Select value={selectedBranch} onValueChange={setSelectedBranch}>
+                          <SelectTrigger className="border-gray-700 text-white" style={{ backgroundColor: 'rgb(26, 26, 26)' }}>
+                            <SelectValue placeholder="Select branch" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {branches.length > 0 ? (
+                              branches.map((branch) => (
+                                <SelectItem key={branch.name} value={branch.name}>
+                                  {branch.name}
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <>
+                                <SelectItem value="main">main</SelectItem>
+                                <SelectItem value="develop">develop</SelectItem>
+                                <SelectItem value="master">master</SelectItem>
+                                <SelectItem value="staging">staging</SelectItem>
+                              </>
+                            )}
+                          </SelectContent>
+                        </Select>
+                      )}
                     </div>
                   </div>
 
@@ -216,33 +436,77 @@ export default function NewProjectPage() {
                   {/* License Selection */}
                   <div>
                     <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-semibold text-white">License</h3>
+                      <div>
+                        <h3 className="text-lg font-semibold text-white">License</h3>
+                        {isLoadingLicense ? (
+                          <div className="text-sm text-gray-400 mt-1 flex items-center gap-2">
+                            <div className="animate-spin rounded-full h-3 w-3 border-2 border-gray-400 border-t-transparent"></div>
+                            Detecting license...
+                          </div>
+                        ) : detectedLicense ? (
+                          <div className="text-sm text-gray-400 mt-1">
+                            {detectedLicense.detected ? (
+                              <span className="text-green-400">
+                                ✓ Detected: {detectedLicense.name}
+                                {detectedLicense.file_name && ` (${detectedLicense.file_name})`}
+                              </span>
+                            ) : (
+                              <span className="text-yellow-400">
+                                ⚠ None detected
+                              </span>
+                            )}
+                          </div>
+                        ) : null}
+                      </div>
                       <Switch
                         checked={showLicense}
                         onCheckedChange={setShowLicense}
+                        className="data-[state=checked]:bg-[rgb(84,0,250)]"
                       />
                     </div>
-                    {showLicense && (
-                      <Select value={selectedLicense} onValueChange={setSelectedLicense}>
-                        <SelectTrigger className="border-gray-700 text-white" style={{ backgroundColor: 'rgb(26, 26, 26)' }}>
-                          <SelectValue placeholder="Select license" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {licenses.map((license) => (
-                            <SelectItem key={license.value} value={license.value}>
-                              {license.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                    {showLicense && !detectedLicense?.detected && (
+                      <div className="relative">
+                        {isLoadingLicense ? (
+                          <div className="flex items-center gap-2 p-3 rounded-md border border-gray-700" style={{ backgroundColor: 'rgb(26, 26, 26)' }}>
+                            <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-400 border-t-transparent"></div>
+                            <span className="text-gray-400 text-sm">Loading license...</span>
+                          </div>
+                        ) : (
+                          <Select 
+                            value={selectedLicense} 
+                            onValueChange={setSelectedLicense}
+                          >
+                            <SelectTrigger 
+                              className="border-gray-700 text-white" 
+                              style={{ backgroundColor: 'rgb(26, 26, 26)' }}
+                            >
+                              <SelectValue placeholder="Select license" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {licenses.map((license) => (
+                                <SelectItem key={license.value} value={license.value}>
+                                  {license.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </div>
                     )}
                   </div>
                   {/* Framework Selection */}
                   <div>
-                    <h3 className="text-lg font-semibold text-white mb-4">Framework</h3>
-                    <Select value={selectedFramework} onValueChange={setSelectedFramework}>
+                    <div className="mb-4">
+                      <h3 className="text-lg font-semibold text-white">Language</h3>
+                    </div>
+                    <Select value={selectedFramework} onValueChange={setSelectedFramework} disabled={isLoadingLanguage || isCheckingPackageJson}>
                       <SelectTrigger className="border-gray-700 text-white" style={{ backgroundColor: 'rgb(26, 26, 26)' }}>
-                        <SelectValue placeholder="Select framework" />
+                        <div className="flex items-center gap-2">
+                          {(isLoadingLanguage || isCheckingPackageJson) && (
+                            <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-400 border-t-transparent"></div>
+                          )}
+                          <SelectValue placeholder={isLoadingLanguage ? "Detecting language..." : isCheckingPackageJson ? "Validating..." : "Select framework"} />
+                        </div>
                       </SelectTrigger>
                       <SelectContent>
                         {frameworks.map((framework) => (
@@ -270,8 +534,16 @@ export default function NewProjectPage() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="text-2xl font-bold text-white">47</div>
-                        <div className="text-sm text-gray-400">packages currently detected</div>
+                        {isLoadingPackages ? (
+                          <div className="flex items-center gap-2">
+                            <div className="animate-spin rounded-full h-6 w-6 border-2 border-gray-400 border-t-transparent"></div>
+                            <span className="text-gray-400 text-sm">Loading...</span>
+                          </div>
+                        ) : (
+                          <div className="text-2xl font-bold text-white">
+                            {packageCount !== null ? packageCount : "-"}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

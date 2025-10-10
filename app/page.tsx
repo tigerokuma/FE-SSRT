@@ -20,6 +20,9 @@ interface Project {
   error_message?: string
   created_at: string
   updated_at: string
+  type?: 'repo' | 'file' | 'cli'
+  language?: string
+  license?: string
 }
 
 export default function Home() {
@@ -68,92 +71,123 @@ export default function Home() {
     }
   }
 
-  // Function to detect project type and get appropriate icon
+  // Function to format relative time
+  const formatRelativeTime = (dateString: string) => {
+    const now = new Date()
+    const date = new Date(dateString)
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000)
+    
+    if (diffInSeconds < 60) {
+      return 'just now'
+    } else if (diffInSeconds < 3600) {
+      const minutes = Math.floor(diffInSeconds / 60)
+      return `${minutes} minute${minutes > 1 ? 's' : ''} ago`
+    } else if (diffInSeconds < 86400) {
+      const hours = Math.floor(diffInSeconds / 3600)
+      return `${hours} hour${hours > 1 ? 's' : ''} ago`
+    } else if (diffInSeconds < 2592000) {
+      const days = Math.floor(diffInSeconds / 86400)
+      return `${days} day${days > 1 ? 's' : ''} ago`
+    } else if (diffInSeconds < 31536000) {
+      const months = Math.floor(diffInSeconds / 2592000)
+      return `${months} month${months > 1 ? 's' : ''} ago`
+    } else {
+      const years = Math.floor(diffInSeconds / 31536000)
+      return `${years} year${years > 1 ? 's' : ''} ago`
+    }
+  }
+
+  // Function to generate random commit hash
+  const generateCommitHash = () => {
+    const chars = '0123456789abcdef'
+    let result = ''
+    for (let i = 0; i < 7; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length))
+    }
+    return result
+  }
+
+  // Function to get project icon based on language
   const getProjectIcon = (project: Project) => {
-    const name = project.name.toLowerCase()
-    const description = project.description?.toLowerCase() || ''
+    const language = project.language?.toLowerCase()
     
-    // React projects
-    if (name.includes('react') || description.includes('react') || name.includes('jsx') || description.includes('jsx')) {
-      return <img src="/React_logo.png" alt="React" className="h-5 w-5 bg-transparent" />
-    }
-    
-    // Vue projects
-    if (name.includes('vue') || description.includes('vue') || name.includes('nuxt') || description.includes('nuxt')) {
-      return <img src="/Vue_logo.png" alt="Vue" className="h-5 w-5 bg-transparent" />
-    }
-    
-    // Node.js projects
-    if (name.includes('node') || name.includes('express') || name.includes('npm') || name.includes('next') ||
-        description.includes('node') || description.includes('express') || description.includes('next')) {
+    // React/JavaScript projects
+    if (language === 'javascript' || language === 'typescript' || language === 'react' || language === 'nodejs') {
       return <img src="/Node_logo.png" alt="Node.js" className="h-5 w-5 bg-transparent" />
     }
     
+    // Vue projects
+    if (language === 'vue') {
+      return <img src="/Vue_logo.png" alt="Vue" className="h-5 w-5 bg-transparent" />
+    }
+    
     // Python projects
-    if (name.includes('python') || name.includes('django') || name.includes('flask') || name.includes('fastapi') ||
-        description.includes('python') || description.includes('django') || description.includes('flask')) {
+    if (language === 'python') {
       return <img src="/Python_logo.png" alt="Python" className="h-5 w-5 bg-transparent" />
     }
     
     // Go projects
-    if (name.includes('go') || name.includes('golang') || name.includes('gin') || 
-        description.includes('go') || description.includes('golang')) {
+    if (language === 'go') {
       return <img src="/Go_logo.png" alt="Go" className="h-5 w-5 bg-transparent" />
     }
     
-    // Web projects (fallback) - only for specific web frameworks
-    if ((name.includes('angular') || name.includes('svelte') || name.includes('ember')) && 
-        !name.includes('react') && !name.includes('vue') && !name.includes('node')) {
-      return <Globe className="h-5 w-5 text-white" />
+    // Java projects
+    if (language === 'java') {
+      return <img src="/Java_logo.png" alt="Java" className="h-5 w-5 bg-transparent" />
     }
     
-    // Database projects
-    if (name.includes('db') || name.includes('database') || name.includes('sql') || 
-        name.includes('postgres') || name.includes('mysql') || description.includes('database')) {
-      return <Database className="h-5 w-5 text-white" />
+    // Rust projects
+    if (language === 'rust') {
+      return <img src="/Rust_logo.png" alt="Rust" className="h-5 w-5 bg-transparent" />
     }
     
-    // CLI/Terminal projects
-    if (name.includes('cli') || name.includes('terminal') || name.includes('cmd') || 
-        name.includes('script') || description.includes('command line')) {
-      return <Terminal className="h-5 w-5 text-white" />
+    // Ruby projects
+    if (language === 'ruby') {
+      return <img src="/Ruby_logo.png" alt="Ruby" className="h-5 w-5 bg-transparent" />
     }
     
-    // Default to Deply logo for all other projects
+    // Default to Deply logo for unknown languages
     return <img src="/Deply_Logo.png" alt="Deply" className="h-5 w-5 bg-transparent" />
   }
 
   // Function to get project status message
   const getProjectStatus = (project: Project) => {
-    const name = project.name.toLowerCase()
-    const description = project.description?.toLowerCase() || ''
-    const hasGithubRepo = project.repository_url && project.repository_url.includes('github.com')
+    const projectType = project.type
+    const relativeTime = formatRelativeTime(project.updated_at)
     
-    // GitHub projects
-    if (hasGithubRepo) {
-      const branchName = project.repository_url.split('/').pop() || 'main'
+    // File upload projects
+    if (projectType === 'file') {
       return {
-        text: `Tracking ${branchName}`,
+        text: `Last synced ${relativeTime}`,
+        icon: <FileText className="h-3 w-3" />,
+        timeText: `Last synced ${relativeTime}`
+      }
+    }
+    
+    // Repository projects
+    if (projectType === 'repo') {
+      const commitHash = generateCommitHash()
+      return {
+        text: `Updated ${relativeTime} for commit ${commitHash}`,
         icon: <Github className="h-3 w-3" />,
-        timeText: "Last synced 3 days ago"
+        timeText: `Updated ${relativeTime} for commit ${commitHash}`
       }
     }
     
     // CLI projects
-    if (name.includes('cli') || name.includes('terminal') || name.includes('cmd') || 
-        name.includes('script') || description.includes('command line')) {
+    if (projectType === 'cli') {
       return {
-        text: "Updated 2 hours ago via CLI",
+        text: `Updated ${relativeTime} via CLI`,
         icon: <Terminal className="h-3 w-3" />,
-        timeText: "Updated 2 hours ago via CLI"
+        timeText: `Updated ${relativeTime} via CLI`
       }
     }
     
-    // Default projects
+    // Fallback for projects without type (legacy)
     return {
-      text: "Synced 5 days ago",
+      text: `Synced ${relativeTime}`,
       icon: <Clock className="h-3 w-3" />,
-      timeText: "Synced 5 days ago"
+      timeText: `Synced ${relativeTime}`
     }
   }
 
@@ -982,12 +1016,6 @@ export default function Home() {
                           <div className="flex items-center gap-1 text-red-400 text-xs">
                             <AlertCircle className="h-3 w-3" />
                                 <span>Failed</span>
-                              </div>
-                            )}
-                            {isReady && (
-                          <div className="flex items-center gap-1 text-green-400 text-xs">
-                            <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                            <span>Active</span>
                               </div>
                             )}
                       </div>

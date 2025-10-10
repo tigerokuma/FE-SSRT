@@ -13,6 +13,7 @@ export const colors = {
   
   // Background colors
   background: {
+    main: 'rgb(12, 12, 12)', // Main page background
     card: 'rgb(18, 18, 18)', // Card and sidebar background
   },
   
