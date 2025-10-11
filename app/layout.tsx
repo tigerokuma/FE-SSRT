@@ -24,10 +24,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
+      <body className={`${inter.className} scrollbar-hide`}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <SidebarProvider defaultOpen={true}>
-            <div className="flex min-w-[calc(80vw)] mx-auto">
+            <div className="flex min-w-[calc(80vw)]" style={{ width: '100%' }}>
               <AppSidebar />
               <MainContent>{children}</MainContent>
             </div>

@@ -288,7 +288,7 @@ export default function Home() {
 
   return (
     <div>
-      <div className="container mx-auto px-6 py-8 max-w-7xl">
+      <div className="container mx-auto px-6 py-8 max-w-7xl" style={{ marginLeft: 'auto', marginRight: 'auto' }}>
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4 flex-1">
