@@ -49,8 +49,8 @@ import { getRecentCommits, generateCommitSummary } from "@/lib/watchlist/api"
 import { Slider } from "@/components/ui/slider"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
-import {GraphPreview} from "@/app/graph-export/GraphPreview";
-import Spinner from "@/app/graph-export/loading";
+import {GraphPreview} from "@/app/(app)/graph-export/GraphPreview";
+import Spinner from "@/app/(app)/graph-export/loading";
 import JiraLogo from "@/public/jira.svg"
 import { checkJiraLink, createJiraIssue } from "@/lib/alerts/jiraAlerts"
 
@@ -558,7 +558,7 @@ export default function PackageDetailsPage() {
                 reason: "binaries present in source code",
                 details: [
                   "Warn: binary detected: apps/bare-expo/android/gradle/wrapper/gradle-wrapper.jar:1",
-                  "Warn: binary detected: apps/expo-go/android/app/src/main/assets/kernel.android.bundle:1",
+                  "Warn: binary detected: apps/expo-go/android/(dashboard)/src/main/assets/kernel.android.bundle:1",
                   "Warn: binary detected: apps/expo-go/android/gradle/wrapper/gradle-wrapper.jar:1"
                 ],
                 documentation: {
