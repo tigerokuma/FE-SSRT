@@ -49,8 +49,8 @@ import { getRecentCommits, generateCommitSummary } from "@/lib/watchlist/api"
 import { Slider } from "@/components/ui/slider"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
-import {GraphPreview} from "@/app/graph-export/GraphPreview";
-import Spinner from "@/app/graph-export/loading";
+import {GraphPreview} from "@/app/(app)/graph-export/GraphPreview";
+import Spinner from "@/app/(app)/graph-export/loading";
 import JiraLogo from "@/public/jira.svg"
 import { checkJiraLink, createJiraIssue } from "@/lib/alerts/jiraAlerts"
 

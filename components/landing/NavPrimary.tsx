@@ -35,7 +35,7 @@ export default function NavPrimary() {
           {/* goes to your auth, not the dashboard */}
           <Button variant="ghost" as="a" href="/sign-in">Sign in</Button>
           {/* after sign-in you can redirect to /watchlist */}
-          <Button as="a" href="/sign-in?redirect=%2Fwatchlist">Start free</Button>
+          <Button as="a" href="/sign-in?redirect=%2Fproject">Start free</Button>
         </div>
       </div>
     </nav>

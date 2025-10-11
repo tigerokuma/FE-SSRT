@@ -15,7 +15,7 @@ export default function Hero() {
             warnings from your OSS supply chain
           </p>
           <div className="flex gap-2">
-            <Button as="a" href="/sign-in?redirect=%2Fwatchlist">Start free</Button>
+            <Button as="a" href="/sign-in?redirect=%2Fproject">Start free</Button>
             <Button variant="secondary" as="a" href="#docs">Explore docs</Button>
           </div>
         </div>
