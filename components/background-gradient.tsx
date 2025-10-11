@@ -8,7 +8,7 @@ export function BackgroundGradient() {
       {/* Main central gradient */}
       <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 -z-10 transform-gpu">
         <div
-          className="h-[500px] w-[500px] rounded-full bg-gradient-to-r from-indigo-600 via-blue-700 to-blue-400 opacity-25 blur-[140px]"
+          className="h-[500px] w-[500px] rounded-full bg-gradient-to-r from-purple-600 via-violet-700 to-indigo-600 opacity-25 blur-[140px]"
         />
       </div>
 

@@ -27,8 +27,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           <SidebarProvider defaultOpen={true}>
-            <BackgroundGradient />
-            <div className="flex min-h-screen max-w-[2000px] mx-auto">
+            <div className="flex min-w-[calc(80vw)] mx-auto">
               <AppSidebar />
               <MainContent>{children}</MainContent>
             </div>
