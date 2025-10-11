@@ -324,6 +324,7 @@ export const addRepositoryToWatchlist = async (
   config: {
     repo_url: string
     added_by: string
+    project_id?: string
     alerts: {
       ai_powered_anomaly_detection: {
         enabled: boolean
@@ -356,6 +357,32 @@ export const addRepositoryToWatchlist = async (
   try {
     console.log('Adding repository to watchlist with config:', config)
     
+    // If project_id is provided, use the new project watchlist endpoint
+    if (config.project_id) {
+      const response = await fetch(`${API_BASE_URL}/projects/${config.project_id}/watchlist`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: config.added_by,
+          repoUrl: config.repo_url,
+          name: config.repo_url.split('/').pop() || 'Unknown',
+        }),
+      })
+      
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`Failed to add repository: ${response.statusText} - ${errorText}`)
+      }
+      
+      const data = await response.json()
+      console.log('Repository added to project watchlist successfully:', data)
+      
+      return data
+    }
+    
+    // Fallback to original activity endpoint
     const response = await fetch(`${API_BASE_URL}/activity/user-watchlist-added`, {
       method: 'POST',
       headers: {

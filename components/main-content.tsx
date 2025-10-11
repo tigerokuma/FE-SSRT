@@ -31,7 +31,7 @@ export function MainContent({
           "flex-1 min-h-0 transition-all duration-300",
           "flex flex-col",
           isCollapsed ? "md:pl-14" : "md:pl-4",
-          "px-4 py-6 sm:px-6 lg:px-8",
+          "px-4 sm:px-6 lg:px-8",
           "relative w-full",
           className
         )}

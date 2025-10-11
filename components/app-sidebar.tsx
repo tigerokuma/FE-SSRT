@@ -3,6 +3,7 @@
 import { AlertTriangle, BarChart3, Box, GitBranch, Home, Package, Settings, Users } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { colors } from "@/lib/design-system"
 
 import {
   Sidebar,
@@ -64,7 +65,7 @@ export function AppSidebar() {
   ]
 
   return (
-    <Sidebar variant="sidebar" collapsible="icon">
+    <Sidebar variant="sidebar" collapsible="icon" style={{ backgroundColor: colors.background.card }}>
       <SidebarRail />
       <SidebarHeader className="relative">
         <div className={cn(
@@ -73,9 +74,9 @@ export function AppSidebar() {
         )}>
           {(!isCollapsed || isMobile) && (
             <>
-              <Box className="h-6 w-6" />
+              <img src="/Deply_Logo.png" alt="Deply" className="h-6 w-6" />
               <div className="font-semibold">
-                OSS Tracker
+                Deply
               </div>
             </>
           )}
@@ -83,7 +84,7 @@ export function AppSidebar() {
             <SidebarTrigger className={cn(
               isCollapsed ? "w-full flex justify-center" : "ml-auto"
             )}>
-              <Box className={cn(
+              <img src="/Deply_Logo.png" alt="Deply" className={cn(
                 "h-6 w-6",
                 !isCollapsed && "hidden"
               )} />
