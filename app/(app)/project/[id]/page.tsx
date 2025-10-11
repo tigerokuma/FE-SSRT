@@ -27,6 +27,7 @@ interface ProjectDependency {
   risk: number
   tags: string[]
   last_updated: string
+  created_at: string
 }
 
 interface WatchlistDependency {
@@ -260,7 +261,7 @@ export default function ProjectDetailPage() {
       })
       
       // Redirect to home page
-      router.push('/')
+      router.push('/project')
       
     } catch (err) {
       console.error('Error deleting project:', err)
@@ -294,7 +295,7 @@ export default function ProjectDetailPage() {
           <div className="text-center py-8">
             <div className="text-red-400 mb-4">{error || 'Project not found'}</div>
             <Button 
-              onClick={() => router.push('/')}
+              onClick={() => router.push('/project')}
               className="bg-blue-600 hover:bg-blue-700 text-white"
             >
               <ArrowLeft className="mr-2 h-4 w-4" />
@@ -312,7 +313,7 @@ export default function ProjectDetailPage() {
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
           <Button 
-            onClick={() => router.push('/')}
+            onClick={() => router.push('/project')}
             variant="outline"
             className="border-gray-600 text-gray-300 hover:bg-gray-800"
           >

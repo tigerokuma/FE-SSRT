@@ -10,7 +10,11 @@ body {
   .text-balance {
     text-wrap: balance;
   }
-  
+
+  .text-brand {
+    @apply bg-clip-text text-transparent bg-gradient-to-br
+      from-[#D7D0FF] via-[#7A5CFF] to-[#3A1BEB];
+  }
   /* Line clamp utilities for text truncation */
   .line-clamp-1 {
     overflow: hidden;

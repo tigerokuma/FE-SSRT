@@ -43,11 +43,11 @@ export default function Home() {
   const fetchProjects = async () => {
     try {
       const response = await AuthService.fetchWithAuth('http://localhost:3000/projects/user/user-123')
-      
+
       if (!response.ok) {
         throw new Error('Failed to fetch projects')
       }
-      
+
       const data = await response.json()
       setProjects(data)
       return data
@@ -76,7 +76,7 @@ export default function Home() {
     const now = new Date()
     const date = new Date(dateString)
     const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000)
-    
+
     if (diffInSeconds < 60) {
       return 'just now'
     } else if (diffInSeconds < 3600) {
@@ -110,42 +110,42 @@ export default function Home() {
   // Function to get project icon based on language
   const getProjectIcon = (project: Project) => {
     const language = project.language?.toLowerCase()
-    
+
     // React/JavaScript projects
     if (language === 'javascript' || language === 'typescript' || language === 'react' || language === 'nodejs') {
       return <img src="/Node_logo.png" alt="Node.js" className="h-5 w-5 bg-transparent" />
     }
-    
+
     // Vue projects
     if (language === 'vue') {
       return <img src="/Vue_logo.png" alt="Vue" className="h-5 w-5 bg-transparent" />
     }
-    
+
     // Python projects
     if (language === 'python') {
       return <img src="/Python_logo.png" alt="Python" className="h-5 w-5 bg-transparent" />
     }
-    
+
     // Go projects
     if (language === 'go') {
       return <img src="/Go_logo.png" alt="Go" className="h-5 w-5 bg-transparent" />
     }
-    
+
     // Java projects
     if (language === 'java') {
       return <img src="/Java_logo.png" alt="Java" className="h-5 w-5 bg-transparent" />
     }
-    
+
     // Rust projects
     if (language === 'rust') {
       return <img src="/Rust_logo.png" alt="Rust" className="h-5 w-5 bg-transparent" />
     }
-    
+
     // Ruby projects
     if (language === 'ruby') {
       return <img src="/Ruby_logo.png" alt="Ruby" className="h-5 w-5 bg-transparent" />
     }
-    
+
     // Default to Deply logo for unknown languages
     return <img src="/Deply_Logo.png" alt="Deply" className="h-5 w-5 bg-transparent" />
   }
@@ -154,7 +154,7 @@ export default function Home() {
   const getProjectStatus = (project: Project) => {
     const projectType = project.type
     const relativeTime = formatRelativeTime(project.updated_at)
-    
+
     // File upload projects
     if (projectType === 'file') {
       return {
@@ -163,7 +163,7 @@ export default function Home() {
         timeText: `Last synced ${relativeTime}`
       }
     }
-    
+
     // Repository projects
     if (projectType === 'repo') {
       const commitHash = generateCommitHash()
@@ -173,7 +173,7 @@ export default function Home() {
         timeText: `Updated ${relativeTime} for commit ${commitHash}`
       }
     }
-    
+
     // CLI projects
     if (projectType === 'cli') {
       return {
@@ -182,7 +182,7 @@ export default function Home() {
         timeText: `Updated ${relativeTime} via CLI`
       }
     }
-    
+
     // Fallback for projects without type (legacy)
     return {
       text: `Synced ${relativeTime}`,
@@ -196,15 +196,15 @@ export default function Home() {
     const checkAuthAndFetchProjects = async () => {
       try {
         setLoading(true)
-        
+
         // Simple: just set authenticated state for testing
         setIsAuthenticated(true)
-        setUser({ 
+        setUser({
           name: 'Test User',
           github_username: 'test-user',
           email: 'test@example.com'
         })
-        
+
         // Fetch projects
         await fetchProjects()
       } catch (err) {
@@ -223,15 +223,15 @@ export default function Home() {
     const hasCreatingProjects = projects.some(project => project.status === 'creating')
     console.log('🔍 POLLING CHECK - Has creating projects:', hasCreatingProjects)
     console.log('🔍 POLLING CHECK - Current interval:', pollingIntervalRef.current)
-    
+
     if (hasCreatingProjects) {
       console.log('🔄 STARTING POLLING NOW!')
-      
+
       // Clear any existing interval
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current)
       }
-      
+
       // Start new polling every 2 seconds
       const interval = setInterval(async () => {
         console.log('🔄 POLLING NOW - Making network request...')
@@ -240,7 +240,7 @@ export default function Home() {
             const data = await response.json()
           console.log('📊 POLLING RESPONSE:', data)
             setProjects(data)
-            
+
           // Check if still creating
             const stillCreating = data.some((project: Project) => project.status === 'creating')
             if (!stillCreating) {
@@ -252,7 +252,7 @@ export default function Home() {
           console.error('❌ POLLING ERROR:', err)
         }
       }, 2000)
-      
+
       pollingIntervalRef.current = interval
     } else if (pollingIntervalRef.current) {
       console.log('🛑 STOPPING POLLING - No creating projects')
@@ -294,21 +294,21 @@ export default function Home() {
           <div className="flex items-center gap-4 flex-1">
             <div className="relative flex-1" style={{ marginRight: '20px' }}>
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <Input 
-                placeholder="Search projects..." 
+              <Input
+                placeholder="Search projects..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10 text-white placeholder-gray-400 focus:border-indigo-500"
                 style={{ backgroundColor: colors.background.card }}
               />
             </div>
-            
+
             </div>
-            
+
           <div className="flex gap-3">
             <WatchlistSearchDialog
               trigger={
-                <Button 
+                <Button
                   variant="outline"
                   className="text-white border-gray-600 hover:bg-gray-800"
                 >
@@ -317,7 +317,7 @@ export default function Home() {
                 </Button>
               }
             />
-            <Button 
+            <Button
               className="text-white"
               style={{ backgroundColor: colors.primary }}
               onClick={() => router.push('/create-project')}
@@ -347,7 +347,7 @@ export default function Home() {
                     {isPlanUsageExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                   </Button>
                 </div>
-                
+
                 {!isPlanUsageExpanded && (
                   <div className="hidden xl:flex items-center gap-4">
                     <div className="flex items-center gap-2">
@@ -440,12 +440,12 @@ export default function Home() {
                     </div>
                   </div>
                 )}
-                
+
                 <Button size="sm" className="text-white" style={{ backgroundColor: colors.primary, marginLeft: '10px' }}>
                   Upgrade
                 </Button>
               </div>
-              
+
               {!isPlanUsageExpanded && (
                 <div className="xl:hidden mt-4">
                   {/* Wide mobile/tablet: single row */}
@@ -539,7 +539,7 @@ export default function Home() {
                       <span className="text-sm text-gray-400">Project Syncs</span>
                     </div>
                   </div>
-                  
+
                   {/* Very narrow mobile: 2 rows of 2 */}
                   <div className="sm:hidden space-y-3">
                     <div className="flex items-center gap-4">
@@ -637,7 +637,7 @@ export default function Home() {
                   </div>
                 </div>
               )}
-              
+
               {isPlanUsageExpanded ? (
                 <div className="space-y-3" style={{ marginTop: '10px' }}>
                   <div className="flex items-center justify-between">
@@ -758,9 +758,9 @@ export default function Home() {
                   <div className="w-12 h-4 bg-gray-600 rounded animate-pulse"></div>
                 </div>
               </div>
-              
+
               <div className="h-6 bg-gray-600 rounded mb-3 w-3/4 animate-pulse"></div>
-              
+
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -769,7 +769,7 @@ export default function Home() {
                   </div>
                   <div className="w-8 h-4 bg-gray-600 rounded animate-pulse"></div>
                 </div>
-                
+
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 bg-gray-600 rounded animate-pulse"></div>
@@ -792,9 +792,9 @@ export default function Home() {
                   <div className="w-12 h-4 bg-gray-600 rounded animate-pulse"></div>
                 </div>
               </div>
-              
+
               <div className="h-6 bg-gray-600 rounded mb-3 w-2/3 animate-pulse"></div>
-              
+
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -803,7 +803,7 @@ export default function Home() {
                   </div>
                   <div className="w-8 h-4 bg-gray-600 rounded animate-pulse"></div>
                 </div>
-                
+
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 bg-gray-600 rounded animate-pulse"></div>
@@ -826,9 +826,9 @@ export default function Home() {
                   <div className="w-12 h-4 bg-gray-600 rounded animate-pulse"></div>
                 </div>
               </div>
-              
+
               <div className="h-6 bg-gray-600 rounded mb-3 w-4/5 animate-pulse"></div>
-              
+
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -837,7 +837,7 @@ export default function Home() {
                   </div>
                   <div className="w-8 h-4 bg-gray-600 rounded animate-pulse"></div>
                 </div>
-                
+
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 bg-gray-600 rounded animate-pulse"></div>
@@ -860,9 +860,9 @@ export default function Home() {
                   <div className="w-12 h-4 bg-gray-600 rounded animate-pulse"></div>
                 </div>
               </div>
-              
+
               <div className="h-6 bg-gray-600 rounded mb-3 w-1/2 animate-pulse"></div>
-              
+
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -871,7 +871,7 @@ export default function Home() {
                   </div>
                   <div className="w-8 h-4 bg-gray-600 rounded animate-pulse"></div>
                 </div>
-                
+
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 bg-gray-600 rounded animate-pulse"></div>
@@ -889,7 +889,7 @@ export default function Home() {
             ) : error ? (
           <div className="text-center py-12">
             <div className="text-red-400 mb-4">{error}</div>
-                <Button 
+                <Button
                   onClick={() => {
                     setError(null)
                     setLoading(true)
@@ -931,7 +931,7 @@ export default function Home() {
                   <h3 className="text-lg font-semibold text-white mb-2">Use the CLI</h3>
                   <div className="bg-gray-900 rounded-lg p-3 mb-2 relative group" style={{ padding: '0.2rem', backgroundColor: 'rgb(26 26 26)' }}>
                     <code className="text-gray-300 text-sm">npm i -g deply-cli</code>
-                    <button 
+                    <button
                       onClick={() => handleCopy('npm i -g deply-cli', 'npm-install')}
                       className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
                     >
@@ -948,7 +948,7 @@ export default function Home() {
                   </div>
                   <div className="bg-gray-900 rounded-lg p-3 relative group" style={{ padding: '0.2rem', backgroundColor: 'rgb(26 26 26)' }}>
                     <code className="text-gray-300 text-sm">deply init</code>
-                    <button 
+                    <button
                       onClick={() => handleCopy('deply init', 'deply-init')}
                       className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
                     >
@@ -968,7 +968,7 @@ export default function Home() {
             </div>
 
             <div className="text-center">
-              <Button 
+              <Button
                 className="text-white"
                 style={{ backgroundColor: colors.primary }}
                 onClick={() => router.push('/create-project')}
@@ -984,15 +984,15 @@ export default function Home() {
                   const isCreating = project.status === 'creating'
                   const isFailed = project.status === 'failed'
                   const isReady = project.status === 'ready'
-              
+
               // Mock data for demonstration
               const securityScore = Math.floor(Math.random() * 40) + 60 // 60-100
               const activeAlerts = Math.floor(Math.random() * 5) // 0-4
               const lastUpdate = new Date(project.updated_at)
               const branchName = 'main'
-                  
+
                   return (
-                <Card 
+                <Card
                       key={project.id}
                   className={`transition-all cursor-pointer ${
                     isCreating ? 'opacity-75 cursor-not-allowed' : ''
@@ -1020,16 +1020,16 @@ export default function Home() {
                             )}
                       </div>
                           </div>
-                          
+
                     <h3 className="text-lg font-semibold text-white mb-2">{project.name}</h3>
-                          
+
                           {project.repository_url && project.repository_url.includes('github.com') && (
                             <div className="flex items-center gap-2 text-gray-400 text-sm mb-3">
                               <Github className="h-4 w-4" />
                               <span className="truncate">{project.repository_url.split('/').slice(-2).join('/')}</span>
                             </div>
                           )}
-                          
+
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
@@ -1064,7 +1064,7 @@ export default function Home() {
                           {securityScore}
                         </span>
                         </div>
-                        
+
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 text-gray-400 text-xs">
                           {(() => {

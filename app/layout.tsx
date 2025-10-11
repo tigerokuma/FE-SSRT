@@ -1,40 +1,40 @@
-import type React from "react"
-import type { Metadata } from "next"
-import { Inter } from "next/font/google"
-import "./globals.css"
-import { ThemeProvider } from "@/components/theme-provider"
-import { AppSidebar } from "@/components/app-sidebar"
-import { SidebarProvider } from "@/components/ui/sidebar"
-import { Toaster } from "@/components/ui/toaster"
-import { MainContent } from "@/components/main-content"
-import { BackgroundGradient } from "@/components/background-gradient"
+// app/layout.tsx
+import type { Metadata } from "next";
+import { ClerkProvider } from "@clerk/nextjs";
+import { Inter } from "next/font/google";
+import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"] })
+// client wrapper you showed
+import { ThemeProvider } from "@/components/theme-provider"; // the file you pasted
+
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "OpenSource Insight Tracker",
-  description: "Monitor the health, risk, and activity of open-source repositories",
-  generator: 'v0.dev'
-}
+  title: "Deply",
+  description:
+    "Automatically find and fix OSS risks across your current and future codebase",
+};
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode
-}>) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-          <SidebarProvider defaultOpen={true}>
-            <div className="flex min-w-[calc(80vw)] mx-auto">
-              <AppSidebar />
-              <MainContent>{children}</MainContent>
-            </div>
-            <Toaster />
-          </SidebarProvider>
-        </ThemeProvider>
-      </body>
-    </html>
-  )
+    <ClerkProvider
+      signInFallbackRedirectUrl="/project"
+      signInForceRedirectUrl="/project"
+      signUpFallbackRedirectUrl="/project"
+      signUpForceRedirectUrl="/project"
+      appearance={{
+        variables: { colorPrimary: "#4B0082", borderRadius: "12px" },
+        elements: { card: "shadow-none border border-[#E5E7EB]" },
+      }}
+    >
+      <html lang="en" suppressHydrationWarning>
+        <body className={inter.className}>
+          {/* ✅ Theme at the root so it affects both marketing and app */}
+          <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+            {children}
+          </ThemeProvider>
+        </body>
+      </html>
+    </ClerkProvider>
+  );
 }
