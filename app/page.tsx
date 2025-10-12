@@ -22,7 +22,7 @@ interface Project {
   updated_at: string
   type?: 'repo' | 'file' | 'cli'
   language?: string
-  license?: string
+  license?: string | null
 }
 
 export default function Home() {

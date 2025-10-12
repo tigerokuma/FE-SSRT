@@ -6,12 +6,94 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Calendar, ExternalLink, Github, Search, Plus, MoreHorizontal, User, RefreshCw, Copy, Check, Trash2, Download, ArrowLeft, Shield, ShieldCheck, MessageSquare, X, AlertTriangle, Clock, Users, FileText, ExternalLink as ExternalLinkIcon } from "lucide-react"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
+import { Calendar, ExternalLink, Github, Search, Plus, MoreHorizontal, User, RefreshCw, Copy, Check, Trash2, Download, ArrowLeft, Shield, ShieldCheck, MessageSquare, X, AlertTriangle, Clock, Users, FileText, ExternalLink as ExternalLinkIcon, Bell, MessageCircle, Activity, ChevronDown, GitBranch, Terminal } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { toast } from "@/hooks/use-toast"
 import { WatchlistSearchDialog } from "@/components/watchlist/WatchlistSearchDialog"
 import { ProjectTopBar } from "@/components/ProjectTopBar"
 import { colors } from "@/lib/design-system"
+
+// Function to get project language icon based on language
+const getProjectLanguageIcon = (language?: string) => {
+  const lang = language?.toLowerCase()
+  
+  // React/JavaScript projects
+  if (lang === 'javascript' || lang === 'typescript' || lang === 'react' || lang === 'nodejs') {
+    return <img src="/Node_logo.png" alt="Node.js" className="h-6 w-6 bg-transparent" />
+  }
+  
+  // Vue projects
+  if (lang === 'vue') {
+    return <img src="/Vue_logo.png" alt="Vue" className="h-6 w-6 bg-transparent" />
+  }
+  
+  // Python projects
+  if (lang === 'python') {
+    return <img src="/Python_logo.png" alt="Python" className="h-6 w-6 bg-transparent" />
+  }
+  
+  // Go projects
+  if (lang === 'go') {
+    return <img src="/Go_logo.png" alt="Go" className="h-6 w-6 bg-transparent" />
+  }
+  
+  // Java projects
+  if (lang === 'java') {
+    return <img src="/Java_logo.png" alt="Java" className="h-6 w-6 bg-transparent" />
+  }
+  
+  // Rust projects
+  if (lang === 'rust') {
+    return <img src="/Rust_logo.png" alt="Rust" className="h-6 w-6 bg-transparent" />
+  }
+  
+  // Ruby projects
+  if (lang === 'ruby') {
+    return <img src="/Ruby_logo.png" alt="Ruby" className="h-6 w-6 bg-transparent" />
+  }
+  
+  // Default to Deply logo for unknown languages
+  return <img src="/Deply_Logo.png" alt="Deply" className="h-6 w-6 bg-transparent" />
+}
+
+// Function to get display name for language
+const getLanguageDisplayName = (language: string) => {
+  const lang = language.toLowerCase()
+  
+  if (lang === 'nodejs') return 'Node.js'
+  if (lang === 'javascript') return 'JavaScript'
+  if (lang === 'typescript') return 'TypeScript'
+  if (lang === 'react') return 'React'
+  if (lang === 'vue') return 'Vue.js'
+  if (lang === 'python') return 'Python'
+  if (lang === 'go') return 'Go'
+  if (lang === 'java') return 'Java'
+  if (lang === 'rust') return 'Rust'
+  if (lang === 'ruby') return 'Ruby'
+  
+  // Capitalize first letter for unknown languages
+  return language.charAt(0).toUpperCase() + language.slice(1)
+}
+
+// Function to get display name for license
+const getLicenseDisplayName = (license: string) => {
+  const lic = license.toLowerCase()
+  
+  if (lic === 'mit') return 'MIT License'
+  if (lic === 'apache-2.0') return 'Apache 2.0'
+  if (lic === 'gpl-3.0') return 'GPL 3.0'
+  if (lic === 'bsd-3-clause') return 'BSD 3-Clause'
+  if (lic === 'isc') return 'ISC License'
+  if (lic === 'lgpl-3.0') return 'LGPL 3.0'
+  if (lic === 'mpl-2.0') return 'Mozilla Public License 2.0'
+  if (lic === 'unlicense') return 'The Unlicense'
+  if (lic === 'cc0-1.0') return 'CC0 1.0 Universal'
+  
+  // Return as-is for unknown licenses
+  return license
+}
 
 interface Project {
   id: string
@@ -19,8 +101,19 @@ interface Project {
   description?: string
   repository_url?: string
   language?: string
+  license?: string | null
+  type?: 'repo' | 'file' | 'cli'
   created_at: string
   updated_at: string
+  vulnerability_notifications?: { alerts: boolean; slack: boolean; discord: boolean }
+  license_notifications?: { alerts: boolean; slack: boolean; discord: boolean }
+  health_notifications?: { alerts: boolean; slack: boolean; discord: boolean }
+  monitoredBranch?: {
+    id: string
+    repository_url: string
+    branch_name: string
+    is_active: boolean
+  }
 }
 
 interface ProjectDependency {
@@ -80,8 +173,210 @@ export default function ProjectDetailPage() {
   const [showDependencyReviewDialog, setShowDependencyReviewDialog] = useState(false)
   const [selectedDependency, setSelectedDependency] = useState<any>(null)
   const [alertFilter, setAlertFilter] = useState("all")
+  const [selectedLicense, setSelectedLicense] = useState<string>("")
+  const [isSavingLicense, setIsSavingLicense] = useState(false)
+  const [projectName, setProjectName] = useState<string>("")
+  const [isSavingName, setIsSavingName] = useState(false)
+  const [vulnerabilityNotifications, setVulnerabilityNotifications] = useState<{ alerts: boolean; slack: boolean; discord: boolean }>({ alerts: true, slack: false, discord: false })
+  const [licenseNotifications, setLicenseNotifications] = useState<{ alerts: boolean; slack: boolean; discord: boolean }>({ alerts: true, slack: false, discord: false })
+  const [healthNotifications, setHealthNotifications] = useState<{ alerts: boolean; slack: boolean; discord: boolean }>({ alerts: true, slack: false, discord: false })
+  const [isSavingNotifications, setIsSavingNotifications] = useState(false)
+  const [currentUser, setCurrentUser] = useState<any>(null)
 
   const projectId = params.id as string
+
+  // Function to save project name change
+  const handleProjectNameChange = async (newName: string) => {
+    setIsSavingName(true)
+    try {
+      const response = await fetch(`http://localhost:3000/projects/${projectId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: newName
+        })
+      })
+
+      if (response.ok) {
+        setProjectName(newName)
+        // Update the project state
+        setProject(prev => prev ? { ...prev, name: newName } : null)
+        toast({
+          title: "Project Name Updated",
+          description: "Project name has been updated successfully.",
+        })
+      } else {
+        throw new Error('Failed to update project name')
+      }
+    } catch (error) {
+      console.error('Error updating project name:', error)
+      toast({
+        title: "Error",
+        description: "Failed to update project name. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSavingName(false)
+    }
+  }
+
+  // Function to get display text for dropdown button
+  const getNotificationDisplayText = (notificationType: 'vulnerability' | 'license' | 'health') => {
+    let notifications: { alerts: boolean; slack: boolean; discord: boolean }
+    
+    if (notificationType === 'vulnerability') {
+      notifications = vulnerabilityNotifications
+    } else if (notificationType === 'license') {
+      notifications = licenseNotifications
+    } else {
+      notifications = healthNotifications
+    }
+
+    const channels = []
+    if (notifications.alerts) channels.push('Alerts Tab')
+    if (notifications.slack) channels.push('Slack')
+    if (notifications.discord) channels.push('Discord')
+    
+    return channels.length > 0 ? channels.join(', ') : 'None'
+  }
+
+  // Function to handle add member button
+  const handleAddMember = async () => {
+    try {
+      const joinLink = `${window.location.origin}/join/${projectId}`
+      await navigator.clipboard.writeText(joinLink)
+      
+      toast({
+        title: "Join Link Copied",
+        description: "Project join link has been copied to your clipboard. Share this link with team members to invite them to the project.",
+      })
+    } catch (error) {
+      console.error('Error copying to clipboard:', error)
+      toast({
+        title: "Error",
+        description: "Failed to copy join link. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  // Function to save notification settings
+  const handleNotificationChange = async (notificationType: 'vulnerability' | 'license' | 'health', channel: 'alerts' | 'slack' | 'discord', value: boolean) => {
+    setIsSavingNotifications(true)
+    try {
+      const updateData: any = {}
+      let newNotifications: { alerts: boolean; slack: boolean; discord: boolean }
+      
+      if (notificationType === 'vulnerability') {
+        newNotifications = { ...vulnerabilityNotifications, [channel]: value }
+        updateData.vulnerability_notifications = newNotifications
+        setVulnerabilityNotifications(newNotifications)
+      } else if (notificationType === 'license') {
+        newNotifications = { ...licenseNotifications, [channel]: value }
+        updateData.license_notifications = newNotifications
+        setLicenseNotifications(newNotifications)
+      } else if (notificationType === 'health') {
+        newNotifications = { ...healthNotifications, [channel]: value }
+        updateData.health_notifications = newNotifications
+        setHealthNotifications(newNotifications)
+      }
+
+      const response = await fetch(`http://localhost:3000/projects/${projectId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updateData)
+      })
+
+      if (response.ok) {
+        // Update the project state
+        setProject(prev => prev ? { 
+          ...prev, 
+          vulnerability_notifications: notificationType === 'vulnerability' ? newNotifications : prev.vulnerability_notifications,
+          license_notifications: notificationType === 'license' ? newNotifications : prev.license_notifications,
+          health_notifications: notificationType === 'health' ? newNotifications : prev.health_notifications
+        } : null)
+        
+        toast({
+          title: "Notification Settings Updated",
+          description: `${notificationType.charAt(0).toUpperCase() + notificationType.slice(1)} ${channel} notifications ${value ? 'enabled' : 'disabled'}.`,
+        })
+      } else {
+        throw new Error('Failed to update notification settings')
+      }
+    } catch (error) {
+      console.error('Error updating notification settings:', error)
+      toast({
+        title: "Error",
+        description: "Failed to update notification settings. Please try again.",
+        variant: "destructive",
+      })
+      // Revert the state on error
+      if (notificationType === 'vulnerability') {
+        setVulnerabilityNotifications(prev => ({ ...prev, [channel]: !value }))
+      } else if (notificationType === 'license') {
+        setLicenseNotifications(prev => ({ ...prev, [channel]: !value }))
+      } else if (notificationType === 'health') {
+        setHealthNotifications(prev => ({ ...prev, [channel]: !value }))
+      }
+    } finally {
+      setIsSavingNotifications(false)
+    }
+  }
+
+  // Function to save license change
+  const handleLicenseChange = async (newLicense: string) => {
+    setIsSavingLicense(true)
+    try {
+      const response = await fetch(`http://localhost:3000/projects/${projectId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          license: newLicense === 'none' ? null : newLicense
+        })
+      })
+
+      if (response.ok) {
+        setSelectedLicense(newLicense)
+        // Update the project state
+        setProject(prev => prev ? { ...prev, license: newLicense === 'none' ? null : newLicense } : null)
+        toast({
+          title: "License Updated",
+          description: newLicense === 'none' ? "License removed successfully." : "Project license has been updated successfully.",
+        })
+      } else {
+        throw new Error('Failed to update license')
+      }
+    } catch (error) {
+      console.error('Error updating license:', error)
+      toast({
+        title: "Error",
+        description: "Failed to update license. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSavingLicense(false)
+    }
+  }
+
+  // License options
+  const licenses = [
+    { value: 'none', label: 'No License' },
+    { value: 'MIT', label: 'MIT License' },
+    { value: 'Apache-2.0', label: 'Apache 2.0' },
+    { value: 'GPL-3.0', label: 'GPL 3.0' },
+    { value: 'BSD-3-Clause', label: 'BSD 3-Clause' },
+    { value: 'ISC', label: 'ISC License' },
+    { value: 'LGPL-3.0', label: 'LGPL 3.0' },
+    { value: 'MPL-2.0', label: 'Mozilla Public License 2.0' },
+    { value: 'Unlicense', label: 'The Unlicense' },
+    { value: 'CC0-1.0', label: 'CC0 1.0 Universal' }
+  ]
 
   useEffect(() => {
     const fetchProjectData = async () => {
@@ -94,13 +389,26 @@ export default function ProjectDetailPage() {
           throw new Error('Failed to fetch project')
         }
         const projectData = await projectResponse.json()
+        console.log('Project data received:', JSON.stringify(projectData, null, 2))
         setProject(projectData)
+        setSelectedLicense(projectData.license || 'none')
+        setProjectName(projectData.name || '')
+        setVulnerabilityNotifications(projectData.vulnerability_notifications ?? { alerts: true, slack: false, discord: false })
+        setLicenseNotifications(projectData.license_notifications ?? { alerts: true, slack: false, discord: false })
+        setHealthNotifications(projectData.health_notifications ?? { alerts: true, slack: false, discord: false })
         
         // Fetch team members for this project
         const teamResponse = await fetch(`http://localhost:3000/projects/${projectId}/users`)
         if (teamResponse.ok) {
           const teamData = await teamResponse.json()
           setProjectUsers(teamData)
+        }
+
+        // Fetch current user
+        const userResponse = await fetch('http://localhost:3000/auth/me')
+        if (userResponse.ok) {
+          const userData = await userResponse.json()
+          setCurrentUser(userData)
         }
         
         // Fetch project dependencies
@@ -1329,91 +1637,167 @@ export default function ProjectDetailPage() {
                       <label className="block text-sm font-medium text-white mb-2">Project Name</label>
                       <Input 
                         placeholder="Enter project name"
-                        defaultValue={project?.name || ''}
+                        value={projectName}
+                        onChange={(e) => setProjectName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            handleProjectNameChange(projectName)
+                          }
+                        }}
+                        disabled={isSavingName}
                         className="text-white placeholder-gray-400"
                         style={{ backgroundColor: 'rgb(18, 18, 18)' }}
                       />
+                      {isSavingName && (
+                        <p className="text-xs text-gray-500 mt-1">Saving...</p>
+                      )}
                     </div>
                     
                     <div>
                       <label className="block text-sm font-medium text-white mb-2">Project Language</label>
-                      <Input 
-                        placeholder="JavaScript"
-                        defaultValue="JavaScript"
-                        className="text-white placeholder-gray-400"
-                        style={{ backgroundColor: 'rgb(18, 18, 18)' }}
-                      />
-                      <p className="text-sm text-gray-400 mt-1">Primary programming language for this project</p>
+                      <div className="flex items-center gap-3 p-3 border rounded-md" style={{ paddingTop: '0.5rem', paddingBottom: '0.5rem', fontSize:'0.875rem', backgroundColor: 'rgb(18, 18, 18)' }}>
+                        {getProjectLanguageIcon(project?.language)}
+                        <span className="text-white">
+                          {project?.language ? getLanguageDisplayName(project.language) : 'Not specified'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">Language cannot be changed after project creation</p>
                     </div>
                     
                     <div>
                       <label className="block text-sm font-medium text-white mb-2">License</label>
-                      <Input 
-                        placeholder="MIT License"
-                        defaultValue="MIT License"
-                        className="text-white placeholder-gray-400"
-                        style={{ backgroundColor: 'rgb(18, 18, 18)' }}
-                      />
-                      <p className="text-sm text-gray-400 mt-1">The license under which this project is distributed</p>
+                      <Select 
+                        value={selectedLicense} 
+                        onValueChange={handleLicenseChange}
+                        disabled={isSavingLicense}
+                      >
+                        <SelectTrigger className="text-white" style={{ backgroundColor: 'rgb(18, 18, 18)' }}>
+                          <div className="flex items-center gap-3">
+                            <Shield className="h-6 w-6 text-gray-400" />
+                            <SelectValue placeholder="Select license" />
+                          </div>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {licenses.map((license) => (
+                            <SelectItem key={license.value} value={license.value}>
+                              {license.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     
                     <div className="pt-4">
                       <h3 className="text-lg font-semibold text-white mb-4">Project Type</h3>
-                      <div className="text-sm text-gray-400">Linked to GitHub repository</div>
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-3 p-3 border rounded-md" style={{ backgroundColor: 'rgb(18, 18, 18)' }}>
+                          {project?.type === 'file' ? (
+                            <FileText className="h-5 w-5 text-gray-400" />
+                          ) : project?.type === 'cli' ? (
+                            <Terminal className="h-5 w-5 text-gray-400" />
+                          ) : (
+                            <Github className="h-5 w-5 text-gray-400" />
+                          )}
+                          <div className="flex-1">
+                            <div className="text-white text-sm font-medium">
+                              {project?.type === 'file' ? 'File Upload' : project?.type === 'cli' ? 'CLI Project' : 'Repository Project'}
+                            </div>
+                          </div>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-2">
+                          {project?.type === 'file' 
+                            ? 'To update dependencies, upload a new file on the Dependencies page' 
+                            : 'Project type cannot be changed after project creation'
+                          }
+                        </p>
+                      </div>
                     </div>
                     
-                    <div>
-                      <label className="block text-sm font-medium text-white mb-2">GitHub Repository</label>
-                      <Input 
-                        placeholder="https://github.com/username/repository"
-                        defaultValue="https://github.com/example/project"
-                        className="text-white placeholder-gray-400"
-                        style={{ backgroundColor: 'rgb(18, 18, 18)' }}
-                      />
-                      <p className="text-sm text-gray-400 mt-1">The GitHub repository URL for this project</p>
-                    </div>
+                    {project?.type === 'cli' && (
+                      <div>
+                        <label className="block text-sm font-medium text-white mb-2">Update Dependencies</label>
+                        <div className="flex items-center gap-3 p-3 border rounded-md" style={{ backgroundColor: 'rgb(18, 18, 18)' }}>
+                          <Terminal className="h-5 w-5 text-gray-400" />
+                          <div className="flex-1">
+                            <div className="text-white text-sm font-mono">
+                              deply sync
+                            </div>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              navigator.clipboard.writeText('deply sync')
+                              toast({
+                                title: "Copied!",
+                                description: "Command copied to clipboard",
+                              })
+                            }}
+                            className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">Run this command in your project directory to update dependencies</p>
+                      </div>
+                    )}
                     
-                    <div>
-                      <label className="block text-sm font-medium text-white mb-2">Branch</label>
-                      <Input 
-                        placeholder="main"
-                        defaultValue="main"
-                        className="text-white placeholder-gray-400"
-                        style={{ backgroundColor: 'rgb(18, 18, 18)' }}
-                      />
-                      <p className="text-sm text-gray-400 mt-1">The default branch to monitor for changes</p>
-                    </div>
+                    {project?.type === 'repo' && (
+                      <div>
+                        <label className="block text-sm font-medium text-white mb-2">GitHub Repository</label>
+                        <div className="flex items-center gap-3 p-3 border rounded-md" style={{ backgroundColor: 'rgb(18, 18, 18)' }}>
+                          <Github className="h-5 w-5 text-gray-400" />
+                          <div className="flex-1">
+                            <div className="text-white text-sm font-medium">
+                              {project?.monitoredBranch?.repository_url || 'No repository URL'}
+                            </div>
+                          </div>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">Repository cannot be changed after project creation</p>
+                      </div>
+                    )}
                     
-                    <div className="flex justify-end">
-                      <Button style={{ backgroundColor: colors.primary }} className="hover:opacity-90 text-white">
-                        Save Changes
-                      </Button>
-                    </div>
+                    {project?.type === 'repo' && (
+                      <div>
+                        <label className="block text-sm font-medium text-white mb-2">Branch</label>
+                        <div className="flex items-center gap-3 p-3 border rounded-md" style={{ backgroundColor: 'rgb(18, 18, 18)' }}>
+                          <GitBranch className="h-5 w-5 text-gray-400" />
+                          <div className="flex-1">
+                            <div className="text-white text-sm font-medium">
+                              {project?.monitoredBranch?.branch_name || 'main'}
+                            </div>
+                          </div>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">Branch cannot be changed after project creation</p>
+                      </div>
+                    )}
+                    
                   </div>
                 </div>
               )}
 
               {currentSettingsTab === 'integrations' && (
-                <div className="space-y-8">
+                <div className="space-y-6">
                   <div>
                     <h2 className="text-2xl font-bold text-white">Integrations</h2>
+                    <p className="text-gray-400 mt-1">Connect your favorite tools to streamline your workflow</p>
                   </div>
                   
-                  <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Jira Integration */}
-                    <Card style={{ backgroundColor: colors.background.card }}>
-                      <CardContent className="p-6">
+                    <Card style={{ backgroundColor: colors.background.card }} className="hover:bg-gray-800/50 transition-colors">
+                      <CardContent className="p-4">
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-lg bg-blue-500/20 flex items-center justify-center">
-                              <img src="/jira_icon.png" alt="Jira" className="w-8 h-8" />
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                              <img src="/jira_icon.png" alt="Jira" className="w-6 h-6" />
                             </div>
                             <div>
-                              <div className="text-white font-medium text-lg">Jira</div>
-                              <div className="text-sm text-gray-400">Project management and issue tracking</div>
+                              <div className="text-white font-medium">Jira</div>
+                              <div className="text-xs text-gray-400">Project management</div>
                             </div>
                           </div>
-                          <Button variant="outline" className="border-gray-600 text-gray-300 hover:bg-gray-700">
+                          <Button variant="outline" size="sm" className="border-gray-600 text-gray-300 hover:bg-gray-700">
                             Connect
                           </Button>
                         </div>
@@ -1421,19 +1805,19 @@ export default function ProjectDetailPage() {
                     </Card>
 
                     {/* Slack Integration */}
-                    <Card style={{ backgroundColor: colors.background.card }}>
-                      <CardContent className="p-6">
+                    <Card style={{ backgroundColor: colors.background.card }} className="hover:bg-gray-800/50 transition-colors">
+                      <CardContent className="p-4">
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-lg bg-purple-500/20 flex items-center justify-center">
-                              <img src="/Slack_icon.png" alt="Slack" className="w-8 h-8" />
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                              <img src="/Slack_icon.png" alt="Slack" className="w-6 h-6" />
                             </div>
                             <div>
-                              <div className="text-white font-medium text-lg">Slack</div>
-                              <div className="text-sm text-gray-400">Team communication and notifications</div>
+                              <div className="text-white font-medium">Slack</div>
+                              <div className="text-xs text-gray-400">Team communication</div>
                             </div>
                           </div>
-                          <Button variant="outline" className="border-gray-600 text-gray-300 hover:bg-gray-700">
+                          <Button variant="outline" size="sm" className="border-gray-600 text-gray-300 hover:bg-gray-700">
                             Connect
                           </Button>
                         </div>
@@ -1441,19 +1825,19 @@ export default function ProjectDetailPage() {
                     </Card>
 
                     {/* Discord Integration */}
-                    <Card style={{ backgroundColor: colors.background.card }}>
-                      <CardContent className="p-6">
+                    <Card style={{ backgroundColor: colors.background.card }} className="hover:bg-gray-800/50 transition-colors">
+                      <CardContent className="p-4">
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-lg bg-indigo-500/20 flex items-center justify-center">
-                              <img src="/Discord_icon.png" alt="Discord" className="w-8 h-8" />
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-indigo-500/20 flex items-center justify-center">
+                              <img src="/Discord_icon.png" alt="Discord" className="w-6 h-6" />
                             </div>
                             <div>
-                              <div className="text-white font-medium text-lg">Discord</div>
-                              <div className="text-sm text-gray-400">Community communication and notifications</div>
+                              <div className="text-white font-medium">Discord</div>
+                              <div className="text-xs text-gray-400">Community chat</div>
                             </div>
                           </div>
-                          <Button variant="outline" className="border-gray-600 text-gray-300 hover:bg-gray-700">
+                          <Button variant="outline" size="sm" className="border-gray-600 text-gray-300 hover:bg-gray-700">
                             Connect
                           </Button>
                         </div>
@@ -1461,19 +1845,19 @@ export default function ProjectDetailPage() {
                     </Card>
 
                     {/* GitHub Actions Integration */}
-                    <Card style={{ backgroundColor: colors.background.card }}>
-                      <CardContent className="p-6">
+                    <Card style={{ backgroundColor: colors.background.card }} className="hover:bg-gray-800/50 transition-colors">
+                      <CardContent className="p-4">
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-lg bg-gray-500/20 flex items-center justify-center" style={{ backgroundColor: 'white' }}>
-                              <img src="/Github_icon.png" alt="GitHub Actions" className="w-8 h-8" />
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-gray-500/20 flex items-center justify-center" style={{ backgroundColor: 'white' }}>
+                              <img src="/Github_icon.png" alt="GitHub Actions" className="w-6 h-6" />
                             </div>
                             <div>
-                              <div className="text-white font-medium text-lg">GitHub Actions</div>
-                              <div className="text-sm text-gray-400">Automated workflows and CI/CD pipelines</div>
+                              <div className="text-white font-medium">GitHub Actions</div>
+                              <div className="text-xs text-gray-400">CI/CD workflows</div>
                             </div>
                           </div>
-                          <Button variant="outline" className="border-gray-600 text-gray-300 hover:bg-gray-700">
+                          <Button variant="outline" size="sm" className="border-gray-600 text-gray-300 hover:bg-gray-700">
                             Connect
                           </Button>
                         </div>
@@ -1484,74 +1868,171 @@ export default function ProjectDetailPage() {
               )}
 
               {currentSettingsTab === 'alerts' && (
-                <div className="space-y-8">
+                <div className="space-y-6">
                   <div>
-                    <h2 className="text-2xl font-bold text-white">Alert Settings</h2>
+                    <h2 className="text-2xl font-bold text-white">Notifications</h2>
+                    <p className="text-gray-400 mt-1">Choose how you want to be notified about project updates</p>
                   </div>
                   
-                  <div className="space-y-4">
-                    {/* New Vulnerabilities Card */}
-                    <Card style={{ backgroundColor: colors.background.card }}>
-                      <CardContent className="p-6">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-lg bg-red-500/20 flex items-center justify-center">
-                              <Shield className="w-6 h-6 text-red-400" />
-                            </div>
-                            <div>
-                              <div className="text-white font-medium text-lg">New Vulnerabilities</div>
-                              <div className="text-sm text-gray-400">Alert when new vulnerabilities are detected in dependencies</div>
-                            </div>
-                          </div>
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" className="sr-only peer" defaultChecked />
-                            <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all" style={{ backgroundColor: 'rgb(84, 0, 250)' }}></div>
-                          </label>
+                  <div className="space-y-3">
+                    {/* Vulnerability Alerts Row */}
+                    <div className="flex items-center justify-between p-4 rounded-lg border" style={{ backgroundColor: colors.background.card, borderColor: 'rgb(38, 38, 38)' }}>
+                      <div>
+                        <div className="text-white font-medium">Vulnerability Alerts</div>
+                        <div className="text-sm text-gray-400">Get notified about security vulnerabilities</div>
+                      </div>
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button variant="outline" className="w-56 justify-between text-left" style={{ backgroundColor: 'rgb(18, 18, 18)' }}>
+                                <span className="truncate">{getNotificationDisplayText('vulnerability')}</span>
+                                <ChevronDown className="h-4 w-4 flex-shrink-0 ml-2" />
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="sm:max-w-md">
+                              <DialogHeader>
+                                <DialogTitle>Select notification channels</DialogTitle>
+                              </DialogHeader>
+                              <div className="space-y-4 py-4">
+                                <label className="flex items-center gap-3 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={vulnerabilityNotifications.alerts}
+                                    onChange={(e) => handleNotificationChange('vulnerability', 'alerts', e.target.checked)}
+                                    disabled={isSavingNotifications}
+                                    className="rounded"
+                                  />
+                                  <span>Alerts Tab</span>
+                                </label>
+                                <label className="flex items-center gap-3 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={vulnerabilityNotifications.slack}
+                                    onChange={(e) => handleNotificationChange('vulnerability', 'slack', e.target.checked)}
+                                    disabled={isSavingNotifications}
+                                    className="rounded"
+                                  />
+                                  <span>Slack</span>
+                                </label>
+                                <label className="flex items-center gap-3 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={vulnerabilityNotifications.discord}
+                                    onChange={(e) => handleNotificationChange('vulnerability', 'discord', e.target.checked)}
+                                    disabled={isSavingNotifications}
+                                    className="rounded"
+                                  />
+                                  <span>Discord</span>
+                                </label>
+                              </div>
+                            </DialogContent>
+                          </Dialog>
                         </div>
-                      </CardContent>
-                    </Card>
 
-                    {/* License Alerts Card */}
-                    <Card style={{ backgroundColor: colors.background.card }}>
-                      <CardContent className="p-6">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-lg bg-yellow-500/20 flex items-center justify-center">
-                              <FileText className="w-6 h-6 text-yellow-400" />
-                            </div>
-                            <div>
-                              <div className="text-white font-medium text-lg">License Alerts</div>
-                              <div className="text-sm text-gray-400">Alert when dependencies have incompatible licenses</div>
-                            </div>
-                          </div>
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" className="sr-only peer" defaultChecked />
-                            <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all" style={{ backgroundColor: 'rgb(84, 0, 250)' }}></div>
-                          </label>
+                    {/* License Alerts Row */}
+                    <div className="flex items-center justify-between p-4 rounded-lg border" style={{ backgroundColor: colors.background.card, borderColor: 'rgb(38, 38, 38)' }}>
+                      <div>
+                        <div className="text-white font-medium">License Alerts</div>
+                        <div className="text-sm text-gray-400">Get notified about license changes</div>
+                      </div>
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button variant="outline" className="w-56 justify-between text-left" style={{ backgroundColor: 'rgb(18, 18, 18)' }}>
+                                <span className="truncate">{getNotificationDisplayText('license')}</span>
+                                <ChevronDown className="h-4 w-4 flex-shrink-0 ml-2" />
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="sm:max-w-md">
+                              <DialogHeader>
+                                <DialogTitle>Select notification channels</DialogTitle>
+                              </DialogHeader>
+                              <div className="space-y-4 py-4">
+                                <label className="flex items-center gap-3 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={licenseNotifications.alerts}
+                                    onChange={(e) => handleNotificationChange('license', 'alerts', e.target.checked)}
+                                    disabled={isSavingNotifications}
+                                    className="rounded"
+                                  />
+                                  <span>Alerts Tab</span>
+                                </label>
+                                <label className="flex items-center gap-3 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={licenseNotifications.slack}
+                                    onChange={(e) => handleNotificationChange('license', 'slack', e.target.checked)}
+                                    disabled={isSavingNotifications}
+                                    className="rounded"
+                                  />
+                                  <span>Slack</span>
+                                </label>
+                                <label className="flex items-center gap-3 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={licenseNotifications.discord}
+                                    onChange={(e) => handleNotificationChange('license', 'discord', e.target.checked)}
+                                    disabled={isSavingNotifications}
+                                    className="rounded"
+                                  />
+                                  <span>Discord</span>
+                                </label>
+                              </div>
+                            </DialogContent>
+                          </Dialog>
                         </div>
-                      </CardContent>
-                    </Card>
 
-                    {/* Project Health Drops Card */}
-                    <Card style={{ backgroundColor: colors.background.card }}>
-                      <CardContent className="p-6">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-lg bg-orange-500/20 flex items-center justify-center">
-                              <AlertTriangle className="w-6 h-6 text-orange-400" />
-                            </div>
-                            <div>
-                              <div className="text-white font-medium text-lg">Project Health Changes</div>
-                              <div className="text-sm text-gray-400">Alert when project health score drops</div>
-                            </div>
-                          </div>
-                          <label className="relative inline-flex items-center cursor-pointer">
-                            <input type="checkbox" className="sr-only peer" defaultChecked />
-                            <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all" style={{ backgroundColor: 'rgb(84, 0, 250)' }}></div>
-                          </label>
-                        </div>
-                      </CardContent>
-                    </Card>
+                    {/* Health Alerts Row */}
+                    <div className="flex items-center justify-between p-4 rounded-lg border" style={{ backgroundColor: colors.background.card, borderColor: 'rgb(38, 38, 38)' }}>
+                      <div>
+                        <div className="text-white font-medium">Project Health Alerts</div>
+                        <div className="text-sm text-gray-400">Get notified about project health changes</div>
+                      </div>
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button variant="outline" className="w-56 justify-between text-left" style={{ backgroundColor: 'rgb(18, 18, 18)' }}>
+                                <span className="truncate">{getNotificationDisplayText('health')}</span>
+                                <ChevronDown className="h-4 w-4 flex-shrink-0 ml-2" />
+                              </Button>
+                            </DialogTrigger>
+                            <DialogContent className="sm:max-w-md">
+                              <DialogHeader>
+                                <DialogTitle>Select notification channels</DialogTitle>
+                              </DialogHeader>
+                              <div className="space-y-4 py-4">
+                                <label className="flex items-center gap-3 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={healthNotifications.alerts}
+                                    onChange={(e) => handleNotificationChange('health', 'alerts', e.target.checked)}
+                                    disabled={isSavingNotifications}
+                                    className="rounded"
+                                  />
+                                  <span>Alerts Tab</span>
+                                </label>
+                                <label className="flex items-center gap-3 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={healthNotifications.slack}
+                                    onChange={(e) => handleNotificationChange('health', 'slack', e.target.checked)}
+                                    disabled={isSavingNotifications}
+                                    className="rounded"
+                                  />
+                                  <span>Slack</span>
+                                </label>
+                                <label className="flex items-center gap-3 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={healthNotifications.discord}
+                                    onChange={(e) => handleNotificationChange('health', 'discord', e.target.checked)}
+                                    disabled={isSavingNotifications}
+                                    className="rounded"
+                                  />
+                                  <span>Discord</span>
+                                </label>
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+                    </div>
                   </div>
                 </div>
               )}
@@ -1560,75 +2041,51 @@ export default function ProjectDetailPage() {
                 <div className="space-y-8">
                   <div className="flex items-center justify-between">
                     <h2 className="text-2xl font-bold text-white">Team Members</h2>
-                    <Button style={{ backgroundColor: colors.primary }} className="hover:opacity-90 text-white">
+                    <Button 
+                      style={{ backgroundColor: colors.primary }} 
+                      className="hover:opacity-90 text-white"
+                      onClick={handleAddMember}
+                    >
                       <Plus className="h-4 w-4 mr-2" />
                       Add Member
                     </Button>
                   </div>
                   
                   <div className="space-y-0 border border-gray-700 rounded-lg overflow-hidden">
-                    {/* Team Member 1 */}
-                    <div className="flex items-center justify-between p-4 border-b border-gray-700 transition-colors" style={{ backgroundColor: 'transparent' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgb(18, 18, 18)'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center">
-                          <span className="text-blue-400 font-bold text-sm">AJ</span>
+                    {projectUsers.map((member, index) => (
+                      <div 
+                        key={member.id} 
+                        className={`flex items-center justify-between p-4 transition-colors ${index < projectUsers.length - 1 ? 'border-b border-gray-700' : ''}`} 
+                        style={{ backgroundColor: 'transparent' }} 
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgb(18, 18, 18)'} 
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-gray-600/20 flex items-center justify-center">
+                            <User className="h-5 w-5 text-gray-400" />
+                          </div>
+                          <div>
+                            <div className="text-white font-medium">
+                              {member.user?.name || member.user?.email || 'Unknown User'}
+                              {member.user?.user_id === currentUser?.id && (
+                                <span className="ml-2 text-xs text-gray-400">(You)</span>
+                              )}
+                            </div>
+                            <div className="text-sm text-gray-400 capitalize">{member.role}</div>
+                          </div>
                         </div>
-                        <div>
-                          <div className="text-white font-medium">Alex Johnson</div>
-                          <div className="text-sm text-gray-400">Admin</div>
-                        </div>
+                        {member.user?.user_id !== currentUser?.id && (
+                          <div className="flex items-center gap-2">
+                            <Button variant="outline" size="sm" className="border-gray-600 text-gray-300 hover:bg-gray-700">
+                              Promote
+                            </Button>
+                            <Button variant="outline" size="sm" className="border-red-600 text-red-400 hover:bg-red-600/20">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        )}
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm" className="border-gray-600 text-gray-300 hover:bg-gray-700">
-                          Promote
-                        </Button>
-                        <Button variant="outline" size="sm" className="border-red-600 text-red-400 hover:bg-red-600/20">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-
-                    {/* Team Member 2 */}
-                    <div className="flex items-center justify-between p-4 border-b border-gray-700 transition-colors" style={{ backgroundColor: 'transparent' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgb(18, 18, 18)'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center">
-                          <span className="text-purple-400 font-bold text-sm">SK</span>
-                        </div>
-                        <div>
-                          <div className="text-white font-medium">Sarah Kim</div>
-                          <div className="text-sm text-gray-400">Member</div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm" className="border-gray-600 text-gray-300 hover:bg-gray-700">
-                          Promote
-                        </Button>
-                        <Button variant="outline" size="sm" className="border-red-600 text-red-400 hover:bg-red-600/20">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-
-                    {/* Team Member 3 */}
-                    <div className="flex items-center justify-between p-4 transition-colors" style={{ backgroundColor: 'transparent' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgb(18, 18, 18)'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-orange-500/20 flex items-center justify-center">
-                          <span className="text-orange-400 font-bold text-sm">DL</span>
-                        </div>
-                        <div>
-                          <div className="text-white font-medium">David Lee</div>
-                          <div className="text-sm text-gray-400">Member</div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm" className="border-gray-600 text-gray-300 hover:bg-gray-700">
-                          Promote
-                        </Button>
-                        <Button variant="outline" size="sm" className="border-red-600 text-red-400 hover:bg-red-600/20">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
+                    ))}
                   </div>
                 </div>
               )}
