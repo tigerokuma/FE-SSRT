@@ -47,7 +47,7 @@ export default function AppSidebar() {
     "User"
 
   return (
-    <Sidebar side="left" collapsible="none" className="w-[240px] bg-white border-r">
+    <Sidebar side="left" collapsible="icon" className="w-[240px] bg-white border-r">
       {/* Brand (now clickable to /project) */}
       <SidebarHeader className="p-4">
         <Link
