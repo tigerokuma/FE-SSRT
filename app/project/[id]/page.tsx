@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,8 +12,13 @@ import { Calendar, ExternalLink, Github, Search, Plus, MoreHorizontal, User, Ref
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { toast } from "@/hooks/use-toast"
 import { WatchlistSearchDialog } from "@/components/watchlist/WatchlistSearchDialog"
+import { WatchlistPackageCard } from "@/components/watchlist/WatchlistPackageCard"
+import { DependencyPackageCard } from "@/components/dependencies/DependencyPackageCard"
 import { ProjectTopBar } from "@/components/ProjectTopBar"
 import { colors } from "@/lib/design-system"
+import { checkLicenseCompatibility } from "@/lib/license-utils"
+import { calculateComplianceData, getLicenseDisplayName as getComplianceLicenseDisplayName, getLicenseColor } from "@/lib/compliance-utils"
+import { useProjects } from "@/hooks/use-projects"
 
 // Function to get project language icon based on language
 const getProjectLanguageIcon = (language?: string) => {
@@ -103,6 +108,7 @@ interface Project {
   language?: string
   license?: string | null
   type?: 'repo' | 'file' | 'cli'
+  status?: string
   created_at: string
   updated_at: string
   vulnerability_notifications?: { alerts: boolean; slack: boolean; discord: boolean }
@@ -120,9 +126,20 @@ interface ProjectDependency {
   id: string
   name: string
   version: string
-  risk: number
-  tags: string[]
-  last_updated: string
+  package_id?: string
+  package?: {
+    id: string
+    name: string
+    license?: string  // Actual license from Packages table
+    status: string
+    total_score?: number
+    activity_score?: number
+    vulnerability_score?: number
+    license_score?: number
+    stars?: number
+    contributors?: number
+    summary?: string
+  }
 }
 
 interface WatchlistDependency {
@@ -150,6 +167,7 @@ interface ProjectUser {
 export default function ProjectDetailPage() {
   const params = useParams()
   const router = useRouter()
+  const { getProjectById } = useProjects()
   const [project, setProject] = useState<Project | null>(null)
   const [projectDependencies, setProjectDependencies] = useState<ProjectDependency[]>([])
   const [watchlistDependencies, setWatchlistDependencies] = useState<WatchlistDependency[]>([])
@@ -182,8 +200,135 @@ export default function ProjectDetailPage() {
   const [healthNotifications, setHealthNotifications] = useState<{ alerts: boolean; slack: boolean; discord: boolean }>({ alerts: true, slack: false, discord: false })
   const [isSavingNotifications, setIsSavingNotifications] = useState(false)
   const [currentUser, setCurrentUser] = useState<any>(null)
+  const [packageStatuses, setPackageStatuses] = useState<{[key: string]: {status: string, hasScores: boolean}}>({})
+
+  // Calculate compliance data
+  const complianceData = project && projectDependencies.length > 0 
+    ? calculateComplianceData(project, projectDependencies)
+    : {
+        overallCompliance: 100,
+        licenseConflicts: 0,
+        vulnerableDependencies: 0,
+        totalDependencies: 0,
+        nonCompliantDependencies: [],
+        vulnerabilityBreakdown: { critical: 0, high: 0, medium: 0, low: 0 }
+      }
+
+  // Utility function to format dates as relative time
+  const formatRelativeDate = (date: Date | string) => {
+    const now = new Date()
+    const targetDate = new Date(date)
+    const diffInMs = now.getTime() - targetDate.getTime()
+    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24))
+    
+    if (diffInDays === 0) {
+      return 'today'
+    } else if (diffInDays === 1) {
+      return 'yesterday'
+    } else if (diffInDays < 7) {
+      return `${diffInDays} days ago`
+    } else if (diffInDays < 30) {
+      const weeks = Math.floor(diffInDays / 7)
+      return weeks === 1 ? '1 week ago' : `${weeks} weeks ago`
+    } else if (diffInDays < 365) {
+      const months = Math.floor(diffInDays / 30)
+      return months === 1 ? '1 month ago' : `${months} months ago`
+    } else {
+      const years = Math.floor(diffInDays / 365)
+      return years === 1 ? '1 year ago' : `${years} years ago`
+    }
+  }
 
   const projectId = params.id as string
+  
+  // Debug logging
+  console.log('🔍 Project page - params:', params, 'projectId:', projectId)
+
+  // Function to fetch project data
+  const fetchProjectData = async () => {
+    try {
+      setLoading(true)
+      
+      // Fetch project details
+      const projectResponse = await fetch(`http://localhost:3000/projects/${projectId}`)
+      if (!projectResponse.ok) {
+        throw new Error('Failed to fetch project')
+      }
+      const projectData = await projectResponse.json()
+      console.log('Project data received:', JSON.stringify(projectData, null, 2))
+      setProject(projectData)
+      setSelectedLicense(projectData.license || 'none')
+      setProjectName(projectData.name || '')
+      setVulnerabilityNotifications(projectData.vulnerability_notifications ?? { alerts: true, slack: false, discord: false })
+      setLicenseNotifications(projectData.license_notifications ?? { alerts: true, slack: false, discord: false })
+      setHealthNotifications(projectData.health_notifications ?? { alerts: true, slack: false, discord: false })
+      
+      // Fetch team members for this project
+      const teamResponse = await fetch(`http://localhost:3000/projects/${projectId}/users`)
+      if (teamResponse.ok) {
+        const teamData = await teamResponse.json()
+        setProjectUsers(teamData)
+      }
+
+      // Fetch current user
+      const userResponse = await fetch('http://localhost:3000/auth/me')
+      if (userResponse.ok) {
+        const userData = await userResponse.json()
+        setCurrentUser(userData)
+      }
+      
+      // Fetch project dependencies
+      const dependenciesResponse = await fetch(`http://localhost:3000/projects/${projectId}/dependencies`)
+      if (dependenciesResponse.ok) {
+        const dependenciesData = await dependenciesResponse.json()
+        setProjectDependencies(dependenciesData)
+      }
+      
+      // Fetch watchlist dependencies
+      const watchlistResponse = await fetch(`http://localhost:3000/projects/${projectId}/watchlist`)
+      if (watchlistResponse.ok) {
+        const watchlistData = await watchlistResponse.json()
+        setWatchlistDependencies(watchlistData)
+      }
+      
+      // Check current user's role in the project
+      const roleResponse = await fetch(`http://localhost:3000/projects/${projectId}/user/user-123/role`)
+      if (roleResponse.ok) {
+        const roleData = await roleResponse.json()
+        setCurrentUserRole(roleData.role)
+      }
+      
+      // Fetch project watchlist and package statuses
+      const [projectWatchlistResponse, packageStatusResponse] = await Promise.all([
+        fetch(`http://localhost:3000/projects/${projectId}/project-watchlist`),
+        fetch(`http://localhost:3000/projects/${projectId}/watchlist/status`)
+      ])
+      
+      if (projectWatchlistResponse.ok) {
+        const projectWatchlistData = await projectWatchlistResponse.json()
+        setProjectWatchlist(projectWatchlistData)
+      }
+      
+      if (packageStatusResponse.ok) {
+        const statusData = await packageStatusResponse.json()
+        const statusMap: {[key: string]: {status: string, hasScores: boolean}} = {}
+        statusData.forEach((pkg: any) => {
+          statusMap[pkg.packageId] = {
+            status: pkg.status,
+            hasScores: pkg.hasScores
+          }
+        })
+        setPackageStatuses(statusMap)
+      }
+      
+    } catch (err) {
+      console.error('Error fetching project data:', err)
+      setError('Failed to load project')
+    } finally {
+      setLoading(false)
+    }
+  }
+
 
   // Function to save project name change
   const handleProjectNameChange = async (newName: string) => {
@@ -379,78 +524,67 @@ export default function ProjectDetailPage() {
   ]
 
   useEffect(() => {
-    const fetchProjectData = async () => {
-      try {
-        setLoading(true)
-        
-        // Fetch project details
-        const projectResponse = await fetch(`http://localhost:3000/projects/${projectId}`)
-        if (!projectResponse.ok) {
-          throw new Error('Failed to fetch project')
-        }
-        const projectData = await projectResponse.json()
-        console.log('Project data received:', JSON.stringify(projectData, null, 2))
-        setProject(projectData)
-        setSelectedLicense(projectData.license || 'none')
-        setProjectName(projectData.name || '')
-        setVulnerabilityNotifications(projectData.vulnerability_notifications ?? { alerts: true, slack: false, discord: false })
-        setLicenseNotifications(projectData.license_notifications ?? { alerts: true, slack: false, discord: false })
-        setHealthNotifications(projectData.health_notifications ?? { alerts: true, slack: false, discord: false })
-        
-        // Fetch team members for this project
-        const teamResponse = await fetch(`http://localhost:3000/projects/${projectId}/users`)
-        if (teamResponse.ok) {
-          const teamData = await teamResponse.json()
-          setProjectUsers(teamData)
-        }
-
-        // Fetch current user
-        const userResponse = await fetch('http://localhost:3000/auth/me')
-        if (userResponse.ok) {
-          const userData = await userResponse.json()
-          setCurrentUser(userData)
-        }
-        
-        // Fetch project dependencies
-        const dependenciesResponse = await fetch(`http://localhost:3000/projects/${projectId}/dependencies`)
-        if (dependenciesResponse.ok) {
-          const dependenciesData = await dependenciesResponse.json()
-          setProjectDependencies(dependenciesData)
-        }
-        
-        // Fetch watchlist dependencies
-        const watchlistResponse = await fetch(`http://localhost:3000/projects/${projectId}/watchlist`)
-        if (watchlistResponse.ok) {
-          const watchlistData = await watchlistResponse.json()
-          setWatchlistDependencies(watchlistData)
-        }
-        
-        // Check current user's role in the project
-        const roleResponse = await fetch(`http://localhost:3000/projects/${projectId}/user/user-123/role`)
-        if (roleResponse.ok) {
-          const roleData = await roleResponse.json()
-          setCurrentUserRole(roleData.role)
-        }
-        
-        // Fetch project watchlist
-        const projectWatchlistResponse = await fetch(`http://localhost:3000/projects/${projectId}/project-watchlist`)
-        if (projectWatchlistResponse.ok) {
-          const projectWatchlistData = await projectWatchlistResponse.json()
-          setProjectWatchlist(projectWatchlistData)
-        }
-        
-      } catch (err) {
-        console.error('Error fetching project data:', err)
-        setError('Failed to load project')
-      } finally {
-        setLoading(false)
-      }
-    }
-
     if (projectId) {
       fetchProjectData()
     }
   }, [projectId])
+
+  // Clean package status checking - check individual packages and get data when ready
+  useEffect(() => {
+    const checkPackageStatuses = async () => {
+      const processingPackages = Object.entries(packageStatuses).filter(
+        ([_, status]) => status.status === 'queued' || status.status === 'fast'
+      )
+      
+      if (processingPackages.length === 0) return
+      
+      try {
+        const response = await fetch(`http://localhost:3000/projects/${projectId}/watchlist/status`)
+        if (!response.ok) return
+        
+        const statusData = await response.json()
+        const updatedStatuses = { ...packageStatuses }
+        let hasUpdates = false
+        
+        // Check each processing package individually
+        for (const [packageId, currentStatus] of processingPackages) {
+          const packageStatus = statusData.find((pkg: any) => pkg.packageId === packageId)
+          if (!packageStatus) continue
+          
+          // If package is done, get the data and stop checking
+          if (packageStatus.status === 'done') {
+            updatedStatuses[packageId] = {
+              status: 'done',
+              hasScores: true
+            }
+            hasUpdates = true
+            
+            // Get the updated package data
+            try {
+              const dataResponse = await fetch(`http://localhost:3000/projects/${projectId}/project-watchlist`)
+              if (dataResponse.ok) {
+                const watchlistData = await dataResponse.json()
+                setProjectWatchlist(watchlistData)
+              }
+            } catch (error) {
+              console.error('Error fetching updated package data:', error)
+            }
+          }
+        }
+        
+        if (hasUpdates) {
+          setPackageStatuses(updatedStatuses)
+        }
+      } catch (error) {
+        console.error('Error checking package statuses:', error)
+      }
+    }
+    
+    // Check every 2 seconds for processing packages
+    const interval = setInterval(checkPackageStatuses, 2000)
+    
+    return () => clearInterval(interval)
+  }, [packageStatuses, projectId])
 
   const handleRefreshDependencies = async () => {
     if (!projectId) return
@@ -597,9 +731,121 @@ export default function ProjectDetailPage() {
   if (loading) {
     return (
       <div className="min-h-screen">
-        <div className="container mx-auto px-4 py-8">
-          <div className="text-center py-8">
-            <div className="text-gray-400">Loading project...</div>
+        {/* Project Top Bar */}
+        <ProjectTopBar
+          projectName=""
+          projectLanguage=""
+          currentTab="overview"
+          onTabChange={() => {}}
+        />
+
+        <div className="container mx-auto px-4 py-8 max-w-7xl">
+          {/* Tab Content - Overview skeleton */}
+          <div className="space-y-6">
+            {/* Project Health Overview */}
+            <Card style={{ backgroundColor: colors.background.card }}>
+              <CardHeader>
+                <CardTitle className="text-white">Project Health</CardTitle>
+                <p className="text-gray-400 text-sm">Average dependency risk</p>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                  {/* Left: Security Score Skeleton */}
+                  <div className="flex flex-col justify-center items-center lg:col-span-3" style={{ marginLeft: 'auto' }}>
+                    <div className="relative w-48 h-48">
+                      <div className="w-48 h-48 bg-gray-600 rounded-full animate-pulse"></div>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="h-16 bg-gray-600 rounded w-16 animate-pulse"></div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right: Security Score Graph Skeleton */}
+                  <div className="lg:col-span-9">
+                    <div className="h-64 w-full bg-gray-600 rounded animate-pulse"></div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Vulnerabilities and License Compliance Row */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Vulnerabilities */}
+              <Card style={{ backgroundColor: colors.background.card }}>
+                <CardHeader>
+                  <CardTitle className="text-white">Vulnerabilities</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {/* Total Vulnerabilities Skeleton */}
+                    <div className="text-center">
+                      <div className="h-8 bg-gray-600 rounded w-16 mx-auto mb-2 animate-pulse"></div>
+                      <div className="h-4 bg-gray-600 rounded w-40 mx-auto animate-pulse"></div>
+                    </div>
+
+                    {/* Severity Breakdown Skeleton */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 bg-gray-600 rounded-full animate-pulse"></div>
+                          <span className="text-sm text-gray-300">Critical</span>
+                        </div>
+                        <div className="h-4 bg-gray-600 rounded w-4 animate-pulse"></div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 bg-gray-600 rounded-full animate-pulse"></div>
+                          <span className="text-sm text-gray-300">High</span>
+                        </div>
+                        <div className="h-4 bg-gray-600 rounded w-4 animate-pulse"></div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 bg-gray-600 rounded-full animate-pulse"></div>
+                          <span className="text-sm text-gray-300">Medium</span>
+                        </div>
+                        <div className="h-4 bg-gray-600 rounded w-4 animate-pulse"></div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-3 h-3 bg-gray-600 rounded-full animate-pulse"></div>
+                          <span className="text-sm text-gray-300">Low</span>
+                        </div>
+                        <div className="h-4 bg-gray-600 rounded w-4 animate-pulse"></div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* License Compliance */}
+              <Card style={{ backgroundColor: colors.background.card }}>
+                <CardHeader>
+                  <CardTitle className="text-white">License Compliance</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {/* Project License Skeleton */}
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-gray-600 rounded-lg animate-pulse"></div>
+                      <div className="h-5 bg-gray-600 rounded w-24 animate-pulse"></div>
+                    </div>
+
+                    {/* Compliance Status Skeleton */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-400">Overall Compliance</span>
+                        <div className="h-4 bg-gray-600 rounded w-12 animate-pulse"></div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-400">License Conflicts</span>
+                        <div className="h-4 bg-gray-600 rounded w-8 animate-pulse"></div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </div>
       </div>
@@ -758,7 +1004,7 @@ export default function ProjectDetailPage() {
                   <div className="space-y-4">
                     {/* Total Vulnerabilities */}
                     <div className="text-center">
-                      <div className="text-3xl font-bold text-white">23</div>
+                      <div className="text-3xl font-bold text-white">{complianceData.vulnerableDependencies}</div>
                       <div className="text-sm text-gray-400">Total active vulnerabilities</div>
                     </div>
 
@@ -769,28 +1015,28 @@ export default function ProjectDetailPage() {
                           <div className="w-3 h-3 rounded-full bg-red-500"></div>
                           <span className="text-sm text-gray-300">Critical</span>
                       </div>
-                        <span className="text-white font-semibold">3</span>
+                        <span className="text-white font-semibold">{complianceData.vulnerabilityBreakdown.critical}</span>
                     </div>
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <div className="w-3 h-3 rounded-full bg-orange-500"></div>
                           <span className="text-sm text-gray-300">High</span>
                       </div>
-                        <span className="text-white font-semibold">7</span>
+                        <span className="text-white font-semibold">{complianceData.vulnerabilityBreakdown.high}</span>
                     </div>
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
                           <span className="text-sm text-gray-300">Medium</span>
                       </div>
-                        <span className="text-white font-semibold">8</span>
+                        <span className="text-white font-semibold">{complianceData.vulnerabilityBreakdown.medium}</span>
                     </div>
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <div className="w-3 h-3 rounded-full bg-blue-500"></div>
                           <span className="text-sm text-gray-300">Low</span>
                         </div>
-                        <span className="text-white font-semibold">5</span>
+                        <span className="text-white font-semibold">{complianceData.vulnerabilityBreakdown.low}</span>
                       </div>
                     </div>
 
@@ -807,11 +1053,25 @@ export default function ProjectDetailPage() {
                 <div className="space-y-4">
                     {/* Project License */}
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
-                        <span className="text-green-400 font-bold text-sm">MIT</span>
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                        project?.license === 'MIT' ? 'bg-green-500/20' : 
+                        project?.license === 'Apache-2.0' ? 'bg-blue-500/20' :
+                        project?.license === 'GPL-2.0' || project?.license === 'GPL-3.0' ? 'bg-red-500/20' :
+                        'bg-gray-500/20'
+                      }`}>
+                        <span className={`font-bold text-sm ${
+                          project?.license === 'MIT' ? 'text-green-400' : 
+                          project?.license === 'Apache-2.0' ? 'text-blue-400' :
+                          project?.license === 'GPL-2.0' || project?.license === 'GPL-3.0' ? 'text-red-400' :
+                          'text-gray-400'
+                        }`}>
+                          {project?.license ? project.license.substring(0, 3).toUpperCase() : 'N/A'}
+                        </span>
                     </div>
                       <div>
-                        <div className="text-white font-medium">MIT License</div>
+                        <div className="text-white font-medium">
+                          {project?.license ? getComplianceLicenseDisplayName(project.license) : 'No License Detected'}
+                        </div>
                   </div>
                     </div>
 
@@ -819,16 +1079,22 @@ export default function ProjectDetailPage() {
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <span className="text-gray-400">Overall Compliance</span>
-                        <span className="text-green-400 font-semibold">95%</span>
+                        <span className={`font-semibold ${
+                          complianceData.overallCompliance >= 90 ? 'text-green-400' :
+                          complianceData.overallCompliance >= 70 ? 'text-yellow-400' :
+                          'text-red-400'
+                        }`}>
+                          {complianceData.overallCompliance}%
+                        </span>
                   </div>
                       <div className="flex items-center justify-between">
                         <span className="text-gray-400">License Conflicts</span>
-                        <span className="text-yellow-400 font-semibold">2</span>
+                        <span className={`font-semibold ${
+                          complianceData.licenseConflicts === 0 ? 'text-green-400' : 'text-yellow-400'
+                        }`}>
+                          {complianceData.licenseConflicts}
+                        </span>
                     </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-400">Vulnerable Dependencies</span>
-                        <span className="text-red-400 font-semibold">3</span>
-                  </div>
                     </div>
                   </div>
               </CardContent>
@@ -897,161 +1163,37 @@ export default function ProjectDetailPage() {
 
             {/* Dependencies List */}
             <div className="grid gap-4">
-              {/* Express */}
-              {(!searchQuery || 'express'.includes(searchQuery.toLowerCase())) && (
-              <Card style={{ backgroundColor: colors.background.card }}>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'rgb(84, 0, 250)' }}>
-                        <img src="/package_icon.png" alt="Package" className="w-6 h-6" />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-semibold text-white">express</h3>
-                        <p className="text-gray-400">4.18.2</p>
-                      </div>
-                      <Button size="sm" variant="outline" className="border-gray-600 text-gray-300 hover:bg-gray-700 text-xs px-2 py-1">
-                        Bump
-                      </Button>
-                    </div>
-                    <div className="flex items-center gap-6">
-                      <div className="flex items-center gap-4">
-                        <span className="text-green-400 text-xs">✓</span>
-                        <div className="text-center">
-                          <div className="text-2xl font-bold text-white">85</div>
-                          <div className="text-xs text-gray-400">Risk Score</div>
-                  </div>
-                </div>
-                    </div>
+              {projectDependencies.length === 0 ? (
+                <Card style={{ backgroundColor: colors.background.card }}>
+                  <CardContent className="p-6 text-center">
+                    <div className="text-gray-400">
+                      {project?.status === 'creating' ? (
+                        <div>
+                          <div className="animate-spin w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+                          <p>Analyzing dependencies...</p>
+                          <p className="text-sm mt-2">This may take a few minutes</p>
                         </div>
-                  
-              </CardContent>
-            </Card>
-              )}
-
-              {/* React */}
-              {(!searchQuery || 'react'.includes(searchQuery.toLowerCase())) && (
-              <Card style={{ backgroundColor: colors.background.card }}>
-                <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'rgb(84, 0, 250)' }}>
-                        <img src="/package_icon.png" alt="Package" className="w-6 h-6" />
-                    </div>
-                      <div>
-                        <h3 className="text-lg font-semibold text-white">react</h3>
-                        <p className="text-gray-400">18.2.0</p>
-                      </div>
-                      <Button size="sm" variant="outline" className="border-gray-600 text-gray-300 hover:bg-gray-700 text-xs px-2 py-1">
-                        Bump
-                          </Button>
-                    </div>
-                    <div className="flex items-center gap-6">
-                      <div className="flex items-center gap-4">
-                        <span className="text-green-400 text-xs">✓</span>
-                        <div className="text-center">
-                          <div className="text-2xl font-bold text-white">72</div>
-                          <div className="text-xs text-gray-400">Risk Score</div>
-                  </div>
-                </div>
-                    </div>
+                      ) : (
+                        <div>
+                          <p>No dependencies found</p>
+                          <p className="text-sm mt-2">Dependencies will appear here once the project is set up</p>
                         </div>
-                  
-                </CardContent>
-              </Card>
-              )}
-
-              {/* Axios */}
-              {(!searchQuery || 'axios'.includes(searchQuery.toLowerCase())) && (
-              <Card style={{ backgroundColor: colors.background.card }}>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'rgb(84, 0, 250)' }}>
-                        <img src="/package_icon.png" alt="Package" className="w-6 h-6" />
+                      )}
                     </div>
-                      <div>
-                        <h3 className="text-lg font-semibold text-white">axios</h3>
-                        <p className="text-gray-400">1.6.0</p>
-                      </div>
-                      <Button size="sm" variant="outline" className="border-gray-600 text-gray-300 hover:bg-gray-700 text-xs px-2 py-1">
-                        Bump
-                          </Button>
-                        </div>
-                    <div className="flex items-center gap-6">
-                      <div className="flex items-center gap-4">
-                        <span className="text-green-400 text-xs">✓</span>
-                        <div className="text-center">
-                          <div className="text-2xl font-bold text-white">95</div>
-                          <div className="text-xs text-gray-400">Risk Score</div>
-                      </div>
-                      </div>
-                    </div>
-                </div>
-                  
-                </CardContent>
-              </Card>
-              )}
-
-              {/* Lodash */}
-              {(!searchQuery || 'lodash'.includes(searchQuery.toLowerCase())) && (
-              <Card style={{ backgroundColor: colors.background.card }}>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'rgb(84, 0, 250)' }}>
-                        <img src="/package_icon.png" alt="Package" className="w-6 h-6" />
-                </div>
-                      <div>
-                        <h3 className="text-lg font-semibold text-white">lodash</h3>
-                        <p className="text-gray-400">4.17.21</p>
-                      </div>
-                      <Button size="sm" variant="outline" className="border-gray-600 text-gray-300 hover:bg-gray-700 text-xs px-2 py-1">
-                        Bump
-                      </Button>
-                    </div>
-                    <div className="flex items-center gap-6">
-                      <div className="flex items-center gap-4">
-                        <span className="text-yellow-400 text-xs">⚠</span>
-                        <div className="text-center">
-                          <div className="text-2xl font-bold text-white">68</div>
-                          <div className="text-xs text-gray-400">Risk Score</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-              </CardContent>
-            </Card>
-              )}
-
-              {/* Moment */}
-              {(!searchQuery || 'moment'.includes(searchQuery.toLowerCase())) && (
-              <Card style={{ backgroundColor: colors.background.card }}>
-                <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'rgb(84, 0, 250)' }}>
-                        <img src="/package_icon.png" alt="Package" className="w-6 h-6" />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-semibold text-white">moment</h3>
-                        <p className="text-gray-400">2.29.4</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-6">
-                      <div className="flex items-center gap-4">
-                        <span className="px-2 py-1 bg-red-500/20 text-red-400 text-xs rounded">Non-Compliant</span>
-                        <div className="text-center">
-                          <div className="text-2xl font-bold text-white">45</div>
-                          <div className="text-xs text-gray-400">Risk Score</div>
-                        </div>
-                      </div>
-                    </div>
-                </div>
-                  
-              </CardContent>
-            </Card>
+                  </CardContent>
+                </Card>
+              ) : (
+                projectDependencies
+                  .filter(dep => !searchQuery || dep.name.toLowerCase().includes(searchQuery.toLowerCase()))
+                  .map((dependency) => (
+                    <DependencyPackageCard
+                      key={dependency.id}
+                      dependency={dependency}
+                      searchQuery={searchQuery}
+                      projectLicense={project?.license}
+                      isLoading={dependency.package?.status === 'queued' || dependency.package?.status === 'fast'}
+                    />
+                  ))
               )}
             </div>
           </div>
@@ -1076,7 +1218,10 @@ export default function ProjectDetailPage() {
                 <Button 
                   style={{ backgroundColor: colors.primary }}
                   className="hover:opacity-90 text-white"
-                  onClick={() => setShowWatchlistSearchDialog(true)}
+                  onClick={() => {
+                    console.log('🎯 Opening watchlist search dialog')
+                    setShowWatchlistSearchDialog(true)
+                  }}
                 >
                   <Plus className="h-4 w-4 mr-2" />
                   Add Dependency
@@ -1086,222 +1231,61 @@ export default function ProjectDetailPage() {
 
             {/* Watchlist Dependencies */}
             <div className="grid gap-4">
-              {/* Express - Watchlist */}
-              {(!searchQuery || 'express'.includes(searchQuery.toLowerCase())) && (
-              <Card 
-                style={{ backgroundColor: colors.background.card, cursor: 'pointer' }}
-                onClick={() => {
-                  setSelectedDependency({
-                    name: 'express',
-                    version: '4.18.2',
-                    addedBy: 'Alex Johnson',
-                    riskScore: 85,
-                    status: 'approved',
-                    approvedBy: 'Sarah Kim',
-                    healthScore: 92,
-                    activityScore: 78,
-                    busFactor: 15,
-                    license: 'MIT',
-                    projectLicense: 'MIT',
-                    vulnerabilities: 2,
-                    pastVulnerabilities: 12
-                  })
-                  setShowDependencyReviewDialog(true)
-                }}
-                className="hover:opacity-90 transition-opacity"
-              >
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'rgb(84, 0, 250)' }}>
-                        <img src="/package_icon.png" alt="Package" className="w-6 h-6" />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="text-lg font-semibold text-white">express</h3>
-                        <p className="text-gray-400">Added by Alex Johnson</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="border-green-500 text-green-500">
-                          <Check className="mr-1 h-3 w-3" />
-                          Approved
-                        </Badge>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-6">
-                      <div className="flex items-center gap-4">
-                        <span className="text-green-400 text-xs">✓</span>
-                        <div className="text-center">
-                          <div className="text-2xl font-bold text-white">85</div>
-                          <div className="text-xs text-gray-400">Risk Score</div>
-                        </div>
-                      </div>
-                    </div>
+              {projectWatchlist && projectWatchlist.length > 0 ? (
+                projectWatchlist.map((watchlistItem) => (
+                  <WatchlistPackageCard
+                    key={watchlistItem.id}
+                    package={watchlistItem}
+                    searchQuery={searchQuery}
+                    projectLicense={project?.license}
+                    isLoading={packageStatuses[watchlistItem.package?.id]?.status === 'queued' || packageStatuses[watchlistItem.package?.id]?.status === 'fast'}
+                    packageStatus={packageStatuses[watchlistItem.package?.id]?.status as 'queued' | 'fast' | 'done'}
+                    onPackageClick={(pkg) => {
+                      const packageData = pkg.package || pkg
+                      const packageName = packageData.name || pkg.name || 'Unknown Package'
+                      
+                      setSelectedDependency({
+                        id: pkg.id,
+                        name: packageName,
+                        version: pkg.version || 'Unknown',
+                        addedBy: pkg.addedByUser?.name || pkg.addedByUser?.email || pkg.addedBy || pkg.added_by || 'Unknown',
+                        addedAt: pkg.addedAt || pkg.added_at || new Date(),
+                        comments: pkg.comments || [],
+                        riskScore: pkg.package?.total_score || pkg.riskScore || 0,
+                        status: pkg.status || 'pending',
+                        approvedBy: pkg.approvedByUser?.name || pkg.approvedBy,
+                        rejectedBy: pkg.rejectedByUser?.name || pkg.rejectedBy,
+                        approvedAt: pkg.approvedAt,
+                        rejectedAt: pkg.rejectedAt,
+                        healthScore: (pkg.package as any)?.scorecard_score || (pkg.package as any)?.health_score || pkg.healthScore || 0,
+                        activityScore: pkg.package?.activity_score || pkg.activityScore || 0,
+                        busFactor: pkg.package?.bus_factor_score || pkg.busFactor || 0,
+                        license: pkg.package?.license || pkg.license || 'Unknown',
+                        projectLicense: project?.license || null,
+                        vulnerabilities: pkg.package?.vulnerability_score || pkg.vulnerabilities || 0,
+                        licenseScore: pkg.package?.license_score || 0,
+                        pastVulnerabilities: pkg.pastVulnerabilities || 0
+                      })
+                      setShowDependencyReviewDialog(true)
+                    }}
+                  />
+                ))
+              ) : (
+                <div className="text-center py-12">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center" style={{ backgroundColor: 'rgb(84, 0, 250)' }}>
+                    <img src="/package_icon.png" alt="Package" className="w-8 h-8" />
                   </div>
-                </CardContent>
-              </Card>
-              )}
-
-              {/* React - Watchlist */}
-              {(!searchQuery || 'react'.includes(searchQuery.toLowerCase())) && (
-              <Card 
-                style={{ backgroundColor: colors.background.card, cursor: 'pointer' }}
-                onClick={() => {
-                  setSelectedDependency({
-                    name: 'react',
-                    version: '18.2.0',
-                    addedBy: 'Sarah Kim',
-                    riskScore: 72,
-                    status: 'rejected',
-                    rejectedBy: 'David Lee',
-                    healthScore: 88,
-                    activityScore: 95,
-                    busFactor: 8,
-                    license: 'MIT',
-                    projectLicense: 'MIT',
-                    vulnerabilities: 1,
-                    pastVulnerabilities: 5
-                  })
-                  setShowDependencyReviewDialog(true)
-                }}
-                className="hover:opacity-90 transition-opacity"
-              >
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'rgb(84, 0, 250)' }}>
-                        <img src="/package_icon.png" alt="Package" className="w-6 h-6" />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="text-lg font-semibold text-white">react</h3>
-                        <p className="text-gray-400">Added by Sarah Kim</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="border-red-500 text-red-500">
-                          <Trash2 className="mr-1 h-3 w-3" />
-                          Rejected
-                        </Badge>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-6">
-                      <div className="flex items-center gap-4">
-                        <span className="text-yellow-400 text-xs">⚠</span>
-                        <div className="text-center">
-                          <div className="text-2xl font-bold text-white">72</div>
-                          <div className="text-xs text-gray-400">Risk Score</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              )}
-
-              {/* Moment - Watchlist */}
-              {(!searchQuery || 'moment'.includes(searchQuery.toLowerCase())) && (
-              <Card 
-                style={{ backgroundColor: colors.background.card, cursor: 'pointer' }}
-                onClick={() => {
-                  setSelectedDependency({
-                    name: 'moment',
-                    version: '2.29.4',
-                    addedBy: 'David Lee',
-                    riskScore: 45,
-                    status: 'pending',
-                    healthScore: 65,
-                    activityScore: 25,
-                    busFactor: 3,
-                    license: 'MIT',
-                    projectLicense: 'MIT',
-                    vulnerabilities: 0,
-                    pastVulnerabilities: 8
-                  })
-                  setShowDependencyReviewDialog(true)
-                }}
-                className="hover:opacity-90 transition-opacity"
-              >
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'rgb(84, 0, 250)' }}>
-                        <img src="/package_icon.png" alt="Package" className="w-6 h-6" />
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="text-lg font-semibold text-white">moment</h3>
-                        <p className="text-gray-400">Added by David Lee</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="border-blue-500 text-blue-500">
-                          <MessageSquare className="mr-1 h-3 w-3" />
-                          3
-                        </Badge>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-6">
-                      <div className="flex items-center gap-4">
-                        <span className="text-green-400 text-xs">✓</span>
-                        <div className="text-center">
-                          <div className="text-2xl font-bold text-white">45</div>
-                          <div className="text-xs text-gray-400">Risk Score</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              )}
-
-              {/* Lodash - Watchlist */}
-              {(!searchQuery || 'lodash'.includes(searchQuery.toLowerCase())) && (
-                <Card 
-                  style={{ backgroundColor: colors.background.card, cursor: 'pointer' }}
-                  onClick={() => {
-                    setSelectedDependency({
-                      name: 'lodash',
-                      version: '4.17.21',
-                      addedBy: 'Emma Wilson',
-                      riskScore: 68,
-                      status: 'pending',
-                      healthScore: 75,
-                      activityScore: 45,
-                      busFactor: 12,
-                      license: 'MIT',
-                      projectLicense: 'MIT',
-                      vulnerabilities: 1,
-                      pastVulnerabilities: 3
-                    })
-                    setShowDependencyReviewDialog(true)
-                  }}
-                  className="hover:opacity-90 transition-opacity"
-                >
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'rgb(84, 0, 250)' }}>
-                          <img src="/package_icon.png" alt="Package" className="w-6 h-6" />
-                        </div>
-                        <div className="flex-1">
-                          <h3 className="text-lg font-semibold text-white">lodash</h3>
-                          <p className="text-gray-400">Added by Emma Wilson</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="border-blue-500 text-blue-500">
-                            <MessageSquare className="mr-1 h-3 w-3" />
-                            1
-                          </Badge>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-6">
-                        <div className="flex items-center gap-4">
-                          <span className="text-yellow-400 text-xs">⚠</span>
-                          <div className="text-center">
-                            <div className="text-2xl font-bold text-white">68</div>
-                            <div className="text-xs text-gray-400">Risk Score</div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                  <h3 className="text-lg font-semibold text-white mb-2">No packages in watchlist</h3>
+                  <p className="text-gray-400 mb-6">Add packages to your watchlist to monitor their security and health</p>
+                  <Button 
+                    style={{ backgroundColor: colors.primary }}
+                    className="hover:opacity-90 text-white"
+                    onClick={() => setShowWatchlistSearchDialog(true)}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add First Package
+                  </Button>
+                </div>
               )}
             </div>
           </div>
@@ -1320,11 +1304,25 @@ export default function ProjectDetailPage() {
               <CardContent>
                   <div className="space-y-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
-                        <span className="text-green-400 font-bold text-sm">MIT</span>
+                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                        project?.license === 'MIT' ? 'bg-green-500/20' : 
+                        project?.license === 'Apache-2.0' ? 'bg-blue-500/20' :
+                        project?.license === 'GPL-2.0' || project?.license === 'GPL-3.0' ? 'bg-red-500/20' :
+                        'bg-gray-500/20'
+                      }`}>
+                        <span className={`font-bold text-sm ${
+                          project?.license === 'MIT' ? 'text-green-400' : 
+                          project?.license === 'Apache-2.0' ? 'text-blue-400' :
+                          project?.license === 'GPL-2.0' || project?.license === 'GPL-3.0' ? 'text-red-400' :
+                          'text-gray-400'
+                        }`}>
+                          {project?.license ? project.license.substring(0, 3).toUpperCase() : 'N/A'}
+                        </span>
                     </div>
                       <div>
-                        <div className="text-white font-medium">MIT License</div>
+                        <div className="text-white font-medium">
+                          {project?.license ? getComplianceLicenseDisplayName(project.license) : 'No License Detected'}
+                        </div>
                           </div>
                   </div>
                 </div>
@@ -1340,12 +1338,22 @@ export default function ProjectDetailPage() {
                 <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <span className="text-gray-400">Overall Compliance</span>
-                      <span className="text-green-400 font-semibold">95%</span>
+                      <span className={`font-semibold ${
+                        complianceData.overallCompliance >= 90 ? 'text-green-400' :
+                        complianceData.overallCompliance >= 70 ? 'text-yellow-400' :
+                        'text-red-400'
+                      }`}>
+                        {complianceData.overallCompliance}%
+                      </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-gray-400">License Conflicts</span>
-                      <span className="text-yellow-400 font-semibold">2</span>
-                  </div>
+                      <span className={`font-semibold ${
+                        complianceData.licenseConflicts === 0 ? 'text-green-400' : 'text-yellow-400'
+                      }`}>
+                        {complianceData.licenseConflicts}
+                      </span>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -1357,12 +1365,49 @@ export default function ProjectDetailPage() {
               </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    <Button className="w-full hover:opacity-90 text-white" style={{ backgroundColor: colors.primary }}>
+                    <Button 
+                      className="w-full hover:opacity-90 text-white" 
+                      style={{ backgroundColor: colors.primary }}
+                      onClick={() => {
+                        // Generate SBOM data
+                        const sbomData = {
+                          project: {
+                            name: project?.name || 'Unknown Project',
+                            license: project?.license || 'unlicensed',
+                            totalDependencies: complianceData.totalDependencies
+                          },
+                          dependencies: projectDependencies.map(dep => ({
+                            name: dep.name,
+                            version: dep.version,
+                            licenseScore: dep.package?.license_score || 0,
+                            vulnerabilityScore: dep.package?.vulnerability_score || 0,
+                            totalScore: dep.package?.total_score || 0
+                          })),
+                          compliance: {
+                            overallCompliance: complianceData.overallCompliance,
+                            licenseConflicts: complianceData.licenseConflicts,
+                            vulnerableDependencies: complianceData.vulnerableDependencies
+                          },
+                          generatedAt: new Date().toISOString()
+                        }
+                        
+                        // Download as JSON
+                        const blob = new Blob([JSON.stringify(sbomData, null, 2)], { type: 'application/json' })
+                        const url = URL.createObjectURL(blob)
+                        const a = document.createElement('a')
+                        a.href = url
+                        a.download = `${project?.name || 'project'}-sbom.json`
+                        document.body.appendChild(a)
+                        a.click()
+                        document.body.removeChild(a)
+                        URL.revokeObjectURL(url)
+                      }}
+                    >
                       <Download className="h-4 w-4 mr-2" />
                       Download SBOM
                     </Button>
                     <div className="text-xs text-gray-500">
-                      Last updated: 2 hours ago
+                      Last updated: {project?.updated_at ? formatRelativeDate(project.updated_at) : 'Unknown'}
                   </div>
                 </div>
                 </CardContent>
@@ -1377,212 +1422,58 @@ export default function ProjectDetailPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between p-4 rounded-lg" style={{ backgroundColor: 'rgb(26, 26, 26)' }}>
-                          <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'rgb(84, 0, 250)' }}>
-                        <img src="/package_icon.png" alt="Package" className="w-4 h-4" />
-                            </div>
-                            <div>
-                        <div className="text-white font-medium">moment</div>
-                        <div className="text-sm text-gray-400">v2.29.4 • GPL-2.0 License</div>
-                            </div>
+                  {complianceData.nonCompliantDependencies.length === 0 ? (
+                    <div className="text-center py-8">
+                      <div className="text-green-400 text-4xl mb-2">✓</div>
+                      <p className="text-gray-400">All dependencies are compliant with your project license</p>
+                    </div>
+                  ) : (
+                    complianceData.nonCompliantDependencies.map((dep, index) => (
+                      <div key={index} className="flex items-center justify-between p-4 rounded-lg" style={{ backgroundColor: 'rgb(26, 26, 26)' }}>
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'rgb(84, 0, 250)' }}>
+                            <img src="/package_icon.png" alt="Package" className="w-4 h-4" />
+                          </div>
+                          <div>
+                            <div className="text-white font-medium">{dep.name}</div>
+                            <div className="text-sm text-gray-400">v{dep.version} • {dep.license} License</div>
+                          </div>
                         </div>
                         <div className="flex items-center gap-2">
-                      <div className="px-2 py-1 bg-red-500/20 text-red-400 text-xs rounded">Incompatible</div>
+                          <div className="px-2 py-1 bg-red-500/20 text-red-400 text-xs rounded">Incompatible</div>
                         </div>
                       </div>
-
+                    ))
+                  )}
                 </div>
               </CardContent>
             </Card>
+
 
           </div>
         )}
 
         {currentTab === "alerts" && (
           <div className="space-y-6">
-            {/* Alert Filters */}
-            <div className="flex items-center gap-2">
+            {/* No Alerts Message */}
+            <div className="text-center py-12">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center" style={{ backgroundColor: 'rgb(84, 0, 250)' }}>
+                <Bell className="w-8 h-8 text-white" />
+              </div>
+              <h3 className="text-lg font-semibold text-white mb-2">No Alerts Found</h3>
+              <p className="text-gray-400 mb-6">No alerts have been triggered for this repository yet. Click here to configure alert settings.</p>
               <Button 
-                variant="outline" 
-                size="sm" 
-                className={`border-blue-500 text-blue-400 hover:bg-blue-500/20 ${alertFilter === "all" ? "bg-blue-500/20 border-blue-400" : ""}`}
-                onClick={() => setAlertFilter("all")}
+                style={{ backgroundColor: colors.primary }}
+                className="hover:opacity-90 text-white"
+                onClick={() => {
+                  // Navigate to settings or open alert configuration
+                  console.log('Configure alert settings clicked')
+                }}
               >
-                All
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className={`border-blue-500 text-blue-400 hover:bg-blue-500/20 ${alertFilter === "resolve" ? "bg-blue-500/20 border-blue-400" : ""}`}
-                onClick={() => setAlertFilter("resolve")}
-              >
-                Resolve
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className={`border-blue-500 text-blue-400 hover:bg-blue-500/20 ${alertFilter === "resolved" ? "bg-blue-500/20 border-blue-400" : ""}`}
-                onClick={() => setAlertFilter("resolved")}
-              >
-                Resolved
+                <Bell className="h-4 w-4 mr-2" />
+                Configure Alert Settings
               </Button>
             </div>
-
-            {/* Alert 1 - New Vulnerability */}
-            {(alertFilter === "all" || alertFilter === "resolve") && (
-            <Card style={{ backgroundColor: colors.background.card }}>
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-4 flex-1">
-                    <div className="w-12 h-12 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'rgb(84, 0, 250)' }}>
-                      <span className="text-white font-bold text-lg">!</span>
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-white mb-2">New Vulnerability in express</h3>
-                      <p className="text-gray-300">A new vulnerability has been detected for express</p>
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-end justify-between h-full">
-                    <div className="flex items-center gap-2">
-                      <Button variant="outline" size="sm" className="border-gray-600 text-gray-300 hover:bg-gray-700">
-                        Resolve
-                      </Button>
-                      <Button variant="outline" size="sm" className="border-gray-600 text-gray-300 hover:bg-gray-700">
-                        <img src="/jira_icon.png" alt="Jira" className="h-4 w-4 mr-1" />
-                        Send to Jira
-                      </Button>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-2">Sept. 6, 2024</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            )}
-
-            {/* Alert 2 - Lines Deleted */}
-            {(alertFilter === "all" || alertFilter === "resolve") && (
-            <Card style={{ backgroundColor: colors.background.card }}>
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-4 flex-1">
-                    <div className="w-12 h-12 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'rgb(84, 0, 250)' }}>
-                      <span className="text-white font-bold text-lg">⚠</span>
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-white mb-2">Lines Deleted in react</h3>
-                      <p className="text-gray-300">The number of lines deleted (201) has exceeded the threshold</p>
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-end justify-between h-full">
-                    <div className="flex items-center gap-2">
-                      <Button variant="outline" size="sm" className="border-gray-600 text-gray-300 hover:bg-gray-700">
-                        Resolve
-                      </Button>
-                      <Button variant="outline" size="sm" className="border-gray-600 text-gray-300 hover:bg-gray-700">
-                        <img src="/jira_icon.png" alt="Jira" className="h-4 w-4 mr-1" />
-                        Send to Jira
-                      </Button>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-2">Sept. 4, 2024</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            )}
-
-            {/* Alert 3 - Files Added */}
-            {(alertFilter === "all" || alertFilter === "resolved") && (
-            <Card style={{ backgroundColor: colors.background.card }}>
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-4 flex-1">
-                    <div className="w-12 h-12 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'rgb(84, 0, 250)' }}>
-                      <span className="text-white font-bold text-lg">+</span>
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-white mb-2">Files Added in lodash</h3>
-                      <p className="text-gray-300">20 new files have been added exceeding the normal threshold</p>
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-end justify-between h-full">
-                    <div className="flex items-center gap-2">
-                      <Button variant="outline" size="sm" className="border-gray-600 text-gray-500 cursor-not-allowed" disabled>
-                        Resolved
-                      </Button>
-                      <Button variant="outline" size="sm" className="border-gray-600 text-gray-500 cursor-not-allowed" disabled>
-                        <img src="/jira_icon.png" alt="Jira" className="h-4 w-4 mr-1 opacity-50" />
-                        Send to Jira
-                      </Button>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-2">Sept. 2, 2024</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            )}
-
-            {/* Alert 4 - Lower Health */}
-            {(alertFilter === "all" || alertFilter === "resolve") && (
-            <Card style={{ backgroundColor: colors.background.card }}>
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-4 flex-1">
-                    <div className="w-12 h-12 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'rgb(84, 0, 250)' }}>
-                      <span className="text-white font-bold text-lg">↓</span>
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-white mb-2">Lower Health in moment</h3>
-                      <p className="text-gray-300">Project health score has decreased significantly</p>
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-end justify-between h-full">
-                    <div className="flex items-center gap-2">
-                      <Button variant="outline" size="sm" className="border-gray-600 text-gray-300 hover:bg-gray-700">
-                        Resolve
-                      </Button>
-                      <Button variant="outline" size="sm" className="border-gray-600 text-gray-300 hover:bg-gray-700">
-                        <img src="/jira_icon.png" alt="Jira" className="h-4 w-4 mr-1" />
-                        Send to Jira
-                      </Button>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-2">Aug. 28, 2024</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            )}
-
-            {/* Alert 5 - Suspicious Author */}
-            {(alertFilter === "all" || alertFilter === "resolve") && (
-            <Card style={{ backgroundColor: colors.background.card }}>
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-4 flex-1">
-                    <div className="w-12 h-12 rounded-lg flex items-center justify-center" style={{ backgroundColor: 'rgb(84, 0, 250)' }}>
-                      <span className="text-white font-bold text-lg">👤</span>
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-white mb-2">Suspicious Author in axios</h3>
-                      <p className="text-gray-300">New dependency added by unknown author</p>
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-end justify-between h-full">
-                    <div className="flex items-center gap-2">
-                      <Button variant="outline" size="sm" className="border-gray-600 text-gray-300 hover:bg-gray-700">
-                        Resolve
-                      </Button>
-                      <Button variant="outline" size="sm" className="border-gray-600 text-gray-300 hover:bg-gray-700">
-                        <img src="/jira_icon.png" alt="Jira" className="h-4 w-4 mr-1" />
-                        Send to Jira
-                      </Button>
-                    </div>
-                    <p className="text-xs text-gray-500 mt-2">Aug. 25, 2024</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            )}
           </div>
         )}
 
@@ -2166,8 +2057,8 @@ export default function ProjectDetailPage() {
                   Clear Filters
                 </Button>
               )}
-      </div>
-                  </div>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -2207,6 +2098,43 @@ export default function ProjectDetailPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Watchlist Search Dialog */}
+      <WatchlistSearchDialog
+        open={showWatchlistSearchDialog}
+        onOpenChange={setShowWatchlistSearchDialog}
+        projectId={projectId}
+        onRepositoryAdded={async () => {
+          setShowWatchlistSearchDialog(false)
+          
+          // Fetch updated watchlist data and set initial statuses
+          try {
+            const [projectWatchlistResponse, packageStatusResponse] = await Promise.all([
+              fetch(`http://localhost:3000/projects/${projectId}/project-watchlist`),
+              fetch(`http://localhost:3000/projects/${projectId}/watchlist/status`)
+            ])
+            
+            if (projectWatchlistResponse.ok) {
+              const projectWatchlistData = await projectWatchlistResponse.json()
+              setProjectWatchlist(projectWatchlistData)
+            }
+            
+            if (packageStatusResponse.ok) {
+              const statusData = await packageStatusResponse.json()
+              const statusMap: {[key: string]: {status: string, hasScores: boolean}} = {}
+              statusData.forEach((pkg: any) => {
+                statusMap[pkg.packageId] = {
+                  status: pkg.status,
+                  hasScores: pkg.hasScores
+                }
+              })
+              setPackageStatuses(statusMap)
+            }
+          } catch (error) {
+            console.error('Error refreshing watchlist data:', error)
+          }
+        }}
+      />
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
@@ -2310,19 +2238,6 @@ export default function ProjectDetailPage() {
                     <div className="flex-1 space-y-3">
                       <div>
                         <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm text-gray-300">Health Score</span>
-                          <span className="text-sm text-white font-medium">{selectedDependency.healthScore}</span>
-                        </div>
-                        <div className="w-full bg-gray-700 rounded-full h-2">
-                          <div 
-                            className="h-2 rounded-full transition-all duration-300"
-                            style={{ width: `${selectedDependency.healthScore}%`, backgroundColor: 'rgb(84, 0, 250)' }}
-                          ></div>
-                        </div>
-                      </div>
-
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
                           <span className="text-sm text-gray-300">Activity Score</span>
                           <span className="text-sm text-white font-medium">{selectedDependency.activityScore}</span>
                         </div>
@@ -2343,6 +2258,45 @@ export default function ProjectDetailPage() {
                           <div 
                             className="h-2 rounded-full transition-all duration-300"
                             style={{ width: `${Math.min(selectedDependency.busFactor * 5, 100)}%`, backgroundColor: 'rgb(84, 0, 250)' }}
+                          ></div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm text-gray-300">Vulnerability Score</span>
+                          <span className="text-sm text-white font-medium">{selectedDependency.vulnerabilities}</span>
+                        </div>
+                        <div className="w-full bg-gray-700 rounded-full h-2">
+                          <div 
+                            className="h-2 rounded-full transition-all duration-300"
+                            style={{ width: `${selectedDependency.vulnerabilities}%`, backgroundColor: 'rgb(84, 0, 250)' }}
+                          ></div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm text-gray-300">License Score</span>
+                          <span className="text-sm text-white font-medium">{selectedDependency.licenseScore || 'N/A'}</span>
+                        </div>
+                        <div className="w-full bg-gray-700 rounded-full h-2">
+                          <div 
+                            className="h-2 rounded-full transition-all duration-300"
+                            style={{ width: `${selectedDependency.licenseScore || 0}%`, backgroundColor: 'rgb(84, 0, 250)' }}
+                          ></div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm text-gray-300">Health Score</span>
+                          <span className="text-sm text-white font-medium">{selectedDependency.healthScore}</span>
+                        </div>
+                        <div className="w-full bg-gray-700 rounded-full h-2">
+                          <div 
+                            className="h-2 rounded-full transition-all duration-300"
+                            style={{ width: `${selectedDependency.healthScore}%`, backgroundColor: 'rgb(84, 0, 250)' }}
                           ></div>
                         </div>
                       </div>
@@ -2380,25 +2334,40 @@ export default function ProjectDetailPage() {
                   <CardContent>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-green-500/20 flex items-center justify-center">
-                          <span className="text-green-400 font-bold text-sm">{selectedDependency.license}</span>
+                        <div className="px-3 py-2 rounded-lg bg-green-500/20 flex items-center justify-center min-w-fit">
+                          <span className="text-green-400 font-bold text-sm whitespace-nowrap">{selectedDependency.license}</span>
                         </div>
                         <div>
                           <div className="text-white font-medium">{selectedDependency.license} License</div>
-                          <div className="text-sm text-gray-400">Compatible with project</div>
                         </div>
                       </div>
-                      {selectedDependency.license === selectedDependency.projectLicense ? (
-                        <Badge variant="outline" className="border-green-500 text-green-500">
-                          <Check className="mr-1 h-3 w-3" />
-                          Compatible
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="border-yellow-500 text-yellow-500">
-                          <AlertTriangle className="mr-1 h-3 w-3" />
-                          Review Needed
-                        </Badge>
-                      )}
+                      {(() => {
+                        const hasProjectLicense = selectedDependency.projectLicense && selectedDependency.projectLicense !== 'unlicensed' && selectedDependency.projectLicense !== 'none' && selectedDependency.projectLicense !== null && selectedDependency.projectLicense !== undefined
+                        
+                        if (!hasProjectLicense) {
+                          return null // Don't show anything if no project license
+                        }
+                        
+                        const licenseCompatibility = checkLicenseCompatibility(selectedDependency.projectLicense, selectedDependency.license)
+                        
+                        if (licenseCompatibility.isCompatible) {
+                          return (
+                            <Badge variant="outline" className="border-green-500 text-green-500">
+                              <Shield className="mr-1 h-3 w-3" />
+                              License OK
+                            </Badge>
+                          )
+                        } else {
+                          const severityColor = licenseCompatibility.severity === 'high' ? 'red' : 
+                                               licenseCompatibility.severity === 'medium' ? 'yellow' : 'blue'
+                          return (
+                            <Badge variant="outline" className={`border-${severityColor}-500 text-${severityColor}-500`}>
+                              <AlertTriangle className="mr-1 h-3 w-3" />
+                              License Issue
+                            </Badge>
+                          )
+                        }
+                      })()}
                     </div>
                   </CardContent>
                 </Card>
@@ -2423,7 +2392,7 @@ export default function ProjectDetailPage() {
                         </Badge>
                       )}
                       {selectedDependency.status === 'pending' && (
-                        <Badge variant="outline" className="border-yellow-500 text-yellow-500">
+                        <Badge variant="outline" className="border-gray-500 text-gray-400 bg-gray-800/50">
                           <Clock className="mr-1 h-3 w-3" />
                           Pending
                         </Badge>
@@ -2441,62 +2410,42 @@ export default function ProjectDetailPage() {
                         </div>
                         <div className="flex-1">
                           <div className="text-white font-medium">{selectedDependency.addedBy} added this dependency to watchlist</div>
-                          <div className="text-sm text-gray-400">2 days ago</div>
+                          <div className="text-sm text-gray-400">
+                            {selectedDependency.addedAt ? formatRelativeDate(selectedDependency.addedAt) : 'Unknown date'}
+                          </div>
                         </div>
                       </div>
                       
-                      <div className="flex items-start gap-3">
-                        <div className="w-8 h-8 rounded-full bg-gray-500/20 flex items-center justify-center">
-                          <MessageSquare className="h-4 w-4 text-gray-400" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="text-white font-medium">Sarah Kim commented</div>
-                          <div className="text-gray-300 mt-1">This looks good, but we should check the license compatibility first.</div>
-                          <div className="text-sm text-gray-400">1 day ago</div>
-                        </div>
-                      </div>
+                      {/* Dynamic Comments */}
+                      {selectedDependency.comments && selectedDependency.comments.length > 0 && (
+                        selectedDependency.comments.map((comment: any, index: number) => (
+                          <div key={index} className="flex items-start gap-3">
+                            <div className="w-8 h-8 rounded-full bg-gray-500/20 flex items-center justify-center">
+                              <MessageSquare className="h-4 w-4 text-gray-400" />
+                            </div>
+                            <div className="flex-1">
+                              <div className="text-white font-medium">{comment.user?.name || comment.user?.email || comment.user_id} commented</div>
+                              <div className="text-gray-300 mt-1">{comment.comment}</div>
+                              <div className="text-sm text-gray-400">
+                                {comment.created_at ? formatRelativeDate(comment.created_at) : 'Unknown date'}
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
                       
-                      <div className="flex items-start gap-3">
-                        <div className="w-8 h-8 rounded-full bg-gray-500/20 flex items-center justify-center">
-                          <User className="h-4 w-4 text-gray-400" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="text-white font-medium">David Lee commented</div>
-                          <div className="text-gray-300 mt-1">License looks compatible with our MIT project. I think we can proceed.</div>
-                          <div className="text-sm text-gray-400">12 hours ago</div>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-start gap-3">
-                        <div className="w-8 h-8 rounded-full bg-gray-500/20 flex items-center justify-center">
-                          <MessageSquare className="h-4 w-4 text-gray-400" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="text-white font-medium">Emma Wilson commented</div>
-                          <div className="text-gray-300 mt-1">The health score looks great and activity is high. I'm in favor of adding this.</div>
-                          <div className="text-sm text-gray-400">8 hours ago</div>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-start gap-3">
-                        <div className="w-8 h-8 rounded-full bg-gray-500/20 flex items-center justify-center">
-                          <MessageSquare className="h-4 w-4 text-gray-400" />
-                        </div>
-                        <div className="flex-1">
-                          <div className="text-white font-medium">Mike Chen commented</div>
-                          <div className="text-gray-300 mt-1">Just want to double-check - are we sure about the bus factor? 15 contributors seems low for such a popular package.</div>
-                          <div className="text-sm text-gray-400">4 hours ago</div>
-                        </div>
-                      </div>
-                      
+                      {/* Show approval/rejection events if not pending */}
                       {selectedDependency.status === 'approved' && (
                         <div className="flex items-start gap-3">
                           <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
                             <Check className="h-4 w-4 text-green-400" />
                           </div>
                           <div className="flex-1">
-                            <div className="text-white font-medium">{selectedDependency.approvedBy} approved this dependency</div>
-                            <div className="text-sm text-gray-400">1 hour ago</div>
+                            <div className="text-white font-medium">{selectedDependency.approvedBy || 'Someone'} approved this dependency</div>
+                            <div className="text-gray-300 mt-1">This package has been approved for use.</div>
+                            <div className="text-sm text-gray-400">
+                              {selectedDependency.approvedAt ? formatRelativeDate(selectedDependency.approvedAt) : 'Recently'}
+                            </div>
                           </div>
                         </div>
                       )}
@@ -2507,67 +2456,245 @@ export default function ProjectDetailPage() {
                             <Trash2 className="h-4 w-4 text-red-400" />
                           </div>
                           <div className="flex-1">
-                            <div className="text-white font-medium">{selectedDependency.rejectedBy} rejected this dependency</div>
-                            <div className="text-gray-300 mt-1">"Too many vulnerabilities and low activity score."</div>
-                            <div className="text-sm text-gray-400">2 days ago</div>
+                            <div className="text-white font-medium">{selectedDependency.rejectedBy || 'Someone'} rejected this dependency</div>
+                            <div className="text-gray-300 mt-1">This package has been rejected and will not be used.</div>
+                            <div className="text-sm text-gray-400">
+                              {selectedDependency.rejectedAt ? formatRelativeDate(selectedDependency.rejectedAt) : 'Recently'}
+                            </div>
                           </div>
                         </div>
                       )}
                     </div>
 
-                    {/* Add Comment Section */}
-                    <div className="border-t border-gray-700 pt-4">
-                      <div className="flex items-start gap-3">
-                        <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
-                          <User className="h-4 w-4 text-blue-400" />
-                        </div>
-                        <div className="flex-1">
-                          <textarea
-                            placeholder="Add a comment..."
-                            className="w-full px-3 py-2 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                            style={{ backgroundColor: colors.background.card, borderColor: 'hsl(var(--border))', borderWidth: '1px' }}
-                            rows={3}
-                          />
-                          <div className="flex items-center justify-between mt-2">
-                            <div className="flex items-center gap-2">
+                    {/* Add Comment Section - Only show when pending */}
+                    {selectedDependency.status === 'pending' && (
+                      <div className="border-t border-gray-700 pt-4">
+                        <div className="flex items-start gap-3">
+                          <div className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
+                            <User className="h-4 w-4 text-blue-400" />
+                          </div>
+                          <div className="flex-1">
+                            <textarea
+                              placeholder="Add a comment..."
+                              className="w-full px-3 py-2 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                              style={{ backgroundColor: colors.background.card, borderColor: 'hsl(var(--border))', borderWidth: '1px' }}
+                              rows={3}
+                            />
+                            <div className="flex items-center justify-between mt-2">
+                              <div className="flex items-center gap-2">
+                                <Button 
+                                  size="sm"
+                                  className="text-white"
+                                  style={{ backgroundColor: 'rgb(34, 197, 94)' }}
+                                onClick={async () => {
+                                  try {
+                                    const response = await fetch(`http://localhost:3000/projects/watchlist/${selectedDependency.id}/approve`, {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ userId: currentUser?.id || 'user-123' })
+                                    })
+                                    
+                                    if (response.ok) {
+                                      // Refresh watchlist data to get actual approver info from database
+                                      try {
+                                        const projectWatchlistResponse = await fetch(`http://localhost:3000/projects/${projectId}/project-watchlist`)
+                                        if (projectWatchlistResponse.ok) {
+                                          const projectWatchlistData = await projectWatchlistResponse.json()
+                                          setProjectWatchlist(projectWatchlistData)
+                                          
+                                          // Find the updated package and update selectedDependency
+                                          const updatedPackage = projectWatchlistData.find((pkg: any) => pkg.id === selectedDependency.id)
+                                          if (updatedPackage) {
+                                            setSelectedDependency((prev: any) => ({
+                                              ...prev,
+                                              status: updatedPackage.status,
+                                              approvedBy: updatedPackage.approvedByUser?.name || updatedPackage.approvedBy,
+                                              approvedAt: updatedPackage.approvedAt
+                                            }))
+                                          }
+                                        }
+                                      } catch (error) {
+                                        console.error('Error refreshing watchlist data:', error)
+                                      }
+                                      
+                                      setShowDependencyReviewDialog(false)
+                                      toast({
+                                        title: "Dependency Approved",
+                                        description: `${selectedDependency.name} has been approved.`,
+                                      })
+                                      // Status updated successfully - UI already updated
+                                    } else {
+                                      toast({
+                                        title: "Error",
+                                        description: "Failed to approve dependency.",
+                                        variant: "destructive"
+                                      })
+                                    }
+                                  } catch (error) {
+                                    toast({
+                                      title: "Error",
+                                      description: "Failed to approve dependency.",
+                                      variant: "destructive"
+                                    })
+                                  }
+                                }}
+                                >
+                                  <Check className="mr-1 h-3 w-3" />
+                                  Approve
+                                </Button>
+                                <Button 
+                                  size="sm"
+                                  className="text-white"
+                                  style={{ backgroundColor: 'rgb(239, 68, 68)' }}
+                                onClick={async () => {
+                                  try {
+                                    const response = await fetch(`http://localhost:3000/projects/watchlist/${selectedDependency.id}/reject`, {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ userId: currentUser?.id || 'user-123' })
+                                    })
+                                    
+                                    if (response.ok) {
+                                      // Refresh watchlist data to get actual approver info from database
+                                      try {
+                                        const projectWatchlistResponse = await fetch(`http://localhost:3000/projects/${projectId}/project-watchlist`)
+                                        if (projectWatchlistResponse.ok) {
+                                          const projectWatchlistData = await projectWatchlistResponse.json()
+                                          setProjectWatchlist(projectWatchlistData)
+                                          
+                                          // Find the updated package and update selectedDependency
+                                          const updatedPackage = projectWatchlistData.find((pkg: any) => pkg.id === selectedDependency.id)
+                                          if (updatedPackage) {
+                                            setSelectedDependency((prev: any) => ({
+                                              ...prev,
+                                              status: updatedPackage.status,
+                                              rejectedBy: updatedPackage.rejectedByUser?.name || updatedPackage.rejectedBy,
+                                              rejectedAt: updatedPackage.rejectedAt
+                                            }))
+                                          }
+                                        }
+                                      } catch (error) {
+                                        console.error('Error refreshing watchlist data:', error)
+                                      }
+                                      
+                                      setShowDependencyReviewDialog(false)
+                                      toast({
+                                        title: "Dependency Rejected",
+                                        description: `${selectedDependency.name} has been rejected.`,
+                                      })
+                                      // Status updated successfully - UI already updated
+                                    } else {
+                                      toast({
+                                        title: "Error",
+                                        description: "Failed to reject dependency.",
+                                        variant: "destructive"
+                                      })
+                                    }
+                                  } catch (error) {
+                                    toast({
+                                      title: "Error",
+                                      description: "Failed to reject dependency.",
+                                      variant: "destructive"
+                                    })
+                                  }
+                                }}
+                                >
+                                  <Trash2 className="mr-1 h-3 w-3" />
+                                  Reject
+                                </Button>
+                              </div>
                               <Button 
-                                size="sm"
-                                className="text-white"
-                                style={{ backgroundColor: 'rgb(34, 197, 94)' }}
-                                onClick={() => {
-                                  setShowDependencyReviewDialog(false)
-                                  toast({
-                                    title: "Dependency Approved",
-                                    description: `${selectedDependency.name} has been approved.`,
-                                  })
+                                size="sm" 
+                                className="text-white" 
+                                style={{ backgroundColor: colors.primary }}
+                                onClick={async () => {
+                                  const textarea = document.querySelector('textarea[placeholder="Add a comment..."]') as HTMLTextAreaElement
+                                  const comment = textarea?.value?.trim()
+                                  
+                                  if (!comment) {
+                                    toast({
+                                      title: "Error",
+                                      description: "Please enter a comment.",
+                                      variant: "destructive"
+                                    })
+                                    return
+                                  }
+                                  
+                                  try {
+                                    const response = await fetch(`http://localhost:3000/projects/watchlist/${selectedDependency.id}/comment`, {
+                                      method: 'POST',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ 
+                                        userId: currentUser?.id || 'user-123',
+                                        comment: comment
+                                      })
+                                    })
+                                    
+                                    console.log('Comment API response:', response.status, response.statusText, 'ok:', response.ok)
+                                    
+                                    if (response.status >= 200 && response.status < 300) {
+                                      console.log('SUCCESS: Comment added successfully')
+                                      textarea.value = ''
+                                      toast({
+                                        title: "Comment Added",
+                                        description: "Your comment has been added.",
+                                      })
+                                      
+                                      // Add the new comment to the selected dependency immediately
+                                      console.log('Current user data:', currentUser)
+                                      const newComment = {
+                                        user_id: currentUser?.id || 'user-123',
+                                        user: { 
+                                          name: currentUser?.name || currentUser?.email || 'User', 
+                                          email: currentUser?.email || 'user@example.com' 
+                                        },
+                                        comment: comment,
+                                        created_at: new Date().toISOString()
+                                      }
+                                      console.log('New comment object:', newComment)
+                                      
+                                      setSelectedDependency((prev: any) => ({
+                                        ...prev,
+                                        comments: [...(prev.comments || []), newComment]
+                                      }))
+                                      
+                                      // Also update the projectWatchlist to show the comment in the card
+                                      setProjectWatchlist((prev: any[]) => 
+                                        prev.map((item: any) => 
+                                          item.id === selectedDependency.id 
+                                            ? { ...item, comments: [...(item.comments || []), newComment] }
+                                            : item
+                                        )
+                                      )
+                                      
+                                      // Comment added successfully - UI already updated
+                                    } else {
+                                      console.log('ERROR: Comment failed with status:', response.status)
+                                      const errorText = await response.text()
+                                      console.log('Comment API error:', response.status, errorText)
+                                      toast({
+                                        title: "Error",
+                                        description: `Failed to add comment. Status: ${response.status}`,
+                                        variant: "destructive"
+                                      })
+                                    }
+                                  } catch (error) {
+                                    console.log('Comment API catch error:', error)
+                                    toast({
+                                      title: "Error",
+                                      description: "Failed to add comment.",
+                                      variant: "destructive"
+                                    })
+                                  }
                                 }}
                               >
-                                <Check className="mr-1 h-3 w-3" />
-                                Approve
-                              </Button>
-                              <Button 
-                                size="sm"
-                                className="text-white"
-                                style={{ backgroundColor: 'rgb(239, 68, 68)' }}
-                                onClick={() => {
-                                  setShowDependencyReviewDialog(false)
-                                  toast({
-                                    title: "Dependency Rejected",
-                                    description: `${selectedDependency.name} has been rejected.`,
-                                  })
-                                }}
-                              >
-                                <Trash2 className="mr-1 h-3 w-3" />
-                                Reject
+                                Comment
                               </Button>
                             </div>
-                            <Button size="sm" className="text-white" style={{ backgroundColor: colors.primary }}>
-                              Comment
-                            </Button>
                           </div>
                         </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>

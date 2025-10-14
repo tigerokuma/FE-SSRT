@@ -23,6 +23,10 @@ interface Project {
   type?: 'repo' | 'file' | 'cli'
   language?: string
   license?: string | null
+  health_score?: number
+  progress?: number
+  totalDependencies?: number
+  completedDependencies?: number
 }
 
 export default function Home() {
@@ -49,6 +53,41 @@ export default function Home() {
       }
       
       const data = await response.json()
+      
+      // For creating projects, fetch their individual status to get progress data
+      const creatingProjects = data.filter((project: Project) => project.status === 'creating')
+      if (creatingProjects.length > 0) {
+        console.log(`🔍 Found ${creatingProjects.length} creating projects, fetching progress data...`)
+        
+        const progressPromises = creatingProjects.map(async (project: Project) => {
+          try {
+            const statusResponse = await AuthService.fetchWithAuth(`http://localhost:3000/projects/${project.id}/status`)
+            if (statusResponse.ok) {
+              const statusData = await statusResponse.json()
+              return { projectId: project.id, statusData }
+            }
+          } catch (err) {
+            console.error(`❌ ERROR fetching progress for project ${project.id}:`, err)
+          }
+          return null
+        })
+        
+        const progressResults = await Promise.all(progressPromises)
+        const validProgressResults = progressResults.filter(result => result !== null)
+        
+        // Update projects with progress data
+        if (validProgressResults.length > 0) {
+          data.forEach((project: Project) => {
+            const progressResult = validProgressResults.find(result => result.projectId === project.id)
+            if (progressResult) {
+              project.progress = progressResult.statusData.progress
+              project.totalDependencies = progressResult.statusData.totalDependencies
+              project.completedDependencies = progressResult.statusData.completedDependencies
+            }
+          })
+        }
+      }
+      
       setProjects(data)
       return data
     } catch (err) {
@@ -153,41 +192,40 @@ export default function Home() {
   // Function to get project status message
   const getProjectStatus = (project: Project) => {
     const projectType = project.type
-    const relativeTime = formatRelativeTime(project.updated_at)
+    const relativeTime = formatRelativeTime(project.created_at)
     
     // File upload projects
     if (projectType === 'file') {
       return {
-        text: `Last synced ${relativeTime}`,
+        text: `Created ${relativeTime}`,
         icon: <FileText className="h-3 w-3" />,
-        timeText: `Last synced ${relativeTime}`
+        timeText: `Created ${relativeTime}`
       }
     }
     
     // Repository projects
     if (projectType === 'repo') {
-      const commitHash = generateCommitHash()
       return {
-        text: `Updated ${relativeTime} for commit ${commitHash}`,
+        text: `Created ${relativeTime}`,
         icon: <Github className="h-3 w-3" />,
-        timeText: `Updated ${relativeTime} for commit ${commitHash}`
+        timeText: `Created ${relativeTime}`
       }
     }
     
     // CLI projects
     if (projectType === 'cli') {
       return {
-        text: `Updated ${relativeTime} via CLI`,
+        text: `Created ${relativeTime}`,
         icon: <Terminal className="h-3 w-3" />,
-        timeText: `Updated ${relativeTime} via CLI`
+        timeText: `Created ${relativeTime}`
       }
     }
     
     // Fallback for projects without type (legacy)
     return {
-      text: `Synced ${relativeTime}`,
+      text: `Created ${relativeTime}`,
       icon: <Clock className="h-3 w-3" />,
-      timeText: `Synced ${relativeTime}`
+      timeText: `Created ${relativeTime}`
     }
   }
 
@@ -218,14 +256,14 @@ export default function Home() {
     checkAuthAndFetchProjects()
   }, [])
 
-  // SIMPLE POLLING - Check every 2 seconds if there are creating projects
+  // OPTIMIZED POLLING - Check individual project statuses for creating projects
   useEffect(() => {
-    const hasCreatingProjects = projects.some(project => project.status === 'creating')
-    console.log('🔍 POLLING CHECK - Has creating projects:', hasCreatingProjects)
+    const creatingProjects = projects.filter(project => project.status === 'creating')
+    console.log('🔍 POLLING CHECK - Creating projects:', creatingProjects.length)
     console.log('🔍 POLLING CHECK - Current interval:', pollingIntervalRef.current)
     
-    if (hasCreatingProjects) {
-      console.log('🔄 STARTING POLLING NOW!')
+    if (creatingProjects.length > 0) {
+      console.log('🔄 STARTING OPTIMIZED POLLING NOW!')
       
       // Clear any existing interval
       if (pollingIntervalRef.current) {
@@ -234,19 +272,72 @@ export default function Home() {
       
       // Start new polling every 2 seconds
       const interval = setInterval(async () => {
-        console.log('🔄 POLLING NOW - Making network request...')
+        console.log('🔄 POLLING NOW - Checking individual project statuses...')
         try {
-          const response = await AuthService.fetchWithAuth('http://localhost:3000/projects/user/user-123')
-            const data = await response.json()
-          console.log('📊 POLLING RESPONSE:', data)
-            setProjects(data)
-            
+          // Poll each creating project individually
+          const statusPromises = creatingProjects.map(async (project) => {
+            try {
+              const response = await AuthService.fetchWithAuth(`http://localhost:3000/projects/${project.id}/status`)
+              if (response.ok) {
+                const statusData = await response.json()
+                console.log(`📊 PROJECT ${project.id} STATUS:`, statusData)
+                return { projectId: project.id, statusData }
+              }
+            } catch (err) {
+              console.error(`❌ ERROR checking status for project ${project.id}:`, err)
+            }
+            return null
+          })
+          
+          const statusResults = await Promise.all(statusPromises)
+          const validResults = statusResults.filter(result => result !== null)
+          
+          if (validResults.length > 0) {
+            // Update projects state with new statuses
+            setProjects(prevProjects => {
+              const updatedProjects = [...prevProjects]
+              let hasUpdates = false
+              
+              validResults.forEach(({ projectId, statusData }) => {
+                const projectIndex = updatedProjects.findIndex(p => p.id === projectId)
+                if (projectIndex !== -1) {
+                  const currentProject = updatedProjects[projectIndex]
+                  const statusChanged = currentProject.status !== statusData.status
+                  const progressChanged = currentProject.progress !== statusData.progress
+                  
+                  if (statusChanged || progressChanged) {
+                    console.log(`🔄 UPDATING PROJECT ${projectId}: ${statusChanged ? `${currentProject.status} -> ${statusData.status}` : ''} ${progressChanged ? `progress: ${currentProject.progress} -> ${statusData.progress}` : ''}`)
+                    
+                    // Only allow progress to increase, never decrease
+                    const currentProgress = currentProject.progress || 0
+                    const newProgress = statusData.progress || 0
+                    const finalProgress = newProgress > currentProgress ? newProgress : currentProgress
+                    
+                    updatedProjects[projectIndex] = {
+                      ...currentProject,
+                      status: statusData.status,
+                      error_message: statusData.errorMessage,
+                      progress: finalProgress,
+                      totalDependencies: statusData.totalDependencies,
+                      completedDependencies: statusData.completedDependencies,
+                      health_score: statusData.health_score || currentProject.health_score,
+                      created_at: statusData.created_at || currentProject.created_at
+                    }
+                    hasUpdates = true
+                  }
+                }
+              })
+              
+              return hasUpdates ? updatedProjects : prevProjects
+            })
+          }
+          
           // Check if still creating
-            const stillCreating = data.some((project: Project) => project.status === 'creating')
-            if (!stillCreating) {
+          const stillCreating = projects.some((project: Project) => project.status === 'creating')
+          if (!stillCreating) {
             console.log('✅ POLLING STOPPED - All projects ready')
-              clearInterval(interval)
-              pollingIntervalRef.current = null
+            clearInterval(interval)
+            pollingIntervalRef.current = null
           }
         } catch (err) {
           console.error('❌ POLLING ERROR:', err)
@@ -985,9 +1076,19 @@ export default function Home() {
                   const isFailed = project.status === 'failed'
                   const isReady = project.status === 'ready'
               
-              // Mock data for demonstration
-              const securityScore = Math.floor(Math.random() * 40) + 60 // 60-100
-              const activeAlerts = Math.floor(Math.random() * 5) // 0-4
+              // Use actual health score for ready projects, mock data for others
+              const projectScore = isReady && project.health_score ? project.health_score : (isCreating ? 0 : Math.floor(Math.random() * 40) + 60)
+              const activeAlerts = 0 // Always show 0 notifications on home screen
+              
+              // Debug progress data for creating projects
+              if (isCreating) {
+                console.log(`🔍 PROJECT ${project.id} PROGRESS DEBUG:`, {
+                  progress: project.progress,
+                  totalDependencies: project.totalDependencies,
+                  completedDependencies: project.completedDependencies,
+                  status: project.status
+                })
+              }
               const lastUpdate = new Date(project.updated_at)
               const branchName = 'main'
                   
@@ -1043,46 +1144,54 @@ export default function Home() {
                                 d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                               />
                               <path
-                                className={`${
-                                  securityScore >= 80 ? 'text-green-500' : 
-                                  securityScore >= 60 ? 'text-yellow-500' : 'text-red-500'
-                                }`}
+                                className={`${isCreating ? 'text-blue-500' : 
+                                  projectScore >= 80 ? 'text-green-500' : 
+                                  projectScore >= 60 ? 'text-yellow-500' : 'text-red-500'
+                                } transition-all duration-1000 ease-out`}
                                 stroke="currentColor"
                                 strokeWidth="3"
                                 fill="none"
-                                strokeDasharray={`${securityScore}, 100`}
+                                strokeDasharray={isCreating ? `${project.progress || 0}, 100` : `${projectScore}, 100`}
                                 d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                               />
                             </svg>
                             </div>
-                          <span className="text-sm text-gray-400">Security Score</span>
+                          <span className="text-sm text-gray-400">
+                            {isCreating ? 'Progress' : 'Project Score'}
+                          </span>
                         </div>
-                        <span className={`text-sm font-medium ${
-                          securityScore >= 80 ? 'text-green-500' : 
-                          securityScore >= 60 ? 'text-yellow-500' : 'text-red-500'
+                        <span className={`text-sm font-medium transition-all duration-1000 ease-out ${
+                          isCreating ? 'text-blue-500' :
+                          projectScore >= 80 ? 'text-green-500' : 
+                          projectScore >= 60 ? 'text-yellow-500' : 'text-red-500'
                         }`}>
-                          {securityScore}
+                          {isCreating ? `${project.progress || 0}%` : Math.round(projectScore)}
                         </span>
                         </div>
                         
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 text-gray-400 text-xs">
-                          {(() => {
-                            const status = getProjectStatus(project)
-                            return (
-                              <>
-                                {status.icon}
-                                <span>{status.timeText}</span>
-                              </>
-                            )
-                          })()}
+                          {isCreating ? (
+                            <>
+                              <Clock className="h-3 w-3" />
+                              <span>Just created</span>
+                            </>
+                          ) : (
+                            (() => {
+                              const status = getProjectStatus(project)
+                              return (
+                                <>
+                                  {status.icon}
+                                  <span>{status.timeText}</span>
+                                </>
+                              )
+                            })()
+                          )}
                         </div>
-                        {activeAlerts > 0 && (
-                          <div className="flex items-center gap-1">
-                            <Bell className="h-4 w-4 text-gray-400" />
-                            <span className="text-xs text-gray-400">{activeAlerts}</span>
-                          </div>
-                        )}
+                        <div className="flex items-center gap-1">
+                          <Bell className="h-4 w-4 text-gray-400" />
+                          <span className="text-xs text-gray-400">{activeAlerts}</span>
+                        </div>
                       </div>
                     </div>
                   </CardContent>

@@ -364,7 +364,7 @@ export default function NewProjectPage() {
   }
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: colors.background.main, maxWidth: '600px', marginLeft: 'auto', marginRight: 'auto' }}>
+    <div className="min-h-screen" style={{ maxWidth: '600px', marginLeft: 'auto', marginRight: 'auto' }}>
       <div className="container mx-auto px-6 py-8">
         {/* Main Configuration Card */}
         <div className="w-full mt-8">

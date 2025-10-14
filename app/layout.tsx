@@ -12,9 +12,17 @@ import { BackgroundGradient } from "@/components/background-gradient"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  title: "OpenSource Insight Tracker",
+  title: "Deply",
   description: "Monitor the health, risk, and activity of open-source repositories",
-  generator: 'v0.dev'
+  generator: 'v0.dev',
+  icons: {
+    icon: [
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/Deply_Logo.png', type: 'image/png' }
+    ],
+    shortcut: '/favicon.ico',
+    apple: '/Deply_Logo.png',
+  },
 }
 
 export default function RootLayout({

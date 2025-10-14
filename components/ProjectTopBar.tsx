@@ -104,17 +104,23 @@ export function ProjectTopBar({
                 getProjectIcon(projectLanguage)
               ) : projectIcon ? (
                 <img src={projectIcon} alt={projectName} className="w-6 h-6 rounded" />
-              ) : (
+              ) : projectName ? (
                 <div className="w-6 h-6 bg-white/20 rounded flex items-center justify-center">
                   <span className="text-white text-xs font-bold">
                     {projectName.charAt(0).toUpperCase()}
                   </span>
                 </div>
+              ) : (
+                <div className="w-6 h-6 bg-gray-600 rounded animate-pulse"></div>
               )}
             </div>
             
             {/* Project name */}
-            <h1 className="text-xl font-semibold text-white">{projectName}</h1>
+            {projectName ? (
+              <h1 className="text-xl font-semibold text-white">{projectName}</h1>
+            ) : (
+              <div className="h-6 bg-gray-600 rounded w-24 animate-pulse"></div>
+            )}
           </div>
 
           {/* Tabs */}
