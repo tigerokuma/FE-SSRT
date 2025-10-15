@@ -30,21 +30,12 @@ export function MainContent({
         className={cn(
           "flex-1 min-h-0 transition-all duration-300",
           "flex flex-col",
-          isCollapsed ? "md:pl-14" : "md:pl-4",
-          "px-4 sm:px-6 lg:px-8",
           "relative w-full",
           className
         )}
       >
         <div className={cn(
           "w-full",
-          "mx-auto",
-          "max-w-[100%]",
-          "sm:max-w-[100%]",
-          "md:max-w-[100%]",
-          "lg:max-w-[1200px]",
-          "xl:max-w-[1400px]",
-          "2xl:max-w-[1600px]",
           "transition-all duration-300"
         )}>
           {children}

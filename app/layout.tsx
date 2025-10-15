@@ -1,16 +1,24 @@
 // app/layout.tsx
-import type { Metadata } from "next";
-import { ClerkProvider } from "@clerk/nextjs";
-import { Inter } from "next/font/google";
-import "./globals.css";
-import { ThemeProvider } from "@/components/theme-provider";
+import type { Metadata } from "next"
+import { ClerkProvider } from "@clerk/nextjs"
+import { Inter } from "next/font/google"
+import "./globals.css"
+import { ThemeProvider } from "@/components/theme-provider"
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "Deply",
-  description: "Automatically find and fix OSS risks across your current and future codebase",
-};
+  description: "Monitor the health, risk, and activity of open-source repositories",
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/Deply_Logo.png", type: "image/png" },
+    ],
+    shortcut: "/favicon.ico",
+    apple: "/Deply_Logo.png",
+  },
+}
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -20,19 +28,34 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       signUpFallbackRedirectUrl="/project"
       signUpForceRedirectUrl="/project"
       appearance={{
-        variables: { colorPrimary: "#4B0082", borderRadius: "12px" },
-        elements: { card: "shadow-none border border-[#E5E7EB]" },
+        // Use design tokens instead of hard-coded light colors
+        variables: {
+          colorPrimary: "hsl(var(--primary))",
+          borderRadius: "12px",
+          colorBackground: "hsl(var(--background))",
+          colorText: "hsl(var(--foreground))",
+        },
+        elements: {
+          card: "bg-card text-card-foreground border border-border shadow-none",
+          headerTitle: "text-foreground",
+          formFieldInput: "bg-background text-foreground border-border",
+        },
       }}
     >
       <html lang="en" suppressHydrationWarning>
-        {/* Force a white background on the whole document */}
-        <body className={`${inter.className} bg-white`}>
-          {/* Force the app to light theme so no dark styles bleed in */}
-          <ThemeProvider attribute="class" forcedTheme="light">
+        {/* no bg-white here; let tokens handle background */}
+        <body className={inter.className}>
+          {/* follow system; don't force light; prevent transition flash */}
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
             {children}
           </ThemeProvider>
         </body>
       </html>
     </ClerkProvider>
-  );
+  )
 }

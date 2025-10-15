@@ -1,44 +1,135 @@
 "use client"
 
-import Image from "next/image"
 import Link from "next/link"
-import useSWR from "swr"
-import { useMemo, useState } from "react"
+import Image from "next/image"
+import { useEffect, useMemo, useState } from "react"
 import { usePathname } from "next/navigation"
 import { useUser } from "@clerk/nextjs"
-import { Bell, ChevronDown, ChevronRight, Folder, Settings } from "lucide-react"
+import { Bell, Home, Settings } from "lucide-react"
 
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
+  SidebarMenuButton,
   SidebarMenuItem,
+  SidebarRail,
+  SidebarTrigger,
+  useSidebar,
 } from "@/components/ui/sidebar"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
+import { colors } from "@/lib/design-system"
 
-type Project = { id: string; name: string }
-const fetcher = (url: string) => fetch(url).then((r) => r.json())
+// ---------- Types ----------
+type Project = {
+  id: string
+  name: string
+  language?: string | null
+}
 
+// ---------- Helpers ----------
+function ProjectIcon({ language }: { language?: string | null }) {
+  const lang = language?.toLowerCase()
+  const cls = "h-4 w-4 bg-transparent"
+  if (["javascript", "typescript", "react", "nodejs"].includes(lang ?? "")) {
+    return <img src="/Node_logo.png" alt="Node.js" className={cls} />
+  }
+  if (lang === "vue") return <img src="/Vue_logo.png" alt="Vue" className={cls} />
+  if (lang === "python") return <img src="/Python_logo.png" alt="Python" className={cls} />
+  if (lang === "go") return <img src="/Go_logo.png" alt="Go" className={cls} />
+  if (lang === "java") return <img src="/Java_logo.png" alt="Java" className={cls} />
+  if (lang === "rust") return <img src="/Rust_logo.png" alt="Rust" className={cls} />
+  if (lang === "ruby") return <img src="/Ruby_logo.png" alt="Ruby" className={cls} />
+  return <img src="/Deply_Logo.png" alt="Deply" className={cls} />
+}
+
+function normalizeProjects(payload: any): Project[] {
+  const list =
+    (Array.isArray(payload) && payload) ||
+    (Array.isArray(payload?.projects) && payload.projects) ||
+    (Array.isArray(payload?.data) && payload.data) ||
+    (Array.isArray(payload?.items) && payload.items) ||
+    (Array.isArray(payload?.result) && payload.result) ||
+    (Array.isArray(payload?.data?.projects) && payload.data.projects) ||
+    []
+
+  return list
+    .map((p: any) => ({
+      id: p.id ?? p.project_id ?? p._id ?? p.uuid ?? null,
+      name: p.name ?? p.project_name ?? p.repo_name ?? p.slug ?? "Untitled",
+      language: p.language ?? p.primary_language ?? p.lang ?? p.stack ?? null,
+    }))
+    .filter((p: Project) => p.id && p.name)
+}
+
+// ---------- Component ----------
 export default function AppSidebar() {
   const pathname = usePathname()
-  const { user } = useUser()
+  const { user, isLoaded } = useUser()
+  const { state, isMobile } = useSidebar()
+  const isCollapsed = state === "collapsed"
 
-  const { data, isLoading } = useSWR<{ projects: Project[] }>(
-    "/api/projects",
-    fetcher,
-    { revalidateOnFocus: false }
+  const [projects, setProjects] = useState<Project[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      if (!isLoaded) return // wait for Clerk to init; spinner shows meanwhile
+      try {
+        setIsLoading(true)
+
+        const uid = user?.id ?? "user-123" // fallback for dev/signed-out
+        const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000"
+
+        // If your API validates Clerk JWTs, uncomment:
+        // const token = await user?.getToken({ template: "backend" }).catch(() => null)
+        // const authHeader = token ? { Authorization: `Bearer ${token}` } : {}
+
+        const url = `${apiBase}/projects/user/${uid}`
+        console.log("[Sidebar] Fetching:", url)
+
+        const res = await fetch(url, {
+          headers: {
+            "Content-Type": "application/json",
+            // ...authHeader,
+          },
+          credentials: "include", // keep if your API uses cookies
+        })
+
+        if (!res.ok) throw new Error(`Projects fetch failed: ${res.status}`)
+        const json = await res.json()
+        console.log("[Sidebar] API payload:", json)
+        const normalized = normalizeProjects(json)
+        console.log("[Sidebar] Normalized projects:", normalized.length)
+
+        if (!cancelled) setProjects(normalized)
+      } catch (e) {
+        console.error("Sidebar: failed to load projects", e)
+        if (!cancelled) setProjects([])
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [isLoaded, user?.id])
+
+  const mainNavItems = useMemo(
+    () => [
+      { title: "Dashboard", href: "/project", icon: Home },
+      { title: "Alert Center", href: "/alerts", icon: Bell },
+    ],
+    []
   )
-  const projects = useMemo(() => data?.projects ?? [], [data])
-
-  const [openProjects, setOpenProjects] = useState(false)
-  if (!isLoading && projects.length > 0 && !openProjects) {
-    setTimeout(() => setOpenProjects(true), 0)
-  }
-
-  const isInProjects = pathname.startsWith("/project")
-  const isInAlerts = pathname.startsWith("/alerts")
 
   const displayName =
     user?.fullName ||
@@ -47,110 +138,194 @@ export default function AppSidebar() {
     "User"
 
   return (
-    <Sidebar side="left" collapsible="icon" className="w-[240px] bg-white border-r">
-      {/* Brand (now clickable to /project) */}
-      <SidebarHeader className="p-4">
-        <Link
-          href="/project"
-          className="flex items-center gap-2 rounded-md px-2 py-1 hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-300"
-          aria-label="Go to Projects"
+    <Sidebar
+      variant="sidebar"
+      collapsible="icon"
+      side="left"
+      style={{ backgroundColor: colors.background.card }}
+    >
+      <SidebarRail />
+
+      {/* Header: brand + collapse trigger */}
+      <SidebarHeader className="relative">
+        <div
+          className={cn(
+            "flex items-center gap-2 px-4 py-3",
+            isCollapsed && !isMobile && "justify-center px-2"
+          )}
         >
-          <Image src="/deply-mark.svg" alt="Deply" width={24} height={24} />
-          <span className="text-base leading-6 font-normal text-black">Deply</span>
-        </Link>
+          {(!isCollapsed || isMobile) && (
+            <Link
+              href="/project"
+              className="flex items-center gap-2 rounded-md px-2 py-1 hover:bg-gray-100 dark:hover:bg-neutral-800"
+              aria-label="Go to Projects"
+            >
+              <Image src="/deply-mark.svg" alt="Deply" width={24} height={24} />
+              <span className="text-base leading-6 font-normal">Deply</span>
+            </Link>
+          )}
+          {!isMobile && (
+            <SidebarTrigger
+              className={cn(isCollapsed ? "w-full flex justify-center" : "ml-auto")}
+              aria-label="Toggle sidebar"
+            >
+              <Image
+                src="/deply-mark.svg"
+                alt="Deply"
+                width={24}
+                height={24}
+                className={cn(!isCollapsed && "hidden")}
+              />
+            </SidebarTrigger>
+          )}
+        </div>
       </SidebarHeader>
 
-      <SidebarContent className="px-2">
-        <SidebarMenu className="px-2">
-          {/* PROJECTS ROW */}
-          <SidebarMenuItem className="mt-2">
-            <div
-              className={`group flex h-10 w-full items-center rounded-md px-2 text-[16px] transition-colors
-                ${isInProjects ? "bg-gray-200 text-gray-900" : "text-[#111] hover:bg-gray-100"}`}
-            >
-              <Link href="/project" className="flex min-w-0 flex-1 items-center gap-2">
-                <Folder className="h-4 w-4" />
-                <span className="truncate">Projects</span>
-              </Link>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setOpenProjects((v) => !v)
-                }}
-                aria-expanded={openProjects}
-                aria-label={openProjects ? "Collapse projects" : "Expand projects"}
-                className="ml-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-md"
-              >
-                {openProjects ? (
-                  <ChevronDown className="h-4 w-4 text-black" />
-                ) : (
-                  <ChevronRight className="h-4 w-4 text-black" />
-                )}
-              </button>
-            </div>
-          </SidebarMenuItem>
-
-          {openProjects && (
-            <div className="mt-1 max-h-40 overflow-y-auto pl-4 pr-1">
-              <SidebarMenu>
-                {isLoading && (
-                  <SidebarMenuItem>
-                    <div className="h-8 w-full animate-pulse rounded-md bg-gray-100" />
-                  </SidebarMenuItem>
-                )}
-                {!isLoading && projects.length === 0 && (
-                  <SidebarMenuItem>
-                    <div className="px-2 py-2 text-xs text-gray-500">No projects yet</div>
-                  </SidebarMenuItem>
-                )}
-                {projects.map((p) => {
-                  const href = `/project/${encodeURIComponent(p.id)}`
-                  const active = pathname === href
-                  return (
-                    <SidebarMenuItem key={p.id}>
-                      <Link
-                        href={href}
-                        className={`flex h-8 w-full items-center rounded-md px-3 text-xs font-medium transition-colors
-                          ${active ? "bg-gray-200 text-gray-900" : "text-black hover:bg-gray-100"}`}
-                      >
-                        <span className="truncate">{p.name}</span>
+      <SidebarContent>
+        {/* Main Navigation */}
+        <SidebarGroup>
+          <SidebarGroupLabel>Main Navigation</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu className="space-y-1">
+              {mainNavItems.map((item) => {
+                const active = pathname === item.href
+                return (
+                  <SidebarMenuItem key={item.href}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={active}
+                      tooltip={isCollapsed && !isMobile ? item.title : undefined}
+                      className={cn(
+                        "flex items-center rounded-md transition-colors w-full",
+                        isCollapsed && !isMobile ? "justify-center py-2" : "px-4 py-2",
+                        active
+                          ? "bg-gray-200 text-gray-900 dark:bg-neutral-800 dark:text-white"
+                          : "hover:bg-gray-100 dark:hover:bg-neutral-800"
+                      )}
+                    >
+                      <Link href={item.href} className="flex items-center gap-3">
+                        <item.icon
+                          className={cn(
+                            "h-5 w-5 shrink-0",
+                            active ? "text-gray-900 dark:text-white" : "text-gray-500 dark:text-gray-400"
+                          )}
+                        />
+                        {(!isCollapsed || isMobile) && (
+                          <span className="font-medium truncate">{item.title}</span>
+                        )}
                       </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* Projects */}
+        <SidebarGroup>
+          <SidebarGroupLabel>Projects</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu className="space-y-1">
+              {/* Loading row */}
+              {isLoading && (
+                <SidebarMenuItem>
+                  <div
+                    className={cn(
+                      "flex items-center gap-3 rounded-md w-full px-4 py-2 text-muted-foreground",
+                      isCollapsed && !isMobile ? "justify-center" : ""
+                    )}
+                  >
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground/40 border-t-transparent" />
+                    {(!isCollapsed || isMobile) && <span className="text-sm">Loading projects…</span>}
+                  </div>
+                </SidebarMenuItem>
+              )}
+
+              {/* No data row */}
+              {!isLoading && projects.length === 0 && (
+                <SidebarMenuItem>
+                  <div
+                    className={cn(
+                      "flex items-center rounded-md w-full px-4 py-2 text-muted-foreground",
+                      isCollapsed && !isMobile ? "justify-center" : ""
+                    )}
+                  >
+                    <Image src="/Deply_Logo.png" alt="Deply" width={16} height={16} className="h-4 w-4" />
+                    {(!isCollapsed || isMobile) && <span className="ml-3 text-sm">No projects</span>}
+                  </div>
+                </SidebarMenuItem>
+              )}
+
+              {/* Project rows */}
+              {!isLoading &&
+                projects.map((project) => {
+                  const href = `/project/${project.id}`
+                  const active = pathname.startsWith(href)
+                  return (
+                    <SidebarMenuItem key={project.id}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={active}
+                        tooltip={isCollapsed && !isMobile ? project.name : undefined}
+                        className={cn(
+                          "flex items-center rounded-md transition-colors w-full",
+                          isCollapsed && !isMobile ? "justify-center py-2" : "px-4 py-2",
+                          active
+                            ? "bg-gray-200 text-gray-900 dark:bg-neutral-800 dark:text-white"
+                            : "hover:bg-gray-100 dark:hover:bg-neutral-800"
+                        )}
+                      >
+                        <Link href={href} className="flex items-center gap-3">
+                          <ProjectIcon language={project.language} />
+                          {(!isCollapsed || isMobile) && (
+                            <span className="font-medium truncate text-sm">{project.name}</span>
+                          )}
+                        </Link>
+                      </SidebarMenuButton>
                     </SidebarMenuItem>
                   )
                 })}
-              </SidebarMenu>
-            </div>
-          )}
-
-          {/* ALERT CENTER ROW */}
-          <SidebarMenuItem className="mt-3">
-            <Link
-              href="/alerts"
-              className={`flex h-10 w-full items-center gap-2 rounded-md px-2 text-[16px] transition-colors
-                ${isInAlerts ? "bg-gray-200 text-gray-900" : "text-[#111] hover:bg-gray-100"}`}
-            >
-              <Bell className="h-4 w-4" />
-              <span>Alert Center</span>
-            </Link>
-          </SidebarMenuItem>
-        </SidebarMenu>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
 
-      {/* User block */}
-      <SidebarFooter className="mt-auto border-t px-3 py-3">
-        <div className="flex items-center gap-3">
-          <Avatar className="h-9 w-9">
-            <AvatarImage src={user?.imageUrl ?? ""} alt={displayName} />
-            <AvatarFallback>{displayName.slice(0, 2).toUpperCase()}</AvatarFallback>
-          </Avatar>
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-medium text-black">{displayName}</div>
+      {/* Footer with Clerk user avatar + settings */}
+      <SidebarFooter>
+        {isCollapsed && !isMobile ? (
+          <div className="flex flex-col items-center gap-2 py-4">
+            <Avatar className="h-8 w-8">
+              <AvatarImage src={user?.imageUrl ?? ""} alt={displayName} />
+              <AvatarFallback>{displayName.slice(0, 2).toUpperCase()}</AvatarFallback>
+            </Avatar>
+            <Link href="/settings">
+              <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Settings">
+                <Settings className="h-4 w-4" />
+              </Button>
+            </Link>
           </div>
-          <Link href="/settings" aria-label="User settings">
-            <Settings className="h-5 w-5 text-gray-700 hover:text-black" />
-          </Link>
-        </div>
+        ) : (
+          <div className="flex items-center gap-3 p-4">
+            <Avatar className="h-9 w-9 shrink-0">
+              <AvatarImage src={user?.imageUrl ?? ""} alt={displayName} />
+              <AvatarFallback>{displayName.slice(0, 2).toUpperCase()}</AvatarFallback>
+            </Avatar>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-medium">{displayName}</div>
+              {user?.primaryEmailAddress?.emailAddress && (
+                <div className="truncate text-xs text-muted-foreground">
+                  {user.primaryEmailAddress.emailAddress}
+                </div>
+              )}
+            </div>
+            <Link href="/settings" aria-label="User settings" className="ml-auto">
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                <Settings className="h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
+        )}
       </SidebarFooter>
     </Sidebar>
   )

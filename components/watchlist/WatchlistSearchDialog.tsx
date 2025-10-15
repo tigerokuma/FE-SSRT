@@ -28,6 +28,8 @@ interface WatchlistSearchDialogProps {
   defaultType?: WatchlistItem['type']
   onRepositoryAdded?: () => void
   projectId?: string
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }
 
 export function WatchlistSearchDialog({ 
@@ -35,9 +37,16 @@ export function WatchlistSearchDialog({
   onPackagePreview,
   defaultType = 'production',
   onRepositoryAdded,
-  projectId
+  projectId,
+  open,
+  onOpenChange
 }: WatchlistSearchDialogProps) {
-  const [isOpen, setIsOpen] = useState(false)
+  const [internalOpen, setInternalOpen] = useState(false)
+  const isOpen = open !== undefined ? open : internalOpen
+  const setIsOpen = onOpenChange || setInternalOpen
+  
+  // Debug logging
+  console.log('🔍 WatchlistSearchDialog - open prop:', open, 'isOpen:', isOpen, 'projectId:', projectId)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedPackage, setSelectedPackage] = useState<PackageType | null>(null)
   const [isAdding, setIsAdding] = useState(false)
@@ -106,45 +115,46 @@ export function WatchlistSearchDialog({
   const handleAddToWatchlist = async (pkg: PackageType) => {
     setIsAdding(true)
     try {
-      console.log('🔄 Adding repository to watchlist:', pkg.repo_url || pkg.name)
+      console.log('🔄 Adding package to project watchlist:', pkg.name, 'Project ID:', projectId)
       
-      // Create default alert configuration with all alerts disabled
-      const defaultAlertConfig = {
-        repo_url: pkg.repo_url || `https://github.com/${pkg.name}`,
-        added_by: "user-123", // TODO: Get actual user ID
-        project_id: projectId, // Include project ID
-        alerts: {
-          ai_powered_anomaly_detection: {
-            enabled: false
-          },
-          lines_added_deleted: {
-            enabled: false,
-            contributor_variance: 3.0,
-            repository_variance: 3.5,
-            hardcoded_threshold: 1000
-          },
-          files_changed: {
-            enabled: false,
-            contributor_variance: 2.5,
-            repository_variance: 3.0,
-            hardcoded_threshold: 20
-          },
-          suspicious_author_timestamps: {
-            enabled: false
-          },
-          new_vulnerabilities_detected: {
-            enabled: false
-          },
-          health_score_decreases: {
-            enabled: false,
-            minimum_health_change: 5
-          }
-        }
+      if (!projectId) {
+        console.error('❌ Project ID is missing:', { projectId, open, onOpenChange })
+        throw new Error('Project ID is required but not provided')
       }
       
-      // Use addRepositoryToWatchlist which calls the correct endpoint
-      const result = await addRepositoryToWatchlist(defaultAlertConfig)
-      console.log('✅ Repository added successfully:', result)
+      // Call our new project watchlist endpoint
+      const apiUrl = `http://localhost:3000/projects/${projectId}/watchlist/add-package`
+      console.log('🚀 Making API call to:', apiUrl)
+      console.log('🚀 Request body:', JSON.stringify({
+        packageName: pkg.name,
+        repoUrl: pkg.repo_url,
+        userId: "user-123",
+      }))
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          packageName: pkg.name,
+          repoUrl: pkg.repo_url,
+          userId: "user-123", // TODO: Get actual user ID
+        }),
+      })
+      
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('❌ API Error:', {
+          status: response.status,
+          statusText: response.statusText,
+          url: response.url,
+          errorText: errorText
+        })
+        throw new Error(`Failed to add package: ${response.statusText} - ${errorText}`)
+      }
+      
+      const result = await response.json()
+      console.log('✅ Package added to project watchlist successfully:', result)
       
       setIsOpen(false)
       setSearchQuery("")
@@ -166,23 +176,20 @@ export function WatchlistSearchDialog({
   return (
     <>
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogTrigger asChild>
-          {trigger || (
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Package
-            </Button>
-          )}
-        </DialogTrigger>
+        {trigger && (
+          <DialogTrigger asChild>
+            {trigger}
+          </DialogTrigger>
+        )}
 
         <DialogContent className="max-w-6xl max-h-[90vh] p-0">
           <div className="flex h-[80vh]">
             {/* Left Panel - Search */}
             <div className="w-1/2 border-r border-gray-800 flex flex-col min-h-0">
               <DialogHeader className="p-6 pb-4 flex-shrink-0">
-                <DialogTitle>Search NPM Packages</DialogTitle>
+                <DialogTitle>Add Package to Project Watchlist</DialogTitle>
                 <DialogDescription>
-                  Find and add packages to your watchlist
+                  Search and add packages to your project's dependency watchlist
                 </DialogDescription>
               </DialogHeader>
 
