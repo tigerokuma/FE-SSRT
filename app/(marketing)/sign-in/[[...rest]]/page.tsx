@@ -38,12 +38,12 @@ export default function SignInPage() {
           </div>
         </aside>
 
-        {/* RIGHT — perfectly centered card on a white background */}
-        <section className="grid min-w-0 flex-[5] place-items-center bg-white">
+        {/* RIGHT — perfectly centered card on a dark background */}
+        <section className="grid min-w-0 flex-[5] place-items-center" style={{ backgroundColor: 'rgb(12, 12, 12)' }}>
           <SignIn
             path="/sign-in"
             routing="path"
-            signUpUrl="/sign-up"              // <-- makes the “Create one” link appear
+            signUpUrl="/sign-up"              // <-- makes the "Create one" link appear
             fallbackRedirectUrl="/project"
             appearance={{
               layout: {
@@ -52,28 +52,28 @@ export default function SignInPage() {
                 socialButtonsPlacement: 'top',
               },
               variables: {
-                colorPrimary: '#4B0082',
-                colorText: '#111111',
-                colorBackground: '#FFFFFF',
-                colorInputBackground: '#FFFFFF',
-                colorInputText: '#111111',
+                colorPrimary: 'rgb(84, 0, 250)',
+                colorText: '#FFFFFF',
+                colorBackground: 'rgb(18, 18, 18)',
+                colorInputBackground: 'rgb(12, 12, 12)',
+                colorInputText: '#FFFFFF',
                 borderRadius: '12px',
               },
               elements: {
                 rootBox: 'w-[520px] max-w-[92vw]',
-                card: 'rounded-xl border border-[#E5E7EB] shadow-lg p-8',
-                headerTitle: 'text-[28px] leading-9 font-semibold text-black',
-                headerSubtitle: 'text-sm text-gray-600',
-                formFieldInput: 'h-11 rounded-lg text-[16px] border-[#E5E7EB]',
-                formButtonPrimary: 'h-12 rounded-lg text-[16px] bg-[#111] hover:opacity-90',
+                card: 'rounded-xl border border-[#2A2A2A] shadow-lg p-8',
+                headerTitle: 'text-[28px] leading-9 font-semibold text-white',
+                headerSubtitle: 'text-sm text-gray-300',
+                formFieldInput: 'h-11 rounded-lg text-[16px] border-[#2A2A2A] text-white',
+                formButtonPrimary: 'h-12 rounded-lg text-[16px] text-white',
                 socialButtons: 'gap-3 w-full',
                 socialButtonsBlockButton:
-                  'h-12 rounded-lg text-[16px] border border-[#E5E7EB] data-[provider=github]:bg-[#1F2328] data-[provider=github]:text-white',
+                  'h-12 rounded-lg text-[16px] border border-[#2A2A2A] text-white hover:bg-[#2A2A2A] data-[provider=github]:bg-[#1F2328] data-[provider=github]:text-white',
                 dividerRow: 'my-4',
-                dividerText: 'text-gray-500',
+                dividerText: 'text-gray-400',
                 footer: 'mt-2',
-                footerActionText: 'text-sm text-gray-600',
-                footerActionLink: 'text-[#4B0082] hover:underline', // “Create one”
+                footerActionText: 'text-sm text-gray-300',
+                footerActionLink: 'text-[rgb(84,0,250)] hover:underline', // "Create one"
               },
             }}
           />

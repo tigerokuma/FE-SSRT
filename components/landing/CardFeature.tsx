@@ -23,19 +23,20 @@ export default function CardFeature({
   return (
     <div
       className={clsx(
-        "h-full rounded-xl border border-[#E5E7EB] bg-white p-6",
+        "h-full rounded-2xl border border-gray-800/50 p-8 shadow-2xl transition-all duration-300 hover:border-gray-700/50 hover:shadow-3xl",
         className
       )}
+      style={{ backgroundColor: 'rgb(18, 18, 18)' }}
     >
       {(eyebrow || rightChip) && (
         <div className="mb-3 flex items-center justify-between gap-3">
           {eyebrow ? (
-            <div className="text-xs font-medium text-black">{eyebrow}</div>
+            <div className="text-xs font-medium text-gray-300">{eyebrow}</div>
           ) : (
             <span />
           )}
           {rightChip && (
-            <div className="rounded-2xl border border-[#E5E7EB] bg-black/10 px-3 py-0.5 text-xs font-medium text-black">
+            <div className="rounded-full border border-gray-700/50 bg-gray-900/50 px-3 py-1 text-xs font-medium text-gray-300">
               {rightChip}
             </div>
           )}
@@ -45,14 +46,14 @@ export default function CardFeature({
       <h3
         className={clsx(
           variant === "metric"
-            ? "text-[48px] font-semibold leading-[56px] text-black"
-            : "mb-2 text-[20px] font-semibold leading-6 text-black"
+            ? "text-6xl font-bold leading-[1.1] text-white"
+            : "mb-3 text-2xl font-bold leading-7 text-white"
         )}
       >
         {title}
       </h3>
 
-      {body && <p className="mt-1 text-[16px] leading-6 text-black/80">{body}</p>}
+      {body && <p className="mt-2 text-base leading-6 text-gray-400">{body}</p>}
 
       {children}
     </div>

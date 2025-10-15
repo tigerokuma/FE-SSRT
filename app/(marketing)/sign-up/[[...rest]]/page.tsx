@@ -37,11 +37,11 @@ export default function SignUpPage() {
           </div>
         </aside>
 
-        <section className="flex min-w-0 flex-[5] items-center justify-center bg-[#FAFAFA]">
+        <section className="flex min-w-0 flex-[5] items-center justify-center" style={{ backgroundColor: 'rgb(12, 12, 12)' }}>
           <div className="w-[620px] max-w-[92vw]">
-            <div className="rounded-xl border border-[#E5E7EB] bg-white p-6 md:p-8">
-              <h2 className="mb-1 text-[32px] font-semibold leading-10 text-black">Create your account</h2>
-              <p className="mb-6 text-sm text-gray-600">No credit card required</p>
+            <div className="rounded-xl border border-[#2A2A2A] p-6 md:p-8" style={{ backgroundColor: 'rgb(18, 18, 18)' }}>
+              <h2 className="mb-1 text-[32px] font-semibold leading-10 text-white">Create your account</h2>
+              <p className="mb-6 text-sm text-gray-300">No credit card required</p>
 
               <SignUp
                 path="/sign-up"
@@ -51,10 +51,10 @@ export default function SignUpPage() {
                 appearance={{
                   layout: { logoPlacement: 'none', socialButtonsPlacement: 'bottom' },
                   variables: {
-                    colorPrimary: '#4B0082',
-                    colorText: '#111111',
-                    colorInputBackground: '#FFFFFF',
-                    colorInputText: '#111111',
+                    colorPrimary: 'rgb(84, 0, 250)',
+                    colorText: '#FFFFFF',
+                    colorInputBackground: 'rgb(12, 12, 12)',
+                    colorInputText: '#FFFFFF',
                     colorBackground: 'transparent',
                     borderRadius: '12px',
                   },
@@ -67,25 +67,25 @@ export default function SignUpPage() {
 
                     form: 'w-full',
                     formField: 'w-full',
-                    formFieldInput: 'h-11 rounded-lg text-[16px] border-[#E5E7EB]',
-                    formButtonPrimary: 'h-14 rounded-lg text-[16px] bg-[#111] hover:opacity-90',
+                    formFieldInput: 'h-11 rounded-lg text-[16px] border-[#2A2A2A] text-white',
+                    formButtonPrimary: 'h-14 rounded-lg text-[16px] text-white',
 
                     socialButtons: 'gap-3 w-full',
                     socialButtonsBlockButton:
-                      'h-14 rounded-lg text-[16px] border border-[#E5E7EB] data-[provider=github]:bg-[#1F2328] data-[provider=github]:text-white',
+                      'h-14 rounded-lg text-[16px] border border-[#2A2A2A] text-white hover:bg-[#2A2A2A] data-[provider=github]:bg-[#1F2328] data-[provider=github]:text-white',
                     socialButtonsProviderIcon__github: 'w-5 h-5',
                     socialButtonsProviderIcon__google: 'w-5 h-5',
                     dividerRow: 'my-4',
-                    dividerText: 'text-gray-500',
+                    dividerText: 'text-gray-400',
 
                     footer: 'hidden',
                   },
                 }}
               />
 
-              <p className="mt-4 text-sm text-gray-600">
+              <p className="mt-4 text-sm text-gray-300">
                 Already have an account?{' '}
-                <Link href="/sign-in" className="font-medium text-[#4B0082] hover:underline">
+                <Link href="/sign-in" className="font-medium text-[rgb(84,0,250)] hover:underline">
                   Sign in
                 </Link>
               </p>

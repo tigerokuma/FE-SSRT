@@ -14,17 +14,19 @@ export default function Button({
   ...props
 }: Props) {
   const base =
-    "inline-flex items-center justify-center gap-2 rounded-lg px-3 py-4 text-base transition-colors";
+    "inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3 text-sm font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-black";
   const styles = {
-    primary: "bg-[#111] text-white border border-[#E5E7EB] hover:opacity-90",
-    secondary: "bg-white text-[#111] border border-[#E5E7EB] hover:bg-black/5",
-    ghost: "text-[#111] hover:bg-black/5",
+    primary: "text-white border-0 shadow-lg hover:shadow-xl",
+    secondary: "bg-transparent text-white border border-gray-700/50 hover:bg-gray-900/50 hover:border-gray-600/50",
+    ghost: "text-gray-300 hover:text-white hover:bg-gray-900/50",
   }[variant];
+
+  const primaryStyle = variant === "primary" ? { backgroundColor: 'rgb(84, 0, 250)', borderColor: 'rgb(84, 0, 250)' } : {};
 
   if (as === "a" && href)
     return (
-      <a href={href} className={clsx(base, styles, className)} {...(props as any)} />
+      <a href={href} className={clsx(base, styles, className)} style={primaryStyle} {...(props as any)} />
     );
 
-  return <button className={clsx(base, styles, className)} {...props} />;
+  return <button className={clsx(base, styles, className)} style={primaryStyle} {...props} />;
 }
