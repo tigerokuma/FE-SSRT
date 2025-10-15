@@ -1,48 +1,61 @@
-import type React from "react"
+// app/layout.tsx
 import type { Metadata } from "next"
+import { ClerkProvider } from "@clerk/nextjs"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
-import { AppSidebar } from "@/components/app-sidebar"
-import { SidebarProvider } from "@/components/ui/sidebar"
-import { Toaster } from "@/components/ui/toaster"
-import { MainContent } from "@/components/main-content"
-import { BackgroundGradient } from "@/components/background-gradient"
 
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
   title: "Deply",
   description: "Monitor the health, risk, and activity of open-source repositories",
-  generator: 'v0.dev',
   icons: {
     icon: [
-      { url: '/favicon.ico', sizes: 'any' },
-      { url: '/Deply_Logo.png', type: 'image/png' }
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/Deply_Logo.png", type: "image/png" },
     ],
-    shortcut: '/favicon.ico',
-    apple: '/Deply_Logo.png',
+    shortcut: "/favicon.ico",
+    apple: "/Deply_Logo.png",
   },
 }
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode
-}>) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.className} scrollbar-hide`}>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-          <SidebarProvider defaultOpen={true}>
-            <div className="flex min-w-[calc(80vw)]" style={{ width: '100%' }}>
-              <AppSidebar />
-              <MainContent>{children}</MainContent>
-            </div>
-            <Toaster />
-          </SidebarProvider>
-        </ThemeProvider>
-      </body>
-    </html>
+    <ClerkProvider
+      signInFallbackRedirectUrl="/project"
+      signInForceRedirectUrl="/project"
+      signUpFallbackRedirectUrl="/project"
+      signUpForceRedirectUrl="/project"
+      appearance={{
+        // Use design tokens instead of hard-coded light colors
+        variables: {
+          colorPrimary: "hsl(var(--primary))",
+          borderRadius: "12px",
+          colorBackground: "hsl(var(--background))",
+          colorText: "hsl(var(--foreground))",
+        },
+        elements: {
+          card: "bg-card text-card-foreground border border-border shadow-none",
+          headerTitle: "text-foreground",
+          formFieldInput: "bg-background text-foreground border-border",
+        },
+      }}
+    >
+      <html lang="en" suppressHydrationWarning>
+        {/* no bg-white here; let tokens handle background */}
+        <body className={inter.className}>
+          {/* follow system; don't force light; prevent transition flash */}
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="system"
+            enableSystem
+            disableTransitionOnChange
+          >
+            {children}
+          </ThemeProvider>
+        </body>
+      </html>
+    </ClerkProvider>
   )
 }

@@ -23,42 +23,42 @@ import { useProjects } from "@/hooks/use-projects"
 // Function to get project language icon based on language
 const getProjectLanguageIcon = (language?: string) => {
   const lang = language?.toLowerCase()
-  
+
   // React/JavaScript projects
   if (lang === 'javascript' || lang === 'typescript' || lang === 'react' || lang === 'nodejs') {
     return <img src="/Node_logo.png" alt="Node.js" className="h-6 w-6 bg-transparent" />
   }
-  
+
   // Vue projects
   if (lang === 'vue') {
     return <img src="/Vue_logo.png" alt="Vue" className="h-6 w-6 bg-transparent" />
   }
-  
+
   // Python projects
   if (lang === 'python') {
     return <img src="/Python_logo.png" alt="Python" className="h-6 w-6 bg-transparent" />
   }
-  
+
   // Go projects
   if (lang === 'go') {
     return <img src="/Go_logo.png" alt="Go" className="h-6 w-6 bg-transparent" />
   }
-  
+
   // Java projects
   if (lang === 'java') {
     return <img src="/Java_logo.png" alt="Java" className="h-6 w-6 bg-transparent" />
   }
-  
+
   // Rust projects
   if (lang === 'rust') {
     return <img src="/Rust_logo.png" alt="Rust" className="h-6 w-6 bg-transparent" />
   }
-  
+
   // Ruby projects
   if (lang === 'ruby') {
     return <img src="/Ruby_logo.png" alt="Ruby" className="h-6 w-6 bg-transparent" />
   }
-  
+
   // Default to Deply logo for unknown languages
   return <img src="/Deply_Logo.png" alt="Deply" className="h-6 w-6 bg-transparent" />
 }
@@ -66,7 +66,7 @@ const getProjectLanguageIcon = (language?: string) => {
 // Function to get display name for language
 const getLanguageDisplayName = (language: string) => {
   const lang = language.toLowerCase()
-  
+
   if (lang === 'nodejs') return 'Node.js'
   if (lang === 'javascript') return 'JavaScript'
   if (lang === 'typescript') return 'TypeScript'
@@ -77,7 +77,7 @@ const getLanguageDisplayName = (language: string) => {
   if (lang === 'java') return 'Java'
   if (lang === 'rust') return 'Rust'
   if (lang === 'ruby') return 'Ruby'
-  
+
   // Capitalize first letter for unknown languages
   return language.charAt(0).toUpperCase() + language.slice(1)
 }
@@ -85,7 +85,7 @@ const getLanguageDisplayName = (language: string) => {
 // Function to get display name for license
 const getLicenseDisplayName = (license: string) => {
   const lic = license.toLowerCase()
-  
+
   if (lic === 'mit') return 'MIT License'
   if (lic === 'apache-2.0') return 'Apache 2.0'
   if (lic === 'gpl-3.0') return 'GPL 3.0'
@@ -95,7 +95,7 @@ const getLicenseDisplayName = (license: string) => {
   if (lic === 'mpl-2.0') return 'Mozilla Public License 2.0'
   if (lic === 'unlicense') return 'The Unlicense'
   if (lic === 'cc0-1.0') return 'CC0 1.0 Universal'
-  
+
   // Return as-is for unknown licenses
   return license
 }
@@ -126,6 +126,10 @@ interface ProjectDependency {
   id: string
   name: string
   version: string
+  risk: number
+  tags: string[]
+  last_updated: string
+  created_at: string
   package_id?: string
   package?: {
     id: string
@@ -203,7 +207,7 @@ export default function ProjectDetailPage() {
   const [packageStatuses, setPackageStatuses] = useState<{[key: string]: {status: string, hasScores: boolean}}>({})
 
   // Calculate compliance data
-  const complianceData = project && projectDependencies.length > 0 
+  const complianceData = project && projectDependencies.length > 0
     ? calculateComplianceData(project, projectDependencies)
     : {
         overallCompliance: 100,
@@ -220,7 +224,7 @@ export default function ProjectDetailPage() {
     const targetDate = new Date(date)
     const diffInMs = now.getTime() - targetDate.getTime()
     const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24))
-    
+
     if (diffInDays === 0) {
       return 'today'
     } else if (diffInDays === 1) {
@@ -240,7 +244,7 @@ export default function ProjectDetailPage() {
   }
 
   const projectId = params.id as string
-  
+
   // Debug logging
   console.log('🔍 Project page - params:', params, 'projectId:', projectId)
 
@@ -248,7 +252,7 @@ export default function ProjectDetailPage() {
   const fetchProjectData = async () => {
     try {
       setLoading(true)
-      
+
       // Fetch project details
       const projectResponse = await fetch(`http://localhost:3000/projects/${projectId}`)
       if (!projectResponse.ok) {
@@ -262,7 +266,7 @@ export default function ProjectDetailPage() {
       setVulnerabilityNotifications(projectData.vulnerability_notifications ?? { alerts: true, slack: false, discord: false })
       setLicenseNotifications(projectData.license_notifications ?? { alerts: true, slack: false, discord: false })
       setHealthNotifications(projectData.health_notifications ?? { alerts: true, slack: false, discord: false })
-      
+
       // Fetch team members for this project
       const teamResponse = await fetch(`http://localhost:3000/projects/${projectId}/users`)
       if (teamResponse.ok) {
@@ -276,39 +280,39 @@ export default function ProjectDetailPage() {
         const userData = await userResponse.json()
         setCurrentUser(userData)
       }
-      
+
       // Fetch project dependencies
       const dependenciesResponse = await fetch(`http://localhost:3000/projects/${projectId}/dependencies`)
       if (dependenciesResponse.ok) {
         const dependenciesData = await dependenciesResponse.json()
         setProjectDependencies(dependenciesData)
       }
-      
+
       // Fetch watchlist dependencies
       const watchlistResponse = await fetch(`http://localhost:3000/projects/${projectId}/watchlist`)
       if (watchlistResponse.ok) {
         const watchlistData = await watchlistResponse.json()
         setWatchlistDependencies(watchlistData)
       }
-      
+
       // Check current user's role in the project
       const roleResponse = await fetch(`http://localhost:3000/projects/${projectId}/user/user-123/role`)
       if (roleResponse.ok) {
         const roleData = await roleResponse.json()
         setCurrentUserRole(roleData.role)
       }
-      
+
       // Fetch project watchlist and package statuses
       const [projectWatchlistResponse, packageStatusResponse] = await Promise.all([
         fetch(`http://localhost:3000/projects/${projectId}/project-watchlist`),
         fetch(`http://localhost:3000/projects/${projectId}/watchlist/status`)
       ])
-      
+
       if (projectWatchlistResponse.ok) {
         const projectWatchlistData = await projectWatchlistResponse.json()
         setProjectWatchlist(projectWatchlistData)
       }
-      
+
       if (packageStatusResponse.ok) {
         const statusData = await packageStatusResponse.json()
         const statusMap: {[key: string]: {status: string, hasScores: boolean}} = {}
@@ -320,7 +324,7 @@ export default function ProjectDetailPage() {
         })
         setPackageStatuses(statusMap)
       }
-      
+
     } catch (err) {
       console.error('Error fetching project data:', err)
       setError('Failed to load project')
@@ -370,7 +374,7 @@ export default function ProjectDetailPage() {
   // Function to get display text for dropdown button
   const getNotificationDisplayText = (notificationType: 'vulnerability' | 'license' | 'health') => {
     let notifications: { alerts: boolean; slack: boolean; discord: boolean }
-    
+
     if (notificationType === 'vulnerability') {
       notifications = vulnerabilityNotifications
     } else if (notificationType === 'license') {
@@ -383,7 +387,7 @@ export default function ProjectDetailPage() {
     if (notifications.alerts) channels.push('Alerts Tab')
     if (notifications.slack) channels.push('Slack')
     if (notifications.discord) channels.push('Discord')
-    
+
     return channels.length > 0 ? channels.join(', ') : 'None'
   }
 
@@ -392,7 +396,7 @@ export default function ProjectDetailPage() {
     try {
       const joinLink = `${window.location.origin}/join/${projectId}`
       await navigator.clipboard.writeText(joinLink)
-      
+
       toast({
         title: "Join Link Copied",
         description: "Project join link has been copied to your clipboard. Share this link with team members to invite them to the project.",
@@ -413,7 +417,7 @@ export default function ProjectDetailPage() {
     try {
       const updateData: any = {}
       let newNotifications: { alerts: boolean; slack: boolean; discord: boolean }
-      
+
       if (notificationType === 'vulnerability') {
         newNotifications = { ...vulnerabilityNotifications, [channel]: value }
         updateData.vulnerability_notifications = newNotifications
@@ -438,13 +442,13 @@ export default function ProjectDetailPage() {
 
       if (response.ok) {
         // Update the project state
-        setProject(prev => prev ? { 
-          ...prev, 
+        setProject(prev => prev ? {
+          ...prev,
           vulnerability_notifications: notificationType === 'vulnerability' ? newNotifications : prev.vulnerability_notifications,
           license_notifications: notificationType === 'license' ? newNotifications : prev.license_notifications,
           health_notifications: notificationType === 'health' ? newNotifications : prev.health_notifications
         } : null)
-        
+
         toast({
           title: "Notification Settings Updated",
           description: `${notificationType.charAt(0).toUpperCase() + notificationType.slice(1)} ${channel} notifications ${value ? 'enabled' : 'disabled'}.`,
@@ -535,22 +539,22 @@ export default function ProjectDetailPage() {
       const processingPackages = Object.entries(packageStatuses).filter(
         ([_, status]) => status.status === 'queued' || status.status === 'fast'
       )
-      
+
       if (processingPackages.length === 0) return
-      
+
       try {
         const response = await fetch(`http://localhost:3000/projects/${projectId}/watchlist/status`)
         if (!response.ok) return
-        
+
         const statusData = await response.json()
         const updatedStatuses = { ...packageStatuses }
         let hasUpdates = false
-        
+
         // Check each processing package individually
         for (const [packageId, currentStatus] of processingPackages) {
           const packageStatus = statusData.find((pkg: any) => pkg.packageId === packageId)
           if (!packageStatus) continue
-          
+
           // If package is done, get the data and stop checking
           if (packageStatus.status === 'done') {
             updatedStatuses[packageId] = {
@@ -558,7 +562,7 @@ export default function ProjectDetailPage() {
               hasScores: true
             }
             hasUpdates = true
-            
+
             // Get the updated package data
             try {
               const dataResponse = await fetch(`http://localhost:3000/projects/${projectId}/project-watchlist`)
@@ -571,7 +575,7 @@ export default function ProjectDetailPage() {
             }
           }
         }
-        
+
         if (hasUpdates) {
           setPackageStatuses(updatedStatuses)
         }
@@ -579,10 +583,10 @@ export default function ProjectDetailPage() {
         console.error('Error checking package statuses:', error)
       }
     }
-    
+
     // Check every 2 seconds for processing packages
     const interval = setInterval(checkPackageStatuses, 2000)
-    
+
     return () => clearInterval(interval)
   }, [packageStatuses, projectId])
 
@@ -713,7 +717,7 @@ export default function ProjectDetailPage() {
       })
       
       // Redirect to home page
-      router.push('/')
+      router.push('/project')
       
     } catch (err) {
       console.error('Error deleting project:', err)
@@ -859,7 +863,7 @@ export default function ProjectDetailPage() {
           <div className="text-center py-8">
             <div className="text-red-400 mb-4">{error || 'Project not found'}</div>
             <Button 
-              onClick={() => router.push('/')}
+              onClick={() => router.push('/project')}
               className="bg-blue-600 hover:bg-blue-700 text-white"
             >
               <ArrowLeft className="mr-2 h-4 w-4" />
@@ -894,7 +898,7 @@ export default function ProjectDetailPage() {
                 <CardContent>
     {/* MODIFIED: Changed to a 12-column grid to allow for a wider graph (3/9 split) */}
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-      
+
       {/* Left: Security Score (3/12 columns on large screens) */}
       <div className="flex flex-col justify-center items-center lg:col-span-3" style={{ marginLeft: 'auto' }}>
         {/* Security Score with Progress Circle */}
@@ -936,7 +940,7 @@ export default function ProjectDetailPage() {
       <div className="lg:col-span-9">
         <div className="h-64 w-full">
           {/* MODIFIED: Increased viewBox width from 400 to 600 and adjusted points/text positions */}
-          <svg className="w-full h-full" viewBox="0 0 600 200"> 
+          <svg className="w-full h-full" viewBox="0 0 600 200">
             {/* Grid lines */}
             <defs>
               <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
@@ -944,7 +948,7 @@ export default function ProjectDetailPage() {
               </pattern>
             </defs>
             <rect width="100%" height="100%" fill="url(#grid)" />
-            
+
             {/* Y-axis scale numbers (no change) */}
             <text x="15" y="25" fill="#9CA3AF" fontSize="12" textAnchor="middle">100</text>
             <text x="15" y="60" fill="#9CA3AF" fontSize="12" textAnchor="middle">80</text>
@@ -952,13 +956,13 @@ export default function ProjectDetailPage() {
             <text x="15" y="130" fill="#9CA3AF" fontSize="12" textAnchor="middle">40</text>
             <text x="15" y="165" fill="#9CA3AF" fontSize="12" textAnchor="middle">20</text>
             <text x="15" y="195" fill="#9CA3AF" fontSize="12" textAnchor="middle">0</text>
-            
+
             {/* X-axis dates (Adjusted positions for wider graph: 50, 217, 384, 550) */}
             <text x="50" y="195" fill="#9CA3AF" fontSize="10" textAnchor="middle">30d ago</text>
             <text x="217" y="195" fill="#9CA3AF" fontSize="10" textAnchor="middle">20d ago</text>
             <text x="384" y="195" fill="#9CA3AF" fontSize="10" textAnchor="middle">10d ago</text>
             <text x="550" y="195" fill="#9CA3AF" fontSize="10" textAnchor="middle">Today</text>
-            
+
             {/* Line chart (Adjusted points for wider graph: 50, 150, 250, 350, 450, 550) */}
             <polyline
               fill="none"
@@ -966,13 +970,13 @@ export default function ProjectDetailPage() {
               strokeWidth="3"
               points="50,180 150,160 250,140 350,120 450,100 550,60"
             />
-            
+
             {/* Area fill (Adjusted points for wider graph) */}
             <polygon
               fill="url(#securityGradient)"
               points="50,180 150,160 250,140 350,120 450,100 550,60 550,180 50,180"
             />
-            
+
             {/* Gradient definition (no change) */}
             <defs>
               <linearGradient id="securityGradient" x1="0%" y1="0%" x2="0%" y2="100%">
@@ -980,7 +984,7 @@ export default function ProjectDetailPage() {
                 <stop offset="100%" stopColor="rgb(84, 0, 250)" stopOpacity="0.05"/>
               </linearGradient>
             </defs>
-            
+
             {/* Data points (Adjusted positions for wider graph) */}
             <circle cx="50" cy="180" r="3" fill="rgb(84, 0, 250)"/>
             <circle cx="250" cy="140" r="3" fill="rgb(84, 0, 250)"/>
@@ -1107,7 +1111,7 @@ export default function ProjectDetailPage() {
           <div className="space-y-6">
             {/* Dependencies Header */}
             <div className="space-y-4">
-              
+
               {/* Search and Filters */}
               <div className="space-y-4">
                     <div className="relative">
@@ -1124,7 +1128,7 @@ export default function ProjectDetailPage() {
 
                 {/* Filter Options */}
                 <div className="flex items-center gap-4">
-                      <Button 
+                      <Button
                         variant="outline"
                     className="border-gray-600 text-gray-300 hover:bg-gray-700"
                     onClick={() => setShowFilterPopup(true)}
@@ -1132,7 +1136,7 @@ export default function ProjectDetailPage() {
                     <Search className="h-4 w-4 mr-2" />
                     Add Filters
                       </Button>
-                  
+
                   {/* Show filter chips or status text */}
                   {activeFilters.length > 0 ? (
                     <div className="flex flex-wrap gap-2">
@@ -1215,7 +1219,7 @@ export default function ProjectDetailPage() {
                   />
                   <Search className="absolute right-3 top-2.5 h-4 w-4 text-gray-400" />
                 </div>
-                <Button 
+                <Button
                   style={{ backgroundColor: colors.primary }}
                   className="hover:opacity-90 text-white"
                   onClick={() => {
@@ -1243,7 +1247,7 @@ export default function ProjectDetailPage() {
                     onPackageClick={(pkg) => {
                       const packageData = pkg.package || pkg
                       const packageName = packageData.name || pkg.name || 'Unknown Package'
-                      
+
                       setSelectedDependency({
                         id: pkg.id,
                         name: packageName,
@@ -1277,7 +1281,7 @@ export default function ProjectDetailPage() {
                   </div>
                   <h3 className="text-lg font-semibold text-white mb-2">No packages in watchlist</h3>
                   <p className="text-gray-400 mb-6">Add packages to your watchlist to monitor their security and health</p>
-                  <Button 
+                  <Button
                     style={{ backgroundColor: colors.primary }}
                     className="hover:opacity-90 text-white"
                     onClick={() => setShowWatchlistSearchDialog(true)}
@@ -1365,8 +1369,8 @@ export default function ProjectDetailPage() {
               </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    <Button 
-                      className="w-full hover:opacity-90 text-white" 
+                    <Button
+                      className="w-full hover:opacity-90 text-white"
                       style={{ backgroundColor: colors.primary }}
                       onClick={() => {
                         // Generate SBOM data
@@ -1390,7 +1394,7 @@ export default function ProjectDetailPage() {
                           },
                           generatedAt: new Date().toISOString()
                         }
-                        
+
                         // Download as JSON
                         const blob = new Blob([JSON.stringify(sbomData, null, 2)], { type: 'application/json' })
                         const url = URL.createObjectURL(blob)
@@ -1413,7 +1417,7 @@ export default function ProjectDetailPage() {
                 </CardContent>
               </Card>
                   </div>
-                  
+
             {/* Non-Compliant Dependencies */}
             <Card style={{ backgroundColor: colors.background.card }}>
               <CardHeader>
@@ -1462,7 +1466,7 @@ export default function ProjectDetailPage() {
               </div>
               <h3 className="text-lg font-semibold text-white mb-2">No Alerts Found</h3>
               <p className="text-gray-400 mb-6">No alerts have been triggered for this repository yet. Click here to configure alert settings.</p>
-              <Button 
+              <Button
                 style={{ backgroundColor: colors.primary }}
                 className="hover:opacity-90 text-white"
                 onClick={() => {
@@ -1481,7 +1485,7 @@ export default function ProjectDetailPage() {
           <div className="flex h-full overflow-hidden scrollbar-hide">
             {/* Settings Sidebar */}
             <div className="w-64 border-r border-gray-800 p-6 overflow-y-auto scrollbar-hide">
-              <div className="space-y-1">                
+              <div className="space-y-1">
                 {/* Settings Navigation Items */}
                 {[
                   { id: 'general', label: 'General' },
@@ -1522,11 +1526,11 @@ export default function ProjectDetailPage() {
                   <div>
                     <h2 className="text-2xl font-bold text-white">General Settings</h2>
                   </div>
-                  
+
                   <div className="space-y-6">
                     <div>
                       <label className="block text-sm font-medium text-white mb-2">Project Name</label>
-                      <Input 
+                      <Input
                         placeholder="Enter project name"
                         value={projectName}
                         onChange={(e) => setProjectName(e.target.value)}
@@ -1543,7 +1547,7 @@ export default function ProjectDetailPage() {
                         <p className="text-xs text-gray-500 mt-1">Saving...</p>
                       )}
                     </div>
-                    
+
                     <div>
                       <label className="block text-sm font-medium text-white mb-2">Project Language</label>
                       <div className="flex items-center gap-3 p-3 border rounded-md" style={{ paddingTop: '0.5rem', paddingBottom: '0.5rem', fontSize:'0.875rem', backgroundColor: 'rgb(18, 18, 18)' }}>
@@ -1554,11 +1558,11 @@ export default function ProjectDetailPage() {
                       </div>
                       <p className="text-xs text-gray-500 mt-1">Language cannot be changed after project creation</p>
                     </div>
-                    
+
                     <div>
                       <label className="block text-sm font-medium text-white mb-2">License</label>
-                      <Select 
-                        value={selectedLicense} 
+                      <Select
+                        value={selectedLicense}
                         onValueChange={handleLicenseChange}
                         disabled={isSavingLicense}
                       >
@@ -1577,7 +1581,7 @@ export default function ProjectDetailPage() {
                         </SelectContent>
                       </Select>
                     </div>
-                    
+
                     <div className="pt-4">
                       <h3 className="text-lg font-semibold text-white mb-4">Project Type</h3>
                       <div className="space-y-3">
@@ -1596,14 +1600,14 @@ export default function ProjectDetailPage() {
                           </div>
                         </div>
                         <p className="text-xs text-gray-500 mt-2">
-                          {project?.type === 'file' 
-                            ? 'To update dependencies, upload a new file on the Dependencies page' 
+                          {project?.type === 'file'
+                            ? 'To update dependencies, upload a new file on the Dependencies page'
                             : 'Project type cannot be changed after project creation'
                           }
                         </p>
                       </div>
                     </div>
-                    
+
                     {project?.type === 'cli' && (
                       <div>
                         <label className="block text-sm font-medium text-white mb-2">Update Dependencies</label>
@@ -1632,7 +1636,7 @@ export default function ProjectDetailPage() {
                         <p className="text-xs text-gray-500 mt-1">Run this command in your project directory to update dependencies</p>
                       </div>
                     )}
-                    
+
                     {project?.type === 'repo' && (
                       <div>
                         <label className="block text-sm font-medium text-white mb-2">GitHub Repository</label>
@@ -1647,7 +1651,7 @@ export default function ProjectDetailPage() {
                         <p className="text-xs text-gray-500 mt-1">Repository cannot be changed after project creation</p>
                       </div>
                     )}
-                    
+
                     {project?.type === 'repo' && (
                       <div>
                         <label className="block text-sm font-medium text-white mb-2">Branch</label>
@@ -1662,7 +1666,7 @@ export default function ProjectDetailPage() {
                         <p className="text-xs text-gray-500 mt-1">Branch cannot be changed after project creation</p>
                       </div>
                     )}
-                    
+
                   </div>
                 </div>
               )}
@@ -1673,7 +1677,7 @@ export default function ProjectDetailPage() {
                     <h2 className="text-2xl font-bold text-white">Integrations</h2>
                     <p className="text-gray-400 mt-1">Connect your favorite tools to streamline your workflow</p>
                   </div>
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Jira Integration */}
                     <Card style={{ backgroundColor: colors.background.card }} className="hover:bg-gray-800/50 transition-colors">
@@ -1932,8 +1936,8 @@ export default function ProjectDetailPage() {
                 <div className="space-y-8">
                   <div className="flex items-center justify-between">
                     <h2 className="text-2xl font-bold text-white">Team Members</h2>
-                    <Button 
-                      style={{ backgroundColor: colors.primary }} 
+                    <Button
+                      style={{ backgroundColor: colors.primary }}
                       className="hover:opacity-90 text-white"
                       onClick={handleAddMember}
                     >
@@ -1941,14 +1945,14 @@ export default function ProjectDetailPage() {
                       Add Member
                     </Button>
                   </div>
-                  
+
                   <div className="space-y-0 border border-gray-700 rounded-lg overflow-hidden">
                     {projectUsers.map((member, index) => (
-                      <div 
-                        key={member.id} 
-                        className={`flex items-center justify-between p-4 transition-colors ${index < projectUsers.length - 1 ? 'border-b border-gray-700' : ''}`} 
-                        style={{ backgroundColor: 'transparent' }} 
-                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgb(18, 18, 18)'} 
+                      <div
+                        key={member.id}
+                        className={`flex items-center justify-between p-4 transition-colors ${index < projectUsers.length - 1 ? 'border-b border-gray-700' : ''}`}
+                        style={{ backgroundColor: 'transparent' }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgb(18, 18, 18)'}
                         onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                       >
                         <div className="flex items-center gap-3">
@@ -2106,19 +2110,19 @@ export default function ProjectDetailPage() {
         projectId={projectId}
         onRepositoryAdded={async () => {
           setShowWatchlistSearchDialog(false)
-          
+
           // Fetch updated watchlist data and set initial statuses
           try {
             const [projectWatchlistResponse, packageStatusResponse] = await Promise.all([
               fetch(`http://localhost:3000/projects/${projectId}/project-watchlist`),
               fetch(`http://localhost:3000/projects/${projectId}/watchlist/status`)
             ])
-            
+
             if (projectWatchlistResponse.ok) {
               const projectWatchlistData = await projectWatchlistResponse.json()
               setProjectWatchlist(projectWatchlistData)
             }
-            
+
             if (packageStatusResponse.ok) {
               const statusData = await packageStatusResponse.json()
               const statusMap: {[key: string]: {status: string, hasScores: boolean}} = {}
@@ -2189,7 +2193,7 @@ export default function ProjectDetailPage() {
               {selectedDependency?.name}
             </DialogTitle>
           </DialogHeader>
-          
+
           {selectedDependency && (
             <div className="space-y-6">
               {/* Package Details - Full Width */}
@@ -2242,7 +2246,7 @@ export default function ProjectDetailPage() {
                           <span className="text-sm text-white font-medium">{selectedDependency.activityScore}</span>
                         </div>
                         <div className="w-full bg-gray-700 rounded-full h-2">
-                          <div 
+                          <div
                             className="h-2 rounded-full transition-all duration-300"
                             style={{ width: `${selectedDependency.activityScore}%`, backgroundColor: 'rgb(84, 0, 250)' }}
                           ></div>
@@ -2255,7 +2259,7 @@ export default function ProjectDetailPage() {
                           <span className="text-sm text-white font-medium">{selectedDependency.busFactor}</span>
                         </div>
                         <div className="w-full bg-gray-700 rounded-full h-2">
-                          <div 
+                          <div
                             className="h-2 rounded-full transition-all duration-300"
                             style={{ width: `${Math.min(selectedDependency.busFactor * 5, 100)}%`, backgroundColor: 'rgb(84, 0, 250)' }}
                           ></div>
@@ -2268,7 +2272,7 @@ export default function ProjectDetailPage() {
                           <span className="text-sm text-white font-medium">{selectedDependency.vulnerabilities}</span>
                         </div>
                         <div className="w-full bg-gray-700 rounded-full h-2">
-                          <div 
+                          <div
                             className="h-2 rounded-full transition-all duration-300"
                             style={{ width: `${selectedDependency.vulnerabilities}%`, backgroundColor: 'rgb(84, 0, 250)' }}
                           ></div>
@@ -2281,7 +2285,7 @@ export default function ProjectDetailPage() {
                           <span className="text-sm text-white font-medium">{selectedDependency.licenseScore || 'N/A'}</span>
                         </div>
                         <div className="w-full bg-gray-700 rounded-full h-2">
-                          <div 
+                          <div
                             className="h-2 rounded-full transition-all duration-300"
                             style={{ width: `${selectedDependency.licenseScore || 0}%`, backgroundColor: 'rgb(84, 0, 250)' }}
                           ></div>
@@ -2294,7 +2298,7 @@ export default function ProjectDetailPage() {
                           <span className="text-sm text-white font-medium">{selectedDependency.healthScore}</span>
                         </div>
                         <div className="w-full bg-gray-700 rounded-full h-2">
-                          <div 
+                          <div
                             className="h-2 rounded-full transition-all duration-300"
                             style={{ width: `${selectedDependency.healthScore}%`, backgroundColor: 'rgb(84, 0, 250)' }}
                           ></div>
@@ -2343,13 +2347,13 @@ export default function ProjectDetailPage() {
                       </div>
                       {(() => {
                         const hasProjectLicense = selectedDependency.projectLicense && selectedDependency.projectLicense !== 'unlicensed' && selectedDependency.projectLicense !== 'none' && selectedDependency.projectLicense !== null && selectedDependency.projectLicense !== undefined
-                        
+
                         if (!hasProjectLicense) {
                           return null // Don't show anything if no project license
                         }
-                        
+
                         const licenseCompatibility = checkLicenseCompatibility(selectedDependency.projectLicense, selectedDependency.license)
-                        
+
                         if (licenseCompatibility.isCompatible) {
                           return (
                             <Badge variant="outline" className="border-green-500 text-green-500">
@@ -2358,7 +2362,7 @@ export default function ProjectDetailPage() {
                             </Badge>
                           )
                         } else {
-                          const severityColor = licenseCompatibility.severity === 'high' ? 'red' : 
+                          const severityColor = licenseCompatibility.severity === 'high' ? 'red' :
                                                licenseCompatibility.severity === 'medium' ? 'yellow' : 'blue'
                           return (
                             <Badge variant="outline" className={`border-${severityColor}-500 text-${severityColor}-500`}>
@@ -2415,7 +2419,7 @@ export default function ProjectDetailPage() {
                           </div>
                         </div>
                       </div>
-                      
+
                       {/* Dynamic Comments */}
                       {selectedDependency.comments && selectedDependency.comments.length > 0 && (
                         selectedDependency.comments.map((comment: any, index: number) => (
@@ -2433,7 +2437,7 @@ export default function ProjectDetailPage() {
                           </div>
                         ))
                       )}
-                      
+
                       {/* Show approval/rejection events if not pending */}
                       {selectedDependency.status === 'approved' && (
                         <div className="flex items-start gap-3">
@@ -2449,7 +2453,7 @@ export default function ProjectDetailPage() {
                           </div>
                         </div>
                       )}
-                      
+
                       {selectedDependency.status === 'rejected' && (
                         <div className="flex items-start gap-3">
                           <div className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center">
@@ -2482,7 +2486,7 @@ export default function ProjectDetailPage() {
                             />
                             <div className="flex items-center justify-between mt-2">
                               <div className="flex items-center gap-2">
-                                <Button 
+                                <Button
                                   size="sm"
                                   className="text-white"
                                   style={{ backgroundColor: 'rgb(34, 197, 94)' }}
@@ -2493,7 +2497,7 @@ export default function ProjectDetailPage() {
                                       headers: { 'Content-Type': 'application/json' },
                                       body: JSON.stringify({ userId: currentUser?.id || 'user-123' })
                                     })
-                                    
+
                                     if (response.ok) {
                                       // Refresh watchlist data to get actual approver info from database
                                       try {
@@ -2501,7 +2505,7 @@ export default function ProjectDetailPage() {
                                         if (projectWatchlistResponse.ok) {
                                           const projectWatchlistData = await projectWatchlistResponse.json()
                                           setProjectWatchlist(projectWatchlistData)
-                                          
+
                                           // Find the updated package and update selectedDependency
                                           const updatedPackage = projectWatchlistData.find((pkg: any) => pkg.id === selectedDependency.id)
                                           if (updatedPackage) {
@@ -2516,7 +2520,7 @@ export default function ProjectDetailPage() {
                                       } catch (error) {
                                         console.error('Error refreshing watchlist data:', error)
                                       }
-                                      
+
                                       setShowDependencyReviewDialog(false)
                                       toast({
                                         title: "Dependency Approved",
@@ -2542,7 +2546,7 @@ export default function ProjectDetailPage() {
                                   <Check className="mr-1 h-3 w-3" />
                                   Approve
                                 </Button>
-                                <Button 
+                                <Button
                                   size="sm"
                                   className="text-white"
                                   style={{ backgroundColor: 'rgb(239, 68, 68)' }}
@@ -2553,7 +2557,7 @@ export default function ProjectDetailPage() {
                                       headers: { 'Content-Type': 'application/json' },
                                       body: JSON.stringify({ userId: currentUser?.id || 'user-123' })
                                     })
-                                    
+
                                     if (response.ok) {
                                       // Refresh watchlist data to get actual approver info from database
                                       try {
@@ -2561,7 +2565,7 @@ export default function ProjectDetailPage() {
                                         if (projectWatchlistResponse.ok) {
                                           const projectWatchlistData = await projectWatchlistResponse.json()
                                           setProjectWatchlist(projectWatchlistData)
-                                          
+
                                           // Find the updated package and update selectedDependency
                                           const updatedPackage = projectWatchlistData.find((pkg: any) => pkg.id === selectedDependency.id)
                                           if (updatedPackage) {
@@ -2576,7 +2580,7 @@ export default function ProjectDetailPage() {
                                       } catch (error) {
                                         console.error('Error refreshing watchlist data:', error)
                                       }
-                                      
+
                                       setShowDependencyReviewDialog(false)
                                       toast({
                                         title: "Dependency Rejected",
@@ -2603,14 +2607,14 @@ export default function ProjectDetailPage() {
                                   Reject
                                 </Button>
                               </div>
-                              <Button 
-                                size="sm" 
-                                className="text-white" 
+                              <Button
+                                size="sm"
+                                className="text-white"
                                 style={{ backgroundColor: colors.primary }}
                                 onClick={async () => {
                                   const textarea = document.querySelector('textarea[placeholder="Add a comment..."]') as HTMLTextAreaElement
                                   const comment = textarea?.value?.trim()
-                                  
+
                                   if (!comment) {
                                     toast({
                                       title: "Error",
@@ -2619,19 +2623,19 @@ export default function ProjectDetailPage() {
                                     })
                                     return
                                   }
-                                  
+
                                   try {
                                     const response = await fetch(`http://localhost:3000/projects/watchlist/${selectedDependency.id}/comment`, {
                                       method: 'POST',
                                       headers: { 'Content-Type': 'application/json' },
-                                      body: JSON.stringify({ 
+                                      body: JSON.stringify({
                                         userId: currentUser?.id || 'user-123',
                                         comment: comment
                                       })
                                     })
-                                    
+
                                     console.log('Comment API response:', response.status, response.statusText, 'ok:', response.ok)
-                                    
+
                                     if (response.status >= 200 && response.status < 300) {
                                       console.log('SUCCESS: Comment added successfully')
                                       textarea.value = ''
@@ -2639,34 +2643,34 @@ export default function ProjectDetailPage() {
                                         title: "Comment Added",
                                         description: "Your comment has been added.",
                                       })
-                                      
+
                                       // Add the new comment to the selected dependency immediately
                                       console.log('Current user data:', currentUser)
                                       const newComment = {
                                         user_id: currentUser?.id || 'user-123',
-                                        user: { 
-                                          name: currentUser?.name || currentUser?.email || 'User', 
-                                          email: currentUser?.email || 'user@example.com' 
+                                        user: {
+                                          name: currentUser?.name || currentUser?.email || 'User',
+                                          email: currentUser?.email || 'user@example.com'
                                         },
                                         comment: comment,
                                         created_at: new Date().toISOString()
                                       }
                                       console.log('New comment object:', newComment)
-                                      
+
                                       setSelectedDependency((prev: any) => ({
                                         ...prev,
                                         comments: [...(prev.comments || []), newComment]
                                       }))
-                                      
+
                                       // Also update the projectWatchlist to show the comment in the card
-                                      setProjectWatchlist((prev: any[]) => 
-                                        prev.map((item: any) => 
-                                          item.id === selectedDependency.id 
+                                      setProjectWatchlist((prev: any[]) =>
+                                        prev.map((item: any) =>
+                                          item.id === selectedDependency.id
                                             ? { ...item, comments: [...(item.comments || []), newComment] }
                                             : item
                                         )
                                       )
-                                      
+
                                       // Comment added successfully - UI already updated
                                     } else {
                                       console.log('ERROR: Comment failed with status:', response.status)

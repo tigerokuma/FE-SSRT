@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { PageHeader } from "@/components/page-header";
 import { MainContent } from "@/components/main-content";
 import { GraphPreview } from "./GraphPreview";
-import Spinner from "@/app/graph-export/loading";
+import Spinner from "@/app/(app)/graph-export/loading";
 
 const API_BASE = "/api/backend/";
 
