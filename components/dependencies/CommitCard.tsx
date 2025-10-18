@@ -22,14 +22,6 @@ export default function CommitCard({ commit, isLast = false }: CommitCardProps) 
 
   return (
     <div className="relative">
-      {/* Timeline line */}
-      {!isLast && (
-        <div 
-          className="absolute left-6 top-16 w-0.5 h-full"
-          style={{ backgroundColor: colors.border.default }}
-        />
-      )}
-      
       <Card 
         className={`transition-all duration-200 ${
           isExpanded ? 'mb-6' : 'mb-4'
