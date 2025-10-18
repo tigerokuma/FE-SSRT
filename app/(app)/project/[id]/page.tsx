@@ -1250,6 +1250,7 @@ export default function ProjectDetailPage() {
 
                       setSelectedDependency({
                         id: pkg.id,
+                        package_id: pkg.package_id, // Add the actual package ID
                         name: packageName,
                         version: pkg.version || 'Unknown',
                         addedBy: pkg.addedByUser?.name || pkg.addedByUser?.email || pkg.addedBy || pkg.added_by || 'Unknown',
@@ -2201,7 +2202,22 @@ export default function ProjectDetailPage() {
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-white">Package Details</CardTitle>
-                    <Button variant="outline" size="sm" className="border-gray-600 text-gray-300 hover:bg-gray-700">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                      onClick={() => {
+                        // Extract the actual package ID from the watchlist package
+                        const packageId = selectedDependency?.package_id || selectedDependency?.package?.id
+                        console.log('Selected dependency:', selectedDependency)
+                        console.log('Package ID:', packageId)
+                        if (packageId) {
+                          router.push(`/dependency/${packageId}/watchlist`)
+                        } else {
+                          console.error('No package ID found in selectedDependency')
+                        }
+                      }}
+                    >
                       <ExternalLinkIcon className="mr-2 h-4 w-4" />
                       View Full Details
                     </Button>

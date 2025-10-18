@@ -8,9 +8,9 @@ import Footer from "@/components/landing/Footer";
 
 export default function LandingPage() {
   return (
-    <main className="min-h-screen bg-[#F2F2F2]">
+    <main className="min-h-screen" style={{ backgroundColor: 'rgb(12, 12, 12)' }}>
       <NavPrimary />
-      <div className="pt-[80px]"> {/* offset for fixed nav */}
+      <div className="pt-16"> {/* offset for fixed nav */}
         <Hero />
         <TrustRow />
         <ValueProps />

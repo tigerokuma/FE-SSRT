@@ -7,27 +7,27 @@ import BrandWord from "@/components/landing/BrandWord";
 
 export default function NavPrimary() {
   return (
-    <nav className="fixed inset-x-0 top-0 z-50 border-b border-[#E5E7EB] bg-white/90 backdrop-blur-md">
-      <div className="container flex h-[80px] items-center justify-between">
+    <nav className="fixed inset-x-0 top-0 z-50 border-b border-gray-800/50 backdrop-blur-xl" style={{ backgroundColor: 'rgba(12, 12, 12, 0.8)' }}>
+      <div className="container flex h-16 items-center justify-between">
         {/* Logo + brand */}
         <Link href="/" className="flex items-center gap-2">
           <Image
             src="/deply-mark.svg"
             alt="Deply"
-            width={28}
-            height={28}
+            width={24}
+            height={24}
             priority
-            className="h-12 w-12"
+            className="h-8 w-8"
           />
-           <BrandWord variant="shield"  animated={true} className="text-[28px] leading-none md:text-[32px]" />
+           <BrandWord variant="shield"  animated={true} className="text-xl leading-none md:text-2xl text-white" />
         </Link>
 
         {/* Center links (hide on small) */}
-        <div className="hidden items-center gap-6 md:flex">
-          <a className="text-base text-black" href="#product">Product</a>
-          <a className="text-base text-black" href="#docs">Docs</a>
-          <a className="text-base text-black" href="#pricing">Pricing</a>
-          <a className="text-base text-black" href="#blog">Blog</a>
+        <div className="hidden items-center gap-8 md:flex">
+          <a className="text-sm font-medium text-gray-300 hover:text-white transition-colors duration-200" href="#product">Product</a>
+          <a className="text-sm font-medium text-gray-300 hover:text-white transition-colors duration-200" href="#docs">Docs</a>
+          <a className="text-sm font-medium text-gray-300 hover:text-white transition-colors duration-200" href="#pricing">Pricing</a>
+          <a className="text-sm font-medium text-gray-300 hover:text-white transition-colors duration-200" href="#blog">Blog</a>
         </div>
 
         {/* CTAs */}

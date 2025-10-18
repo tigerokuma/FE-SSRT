@@ -13,7 +13,7 @@ import {
   AreaChart,
 } from 'recharts'
 import { format, parseISO } from 'date-fns'
-import { TrendingUp } from 'lucide-react'
+import { TrendingUp, Eye, ChevronRight } from 'lucide-react'
 
 // Custom dot component that shows selection state
 const CustomDot = ({ cx, cy, payload, isSelected }: any) => {
@@ -85,6 +85,8 @@ interface HealthScoreChartProps {
   onDataPointSelect?: (data: HealthScoreData) => void
   selectedDate?: string
   scorecardData?: ScorecardData | ScorecardData[]
+  layout?: 'default' | 'side-by-side'
+  onViewFullAssessment?: (scorecardData: ScorecardData) => void
 }
 
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -158,7 +160,9 @@ export function HealthScoreChart({
   height = 256, 
   onDataPointSelect,
   selectedDate,
-  scorecardData
+  scorecardData,
+  layout = 'default',
+  onViewFullAssessment
 }: HealthScoreChartProps) {
   // Helper functions for scorecard colors
   const getScorecardScoreColor = (score: number) => {
@@ -240,6 +244,161 @@ export function HealthScoreChart({
     }
   }
 
+  if (layout === 'side-by-side') {
+    return (
+      <div className={`w-full ${className}`}>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Scorecard Preview - Left 1/3 */}
+          <div className="lg:col-span-1">
+            {selectedDataPoint && selectedScorecardData && (
+              <div className="space-y-4">
+                {/* Title with Logo */}
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 flex items-center justify-center">
+                    <img src="/Scorecard_logo.png" alt="Scorecard" className="w-full h-full object-contain" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-white">
+                    Scorecard Health History
+                  </h3>
+                </div>
+                
+                {/* Date Info */}
+                <p className="text-sm text-gray-400">
+                  OpenSSF Scorecard from {format(parseISO(selectedScorecardData.date), 'MMMM d, yyyy')}
+                  {selectedScorecardData.commitSha && (
+                    <span className="ml-2 text-xs text-gray-500">
+                      (Commit: {selectedScorecardData.commitSha.substring(0, 8)})
+                    </span>
+                  )}
+                </p>
+                
+                {/* Spacing */}
+                <div className="h-4"></div>
+                
+                {/* Overall Score */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-3xl font-bold text-white">
+                      {selectedScorecardData.score}
+                    </div>
+                    <div className="text-sm text-gray-400">out of 10</div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-32 bg-gray-700 rounded-full h-3">
+                      <div 
+                        className={`h-3 rounded-full ${getScorecardScoreBgColor(selectedScorecardData.score)}`}
+                        style={{ width: `${Math.max(0, selectedScorecardData.score) * 10}%` }}
+                      />
+                    </div>
+                    <button 
+                      onClick={() => {
+                        onViewFullAssessment?.(selectedScorecardData)
+                      }}
+                      className="text-gray-400 hover:text-white transition-colors"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Total Checks */}
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-400">Total Checks</span>
+                  <span className="text-sm font-medium text-white">
+                    {selectedScorecardData.checks.length}
+                  </span>
+                </div>
+
+
+              </div>
+            )}
+          </div>
+          
+          {/* Graph - Right 2/3 */}
+          <div className="lg:col-span-2">
+            <div style={{ height: '300px', width: '100%' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart
+                  data={timeBasedData}
+                  margin={{
+                    top: 20,
+                    right: 20,
+                    left: 20,
+                    bottom: 20,
+                  }}
+                  onClick={(data) => {
+                    if (data && data.activePayload && data.activePayload[0]) {
+                      const clickedData = data.activePayload[0].payload
+                      console.log('Chart clicked:', clickedData)
+                      setCurrentSelectedDate(clickedData.date)
+                      onDataPointSelect?.(clickedData)
+                    }
+                  }}
+                >
+                  <defs>
+                    <linearGradient id="healthGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={selectedDataPoint ? getGraphColor(selectedDataPoint.score) : "#10b981"} stopOpacity={0.3} />
+                      <stop offset="95%" stopColor={selectedDataPoint ? getGraphColor(selectedDataPoint.score) : "#10b981"} stopOpacity={0.05} />
+                    </linearGradient>
+                  </defs>
+
+                  
+                  <CartesianGrid 
+                    strokeDasharray="3 3" 
+                    stroke="#374151" 
+                    opacity={0.3}
+                    vertical={false}
+                  />
+                  
+                  <XAxis
+                    dataKey="timestamp"
+                    tick={<CustomXAxisTick />}
+                    axisLine={false}
+                    tickLine={false}
+                    tickMargin={10}
+                    interval="preserveStartEnd"
+                    type="number"
+                    scale="time"
+                    domain={['dataMin', 'dataMax']}
+                  />
+                  
+                  <YAxis
+                    domain={[minScore, maxScore]}
+                    tick={<CustomYAxisTick />}
+                    axisLine={false}
+                    tickLine={false}
+                    tickMargin={10}
+                  />
+                  
+                  <Tooltip content={<CustomTooltip />} />
+                  
+                  <Area
+                    type="monotone"
+                    dataKey="score"
+                    stroke={selectedDataPoint ? getGraphColor(selectedDataPoint.score) : "#10b981"}
+                    strokeWidth={3}
+                    fill="url(#healthGradient)"
+                    dot={(props: any) => {
+                      const { key: dotKey, ...rest } = props || {};
+                      return (
+                        <CustomDot
+                          key={dotKey}
+                          {...rest}
+                          isSelected={rest.payload?.date === currentSelectedDate}
+                        />
+                      );
+                    }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Default layout (original)
   return (
     <div className={`w-full ${className}`}>
       <div style={{ height: `${height}px`, width: '100%' }}>
@@ -294,7 +453,6 @@ export function HealthScoreChart({
               axisLine={false}
               tickLine={false}
               tickMargin={10}
-              width={40}
             />
             
             <Tooltip content={<CustomTooltip />} />
