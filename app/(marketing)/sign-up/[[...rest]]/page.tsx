@@ -1,6 +1,6 @@
+// app/(auth)/sign-up/[[...rest]]/page.tsx
 'use client'
 
-import Link from 'next/link'
 import Image from 'next/image'
 import { SignUp } from '@clerk/nextjs'
 
@@ -8,8 +8,9 @@ export default function SignUpPage() {
   return (
     <main className="h-[100dvh] w-full overflow-hidden">
       <div className="flex h-full w-full">
+        {/* LEFT — marketing panel */}
         <aside
-          className="flex min-w-0 flex-col gap-14 p-12 text-white flex-[7]"
+          className="flex min-w-0 flex-col gap-12 p-12 text-white flex-[7]"
           style={{ background: 'linear-gradient(90deg, #4B0082 0%, #10001C 100%)' }}
         >
           <div className="flex items-center gap-3">
@@ -21,7 +22,7 @@ export default function SignUpPage() {
             Automatically find and fix OSS risks across your current and future codebase
           </h1>
 
-          <div className="mt-6 flex flex-col gap-10">
+          <div className="mt-2 flex flex-col gap-8">
             <div>
               <div className="text-[22px] font-semibold">Integrate your projects</div>
               <div className="text-xs font-medium opacity-90">Connect GitHub to import repos</div>
@@ -37,59 +38,50 @@ export default function SignUpPage() {
           </div>
         </aside>
 
-        <section className="flex min-w-0 flex-[5] items-center justify-center bg-[#FAFAFA]">
-          <div className="w-[620px] max-w-[92vw]">
-            <div className="rounded-xl border border-[#E5E7EB] bg-white p-6 md:p-8">
-              <h2 className="mb-1 text-[32px] font-semibold leading-10 text-black">Create your account</h2>
-              <p className="mb-6 text-sm text-gray-600">No credit card required</p>
-
-              <SignUp
-                path="/sign-up"
-                routing="path"
-                signInUrl="/sign-in"
-                fallbackRedirectUrl="/"
-                appearance={{
-                  layout: { logoPlacement: 'none', socialButtonsPlacement: 'bottom' },
-                  variables: {
-                    colorPrimary: '#4B0082',
-                    colorText: '#111111',
-                    colorInputBackground: '#FFFFFF',
-                    colorInputText: '#111111',
-                    colorBackground: 'transparent',
-                    borderRadius: '12px',
-                  },
-                  elements: {
-                    rootBox: 'w-full',
-                    card: 'bg-transparent shadow-none border-0 p-0',
-                    header: 'hidden',
-                    headerTitle: 'hidden',
-                    headerSubtitle: 'hidden',
-
-                    form: 'w-full',
-                    formField: 'w-full',
-                    formFieldInput: 'h-11 rounded-lg text-[16px] border-[#E5E7EB]',
-                    formButtonPrimary: 'h-14 rounded-lg text-[16px] bg-[#111] hover:opacity-90',
-
-                    socialButtons: 'gap-3 w-full',
-                    socialButtonsBlockButton:
-                      'h-14 rounded-lg text-[16px] border border-[#E5E7EB] data-[provider=github]:bg-[#1F2328] data-[provider=github]:text-white',
-                    socialButtonsProviderIcon__github: 'w-5 h-5',
-                    socialButtonsProviderIcon__google: 'w-5 h-5',
-                    dividerRow: 'my-4',
-                    dividerText: 'text-gray-500',
-
-                    footer: 'hidden',
-                  },
-                }}
-              />
-
-              <p className="mt-4 text-sm text-gray-600">
-                Already have an account?{' '}
-                <Link href="/sign-in" className="font-medium text-[#4B0082] hover:underline">
-                  Sign in
-                </Link>
-              </p>
-            </div>
+        {/* RIGHT — solid dark background, perfectly centered card */}
+        <section className="relative flex min-w-0 flex-[5] items-center justify-center bg-[#0B0E12]">
+          <div className="w-full max-w-[520px] px-4">
+            <SignUp
+              path="/sign-up"
+              routing="path"
+              signInUrl="/sign-in"
+              fallbackRedirectUrl="/project"
+              appearance={{
+                layout: {
+                  logoPlacement: 'inside',
+                  logoImageUrl: '/deply-mark.svg',
+                  socialButtonsPlacement: 'top',
+                },
+                variables: {
+                  colorPrimary: '#6366F1',          // Indigo CTAs on dark
+                  colorText: '#FFFFFF',
+                  colorBackground: '#0F1115',       // Charcoal card
+                  colorInputBackground: '#111418',
+                  colorInputText: '#FFFFFF',
+                  borderRadius: '12px',
+                },
+                elements: {
+                  rootBox: 'w-full mx-auto',
+                  card:
+                    'rounded-xl border border-white/10 bg-[#0F1115] shadow-[0_12px_40px_rgba(0,0,0,0.45)] p-6 sm:p-8',
+                  headerTitle: 'text-[24px] sm:text-[28px] leading-9 font-semibold text-white',
+                  headerSubtitle: 'text-sm text-gray-400',
+                  formFieldLabel: 'text-gray-300',
+                  formFieldInput:
+                    'h-11 rounded-lg text-[16px] bg-[#111418] border border-white/10 text-white placeholder:text-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500',
+                  formButtonPrimary:
+                    'h-12 rounded-lg text-[16px] bg-indigo-600 text-white hover:bg-indigo-500 focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 focus:ring-offset-[#0F1115] transition',
+                  socialButtons: 'gap-3 w-full',
+                  socialButtonsBlockButton:
+                    'h-12 rounded-lg text-[16px] border border-white/10 bg-[#111418] text-white hover:bg-[#151923] data-[provider=github]:bg-[#1F2328] data-[provider=github]:text-white',
+                  dividerRow: 'my-4',
+                  dividerText: 'text-gray-500',
+                  footer: 'mt-2',
+                  footerActionText: 'text-sm text-gray-400',
+                  footerActionLink: 'text-indigo-400 hover:underline',
+                },
+              }}
+            />
           </div>
         </section>
       </div>

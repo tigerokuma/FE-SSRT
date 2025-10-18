@@ -261,8 +261,8 @@ export default function SettingsPage() {
           <CardContent className="space-y-3">
             {/* GitHub */}
             <div className="flex items-center gap-3 rounded-lg border border-[#2A2A2A] px-3 py-3 bg-[#0f0f0f]">
-              <div className="flex h-6 w-6 items-center justify-center rounded-full border border-[#2A2A2A] bg-[#141414]">
-                <Image src="/github_icon.png" alt="GitHub" width={16} height={16} />
+              <div className="flex h-6 w-6 items-center justify-center rounded-full border border-[#2A2A2A] bg-white">
+                <Image src="/Github_icon.png" alt="GitHub" width={16} height={16} />
               </div>
               <div className="text-base">GitHub</div>
               <div className="flex-1" />
@@ -292,7 +292,7 @@ export default function SettingsPage() {
 
             {/* Jira */}
             <div className="flex items-center gap-3 rounded-lg border border-[#2A2A2A] px-3 py-3 bg-[#0f0f0f]">
-              <div className="flex h-6 w-6 items-center justify-center rounded-full border border-[#2A2A2A] bg-[#141414]">
+              <div className="flex h-6 w-6 items-center justify-center rounded-full border border-[#2A2A2A] bg-blue-500/20">
                 <Image src="/jira_icon.png" alt="Jira" width={16} height={16} />
               </div>
               <div className="text-base">Jira</div>
@@ -312,8 +312,8 @@ export default function SettingsPage() {
 
             {/* Slack */}
             <div className="flex items-center gap-3 rounded-lg border border-[#2A2A2A] px-3 py-3 bg-[#0f0f0f]">
-              <div className="flex h-6 w-6 items-center justify-center rounded-full border border-[#2A2A2A] bg-[#141414]">
-                <Image src="/slack_icon.png" alt="Slack" width={16} height={16} />
+              <div className="flex h-6 w-6 items-center justify-center rounded-full border border-[#2A2A2A] bg-purple-500/20">
+                <Image src="/Slack_icon.png" alt="Slack" width={16} height={16} />
               </div>
               <div className="text-base">Slack</div>
               <div className="flex-1" />
