@@ -8,7 +8,7 @@ export default function SignInPage() {
   return (
     <main className="h-[100dvh] w-full overflow-hidden">
       <div className="flex h-full w-full">
-        {/* LEFT */}
+        {/* LEFT — marketing panel (kept as-is) */}
         <aside
           className="flex min-w-0 flex-col gap-12 p-12 text-white flex-[7]"
           style={{ background: 'linear-gradient(90deg, #4B0082 0%, #10001C 100%)' }}
@@ -38,45 +38,52 @@ export default function SignInPage() {
           </div>
         </aside>
 
-        {/* RIGHT — perfectly centered card on a white background */}
-        <section className="grid min-w-0 flex-[5] place-items-center bg-white">
-          <SignIn
-            path="/sign-in"
-            routing="path"
-            signUpUrl="/sign-up"              // <-- makes the “Create one” link appear
-            fallbackRedirectUrl="/project"
-            appearance={{
-              layout: {
-                logoPlacement: 'inside',
-                logoImageUrl: '/deply-mark.svg',
-                socialButtonsPlacement: 'top',
-              },
-              variables: {
-                colorPrimary: '#4B0082',
-                colorText: '#111111',
-                colorBackground: '#FFFFFF',
-                colorInputBackground: '#FFFFFF',
-                colorInputText: '#111111',
-                borderRadius: '12px',
-              },
-              elements: {
-                rootBox: 'w-[520px] max-w-[92vw]',
-                card: 'rounded-xl border border-[#E5E7EB] shadow-lg p-8',
-                headerTitle: 'text-[28px] leading-9 font-semibold text-black',
-                headerSubtitle: 'text-sm text-gray-600',
-                formFieldInput: 'h-11 rounded-lg text-[16px] border-[#E5E7EB]',
-                formButtonPrimary: 'h-12 rounded-lg text-[16px] bg-[#111] hover:opacity-90',
-                socialButtons: 'gap-3 w-full',
-                socialButtonsBlockButton:
-                  'h-12 rounded-lg text-[16px] border border-[#E5E7EB] data-[provider=github]:bg-[#1F2328] data-[provider=github]:text-white',
-                dividerRow: 'my-4',
-                dividerText: 'text-gray-500',
-                footer: 'mt-2',
-                footerActionText: 'text-sm text-gray-600',
-                footerActionLink: 'text-[#4B0082] hover:underline', // “Create one”
-              },
-            }}
-          />
+        {/* RIGHT — solid dark background, perfectly centered card */}
+        <section className="relative flex min-w-0 flex-[5] items-center justify-center bg-[#0B0E12]">
+          {/* Width limiter + horizontal padding for small screens */}
+          <div className="w-full max-w-[520px] px-4">
+            <SignIn
+              path="/sign-in"
+              routing="path"
+              signUpUrl="/sign-up"
+              fallbackRedirectUrl="/project"
+              appearance={{
+                layout: {
+                  logoPlacement: 'inside',
+                  logoImageUrl: '/deply-mark.svg',
+                  socialButtonsPlacement: 'top',
+                },
+                variables: {
+                  colorPrimary: '#6366F1',          // Indigo CTAs on dark
+                  colorText: '#FFFFFF',
+                  colorBackground: '#0F1115',       // Charcoal card
+                  colorInputBackground: '#111418',
+                  colorInputText: '#FFFFFF',
+                  borderRadius: '12px',
+                },
+                elements: {
+                  rootBox: 'w-full mx-auto',        // allow our wrapper to control width/centering
+                  card:
+                    'rounded-xl border border-white/10 bg-[#0F1115] shadow-[0_12px_40px_rgba(0,0,0,0.45)] p-6 sm:p-8',
+                  headerTitle: 'text-[24px] sm:text-[28px] leading-9 font-semibold text-white',
+                  headerSubtitle: 'text-sm text-gray-400',
+                  formFieldLabel: 'text-gray-300',
+                  formFieldInput:
+                    'h-11 rounded-lg text-[16px] bg-[#111418] border border-white/10 text-white placeholder:text-gray-500 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500',
+                  formButtonPrimary:
+                    'h-12 rounded-lg text-[16px] bg-indigo-600 text-white hover:bg-indigo-500 focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2 focus:ring-offset-[#0F1115] transition',
+                  socialButtons: 'gap-3 w-full',
+                  socialButtonsBlockButton:
+                    'h-12 rounded-lg text-[16px] border border-white/10 bg-[#111418] text-white hover:bg-[#151923] data-[provider=github]:bg-[#1F2328] data-[provider=github]:text-white',
+                  dividerRow: 'my-4',
+                  dividerText: 'text-gray-500',
+                  footer: 'mt-2',
+                  footerActionText: 'text-sm text-gray-400',
+                  footerActionLink: 'text-indigo-400 hover:underline',
+                },
+              }}
+            />
+          </div>
         </section>
       </div>
     </main>
