@@ -30,7 +30,7 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
       setDetailedPkg(pkg)
       setIsLoading(true)
       setError(null)
-      
+
       // Fetch detailed info in the background
       getPackageDetailsSafe(pkg.name, 'details')
         .then((result) => {
@@ -46,7 +46,7 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
 
   if (!pkg) {
     return (
-      <div className="flex items-center justify-center h-full bg-gray-950">
+      <div className="flex items-center justify-center h-full bg-[#0c0c0c]">
         <div className="text-center max-w-xs">
           <div className="w-20 h-20 mx-auto rounded-2xl bg-gray-800 flex items-center justify-center mb-6 shadow-lg">
             <Eye className="h-10 w-10 text-gray-400" />
@@ -63,16 +63,16 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
   }
 
   const displayPkg = detailedPkg || pkg
-  
+
   // Separate active (unpatched) and historical (patched) vulnerabilities
   const allVulns = displayPkg.osv_vulnerabilities || []
   const activeVulns = allVulns.filter(v => !v.is_patched)
   const historicalVulns = allVulns.filter(v => v.is_patched)
-  
+
   const activeVulnCount = activeVulns.length
   const historicalVulnCount = historicalVulns.length
   const totalVulnCount = allVulns.length
-  
+
   // Use active vulnerabilities for threat assessment
   const hasActiveVulns = activeVulnCount > 0
   const hasHistoricalVulns = historicalVulnCount > 0
@@ -91,20 +91,20 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
 
   const formatVulnerabilityDate = (dateString?: string): { formatted: string, relative: string } => {
     if (!dateString) return { formatted: 'Unknown', relative: 'Unknown date' }
-    
+
     try {
       const date = new Date(dateString)
       const now = new Date()
       const diffInMs = now.getTime() - date.getTime()
       const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24))
-      
+
       // Formatted date
       const formatted = date.toLocaleDateString('en-US', {
         year: 'numeric',
         month: 'short',
         day: 'numeric'
       })
-      
+
       // Relative time
       let relative: string
       if (diffInDays < 1) relative = 'Today'
@@ -113,7 +113,7 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
       else if (diffInDays < 30) relative = `${Math.floor(diffInDays / 7)} weeks ago`
       else if (diffInDays < 365) relative = `${Math.floor(diffInDays / 30)} months ago`
       else relative = `${Math.floor(diffInDays / 365)} years ago`
-      
+
       return { formatted, relative }
     } catch {
       return { formatted: 'Invalid date', relative: 'Unknown date' }
@@ -122,7 +122,7 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
 
   const parseCvssScore = (cvssString?: string): { score: number | null, level: string } => {
     if (!cvssString) return { score: null, level: 'unknown' }
-    
+
     // Try to extract actual CVSS score from common formats
     // Format 1: "CVSS_V3: CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H" with score
     let scoreMatch = cvssString.match(/(\d+\.?\d*)\s*\/\s*10/)
@@ -130,14 +130,14 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
       const score = parseFloat(scoreMatch[1])
       return { score, level: getSeverityLevel(score) }
     }
-    
+
     // Format 2: Look for standalone score in string
     scoreMatch = cvssString.match(/score[:\s]+(\d+\.?\d*)/i)
     if (scoreMatch) {
       const score = parseFloat(scoreMatch[1])
       return { score, level: getSeverityLevel(score) }
     }
-    
+
     // Format 3: Just CVSS vector - we can't calculate accurately without proper formula
     // So we'll classify based on the impact metrics only
     const impactMatch = cvssString.match(/C:([HNML])[^A-Z]*I:([HNML])[^A-Z]*A:([HNML])/)
@@ -150,13 +150,13 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
       if (c === 'M' || i === 'M' || a === 'M') return { score: null, level: 'low' }
       return { score: null, level: 'low' }
     }
-    
+
     return { score: null, level: 'unknown' }
   }
-  
+
   const getSeverityLevel = (score: number): string => {
     if (score >= 9.0) return 'critical'
-    if (score >= 7.0) return 'high' 
+    if (score >= 7.0) return 'high'
     if (score >= 4.0) return 'medium'
     if (score >= 0.1) return 'low'
     return 'unknown'
@@ -165,7 +165,7 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
   // Helper function to format patch age in a more readable way
   const formatPatchAge = (patchAgeDays?: number): string => {
     if (!patchAgeDays) return ''
-    
+
     if (patchAgeDays < 30) {
       return `${patchAgeDays} ${patchAgeDays === 1 ? 'day' : 'days'} ago`
     } else if (patchAgeDays < 365) {
@@ -186,7 +186,7 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
     // Simple version comparison (this could be enhanced with semver)
     const affectedVersions = vuln.affected_versions
     const isDirectMatch = affectedVersions.includes(currentVersion)
-    
+
     if (isDirectMatch) {
       return { isAffected: true, context: `Current version ${currentVersion} is directly affected` }
     }
@@ -203,7 +203,7 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
   const getSeverityTheme = (vuln: OsvVulnerability) => {
     const { score, level } = parseCvssScore(vuln.severity)
     const hasSeverityData = !!vuln.severity
-    
+
     switch (level) {
       case 'critical':
         return {
@@ -275,7 +275,7 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
           titleText: 'text-gray-900 dark:text-gray-100',
           subtitleText: 'text-gray-700 dark:text-gray-200',
           sectionBorder: 'border-gray-300 dark:border-gray-700',
-          sectionBg: 'bg-white dark:bg-gray-950/40',
+          sectionBg: 'bg-white dark:bg-gray-800/40',
           sectionBorderColor: 'border-gray-200 dark:border-gray-800/40',
           level: hasSeverityData ? 'UNRATED' : 'NO CVSS',
           score
@@ -294,9 +294,9 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
   }
 
   return (
-    <div className="flex flex-col h-full bg-gray-950">
+    <div className="flex flex-col h-full bg-[#121212]">
       {/* Fixed Header */}
-      <div className="flex-shrink-0 border-b border-gray-800 bg-gray-900">
+      <div className="flex-shrink-0 border-b border-gray-800 bg-[#0c0c0c]">
         <div className="p-4">
           <div className="flex items-start gap-3 mb-3">
             <div className="w-12 h-12 rounded-xl bg-gray-700 flex items-center justify-center shadow-lg flex-shrink-0">
@@ -341,7 +341,7 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
               )}
             </div>
           </div>
-          
+
           {/* Active Vulnerability Warning Banner */}
           {hasActiveVulns && (
             <div className="mb-3 p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800/50 rounded-lg">
@@ -385,7 +385,7 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                 ? 'bg-red-600 text-white hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700' 
                 : hasHistoricalVulns
                 ? 'bg-yellow-600 text-white hover:bg-yellow-700 dark:bg-yellow-600 dark:hover:bg-yellow-700'
-                : 'bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700'
+                : 'bg-violet-600 text-white hover:bg-violet-700 dark:bg-violet-600 dark:hover:bg-violet-700'
             }`}
           >
             {isAdding ? (
@@ -419,8 +419,8 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                     <span className="text-red-400">
                       {activeVulnCount} unpatched {activeVulnCount === 1 ? 'vulnerability' : 'vulnerabilities'}
                     </span>
-                    <Badge 
-                      variant="secondary" 
+                    <Badge
+                      variant="secondary"
                       className="text-xs bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700 font-medium"
                     >
                       <img src="/osv_logo.svg" alt="OSV.dev" className="h-3 w-auto" />
@@ -445,7 +445,7 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                   </div>
                 </div>
               </div>
-              
+
               <div className="space-y-3">
                 {activeVulns
                   .sort((a, b) => {
@@ -455,7 +455,7 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                     const bSeverity = getSeverityLevel(parseCvssScore(b.severity).score || 0)
                     const severityDiff = (severityOrder[bSeverity as keyof typeof severityOrder] || 0) - (severityOrder[aSeverity as keyof typeof severityOrder] || 0)
                     if (severityDiff !== 0) return severityDiff
-                    
+
                     // Then sort by published date (latest first)
                     const dateA = new Date(a.published || a.modified || '1970-01-01').getTime()
                     const dateB = new Date(b.published || b.modified || '1970-01-01').getTime()
@@ -467,7 +467,7 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                   const publishedDate = formatVulnerabilityDate(vuln.published)
                   const modifiedDate = formatVulnerabilityDate(vuln.modified)
                   const versionContext = isCurrentVersionAffected(vuln, displayPkg.version)
-                  
+
                   return (
                     <div key={vuln.id} className={`bg-gradient-to-r ${theme.cardBg} border ${theme.cardBorder} rounded-xl p-4 w-full overflow-hidden shadow-sm`}>
                       <div className="w-full">
@@ -542,7 +542,7 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                               </div>
                             )}
                           </div>
-                          
+
                           <Collapsible open={isExpanded} onOpenChange={() => toggleVulnExpansion(vuln.id)}>
                             <CollapsibleTrigger asChild>
                               <button className={`flex items-center gap-1 px-2 py-1 text-xs ${theme.idText} hover:opacity-80 hover:${theme.idBg} rounded-md transition-colors`}>
@@ -561,7 +561,7 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                             </CollapsibleTrigger>
                           </Collapsible>
                         </div>
-                        
+
                         {/* Vulnerability Summary */}
                         <div className="mb-3">
                           <div className="flex items-start gap-2 mb-2">
@@ -609,7 +609,7 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                             </div>
                           )}
                         </div>
-                        
+
                         {/* Expandable Details */}
                         <Collapsible open={isExpanded} onOpenChange={() => toggleVulnExpansion(vuln.id)}>
                           <CollapsibleContent className={`space-y-4 pt-3 border-t ${theme.sectionBorder}`}>
@@ -635,7 +635,7 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                                 )}
                               </div>
                             )}
-                            
+
                             {/* Timing Information */}
                             <div className={`${theme.sectionBg} rounded-lg p-3 border ${theme.sectionBorderColor}`}>
                               <div className="flex items-center gap-2 mb-2">
@@ -688,12 +688,12 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                                     <span className="text-xs text-gray-600 dark:text-gray-400">
                                       {!vuln.is_patched
                                         ? 'Unpatched - Immediate attention needed'
-                                        : publishedDate.relative.includes('day') || publishedDate.relative === 'Today' 
-                                        ? 'Recently discovered' 
-                                        : publishedDate.relative.includes('week') 
-                                        ? 'Recent discovery' 
-                                        : publishedDate.relative.includes('month') 
-                                        ? 'Moderate age' 
+                                        : publishedDate.relative.includes('day') || publishedDate.relative === 'Today'
+                                        ? 'Recently discovered'
+                                        : publishedDate.relative.includes('week')
+                                        ? 'Recent discovery'
+                                        : publishedDate.relative.includes('month')
+                                        ? 'Moderate age'
                                         : 'Well-established'
                                       }
                                     </span>
@@ -701,7 +701,7 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                                 </div>
                               </div>
                             </div>
-                            
+
                             {/* Version Information */}
                             {(vuln.affected_versions?.length || vuln.fixed_versions?.length || vuln.introduced_versions?.length || vuln.last_affected_versions?.length) && (
                               <div className={`${theme.sectionBg} rounded-lg p-3 border ${theme.sectionBorderColor}`}>
@@ -781,7 +781,7 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                                 </div>
                               </div>
                             )}
-                            
+
                             {/* Technical Details */}
                             {vuln.details && (
                               <div className={`${theme.sectionBg} rounded-lg p-3 border ${theme.sectionBorderColor}`}>
@@ -792,10 +792,10 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                                 <div className={`${theme.idBg} p-3 rounded border ${theme.sectionBorderColor} max-h-64 overflow-y-auto`}>
                                   {(() => {
                                     const details = vuln.details;
-                                    
+
                                     // Parse markdown-like content
                                     const sections = details.split('##').filter(section => section.trim());
-                                    
+
                                     if (sections.length <= 1) {
                                       // No markdown sections, show as regular text
                                       return (
@@ -804,16 +804,16 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                                         </p>
                                       );
                                     }
-                                    
+
                                     return (
                                       <div className="space-y-3">
                                         {sections.map((section, idx) => {
                                           const lines = section.trim().split('\n');
                                           const title = lines[0]?.trim();
                                           const content = lines.slice(1).join('\n').trim();
-                                          
+
                                           if (!title) return null;
-                                          
+
                                           return (
                                             <div key={idx} className={`border-l-2 ${theme.sectionBorder} pl-3`}>
                                               <h6 className={`text-xs font-semibold ${theme.titleText} mb-1 uppercase tracking-wide`}>
@@ -842,7 +842,7 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                                                         );
                                                       }
                                                     }
-                                                    
+
                                                     // Handle numbered lists
                                                     if (paragraph.match(/^\d+\./m)) {
                                                       const listItems = paragraph.split(/(?=^\d+\.)/m).filter(item => item.trim());
@@ -856,7 +856,7 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                                                         </ol>
                                                       );
                                                     }
-                                                    
+
                                                     // Handle bullet points
                                                     if (paragraph.match(/^[-*]/m)) {
                                                       const listItems = paragraph.split(/(?=^[-*])/m).filter(item => item.trim());
@@ -870,7 +870,7 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                                                         </ul>
                                                       );
                                                     }
-                                                    
+
                                                     // Handle links
                                                     const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
                                                     if (linkRegex.test(paragraph)) {
@@ -901,7 +901,7 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                                                         </p>
                                                       );
                                                     }
-                                                    
+
                                                     // Regular paragraph
                                                     return (
                                                       <p key={pIdx} className="break-words overflow-wrap-anywhere">
@@ -920,7 +920,7 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                                 </div>
                               </div>
                             )}
-                            
+
                             {/* References */}
                             {vuln.references && vuln.references.length > 0 && (
                               <div className={`${theme.sectionBg} rounded-lg p-3 border ${theme.sectionBorderColor}`}>
@@ -936,9 +936,9 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                                       <span className={`text-xs font-medium ${theme.idText} bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded uppercase flex-shrink-0`}>
                                         {ref.type}
                                       </span>
-                                      <a 
-                                        href={ref.url} 
-                                        target="_blank" 
+                                      <a
+                                        href={ref.url}
+                                        target="_blank"
                                         rel="noopener noreferrer"
                                         className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline break-all flex-1"
                                       >
@@ -972,7 +972,7 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
             <h4 className="text-sm font-medium text-white mb-3">Key Metrics</h4>
             <div className="grid grid-cols-2 gap-3">
               {/* Downloads */}
-              <div className="bg-gray-900 rounded-lg p-3 border border-gray-800">
+              <div className="bg-[#0c0c0c] rounded-lg p-3 border border-gray-800">
                 <div className="flex items-center gap-2 mb-2">
                   <Download className="h-4 w-4 text-green-400" />
                   <span className="text-xs text-gray-400 font-medium">Downloads</span>
@@ -984,7 +984,7 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
               </div>
 
               {/* Stars */}
-              <div className="bg-gray-900 rounded-lg p-3 border border-gray-800">
+              <div className="bg-[#0c0c0c] rounded-lg p-3 border border-gray-800">
                 <div className="flex items-center gap-2 mb-2">
                   <Star className="h-4 w-4 text-yellow-400" />
                   <span className="text-xs text-gray-400 font-medium">Stars</span>
@@ -1002,7 +1002,7 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
               </div>
 
               {/* Forks */}
-              <div className="bg-gray-900 rounded-lg p-3 border border-gray-800">
+              <div className="bg-[#0c0c0c] rounded-lg p-3 border border-gray-800">
                 <div className="flex items-center gap-2 mb-2">
                   <GitFork className="h-4 w-4 text-blue-400" />
                   <span className="text-xs text-gray-400 font-medium">Forks</span>
@@ -1020,7 +1020,7 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
               </div>
 
               {/* Contributors */}
-              <div className="bg-gray-900 rounded-lg p-3 border border-gray-800">
+              <div className="bg-[#0c0c0c] rounded-lg p-3 border border-gray-800">
                 <div className="flex items-center gap-2 mb-2">
                   <Users className="h-4 w-4 text-purple-400" />
                   <span className="text-xs text-gray-400 font-medium">Contributors</span>
@@ -1044,7 +1044,7 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
             <div>
               <Collapsible open={isHistoryExpanded} onOpenChange={setIsHistoryExpanded}>
                 <CollapsibleTrigger asChild>
-                  <button className="w-full flex items-center justify-between p-3 bg-gray-900 rounded-lg border border-gray-800 hover:bg-gray-800 transition-colors">
+                  <button className="w-full flex items-center justify-between p-3 bg-[#0c0c0c] rounded-lg border border-gray-800 hover:bg-gray-800 transition-colors">
                     <div className="flex items-center gap-3">
                       <div className="w-6 h-6 rounded-lg bg-green-600 flex items-center justify-center">
                         <CheckCircle className="h-3 w-3 text-white" />
@@ -1053,8 +1053,8 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                         <h4 className="text-sm font-medium text-white">Security History</h4>
                         <div className="flex items-center gap-2 text-xs">
                           <span className="text-green-400">{historicalVulnCount} patched {historicalVulnCount === 1 ? 'vulnerability' : 'vulnerabilities'}</span>
-                          <Badge 
-                            variant="secondary" 
+                          <Badge
+                            variant="secondary"
                             className="text-xs bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800 font-medium"
                           >
                             <img src="/osv_logo.svg" alt="OSV.dev" className="h-3 w-auto" />
@@ -1074,7 +1074,7 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                     </div>
                   </button>
                 </CollapsibleTrigger>
-                
+
                 <CollapsibleContent className="mt-3">
                   <div className="space-y-3">
                     {historicalVulns
@@ -1083,14 +1083,14 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                         const patchDateA = a.patch_age_days || 0
                         const patchDateB = b.patch_age_days || 0
                         if (patchDateA !== patchDateB) return patchDateA - patchDateB // Most recently patched first
-                        
+
                         // Then sort by severity
                         const severityOrder = { 'critical': 4, 'high': 3, 'medium': 2, 'low': 1, 'unknown': 0 }
                         const aSeverity = getSeverityLevel(parseCvssScore(a.severity).score || 0)
                         const bSeverity = getSeverityLevel(parseCvssScore(b.severity).score || 0)
                         const severityDiff = (severityOrder[bSeverity as keyof typeof severityOrder] || 0) - (severityOrder[aSeverity as keyof typeof severityOrder] || 0)
                         if (severityDiff !== 0) return severityDiff
-                        
+
                         // Finally sort by published date (latest first)
                         const dateA = new Date(a.published || a.modified || '1970-01-01').getTime()
                         const dateB = new Date(b.published || b.modified || '1970-01-01').getTime()
@@ -1101,7 +1101,7 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                       const theme = getSeverityTheme(vuln)
                       const publishedDate = formatVulnerabilityDate(vuln.published)
                       const modifiedDate = formatVulnerabilityDate(vuln.modified)
-                      
+
                       return (
                         <div key={vuln.id} className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800/50 rounded-lg p-4 w-full overflow-hidden">
                           <div className="w-full">
@@ -1123,7 +1123,7 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                                   </span>
                                 )}
                               </div>
-                              
+
                               <Collapsible open={isExpanded} onOpenChange={() => toggleVulnExpansion(vuln.id)}>
                                 <CollapsibleTrigger asChild>
                                   <button className="flex items-center gap-1 px-2 py-1 text-xs text-green-700 dark:text-green-300 hover:opacity-80 hover:bg-green-100 dark:hover:bg-green-900/50 rounded-md transition-colors">
@@ -1142,7 +1142,7 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                                 </CollapsibleTrigger>
                               </Collapsible>
                             </div>
-                            
+
                             {/* Vulnerability Summary */}
                             <div className="mb-3">
                               <h5 className="text-sm font-medium text-green-900 dark:text-green-100 leading-tight mb-2">
@@ -1162,7 +1162,7 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                                 </div>
                               )}
                             </div>
-                            
+
                             {/* Expandable Details */}
                             <Collapsible open={isExpanded} onOpenChange={() => toggleVulnExpansion(vuln.id)}>
                               <CollapsibleContent className="space-y-4 pt-3 border-t border-green-300 dark:border-green-700">
@@ -1195,7 +1195,7 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
           <div>
             <h4 className="text-sm font-medium text-white mb-3">Package Info</h4>
             <div className="space-y-3">
-              <div className="flex items-center justify-between py-2 px-3 bg-gray-900 rounded-lg border border-gray-800">
+              <div className="flex items-center justify-between py-2 px-3 bg-[#0c0c0c] rounded-lg border border-gray-800">
                 <div className="flex items-center gap-2">
                   <Shield className="h-4 w-4 text-green-400" />
                   <span className="text-xs text-gray-400 font-medium">License</span>
@@ -1205,7 +1205,7 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                 </span>
               </div>
 
-              <div className="flex items-center justify-between py-2 px-3 bg-gray-900 rounded-lg border border-gray-800">
+              <div className="flex items-center justify-between py-2 px-3 bg-[#0c0c0c] rounded-lg border border-gray-800">
                 <div className="flex items-center gap-2">
                   <Calendar className="h-4 w-4 text-purple-400" />
                   <span className="text-xs text-gray-400 font-medium">Last Updated</span>
@@ -1230,8 +1230,8 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                   <p className="text-green-600 dark:text-green-400 text-xs">
                     This package appears to be secure according to OSV.dev database with intelligent filtering
                   </p>
-                  <Badge 
-                    variant="secondary" 
+                  <Badge
+                    variant="secondary"
                     className="text-xs bg-green-100 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800 font-medium"
                   >
                     <img src="/osv_logo.svg" alt="OSV.dev" className="h-3 w-auto" />
@@ -1341,9 +1341,9 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
                   href={displayPkg.homepage}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/50 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-950/30 transition-colors"
+                  className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-950/20 border border-blue-200 dark:border-blue-800/50 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-950/30 transition-colors"
                 >
-                  <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-lg bg-gray-600 flex items-center justify-center">
                     <Globe className="h-4 w-4 text-white" />
                   </div>
                   <div className="flex-1">

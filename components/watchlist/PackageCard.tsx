@@ -61,8 +61,8 @@ export function PackageCard({ pkg, onSelect, searchQuery, isSelected, onAdd, isA
         focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:ring-offset-0
         active:scale-[0.99]
         ${isSelected 
-          ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/20' 
-          : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 hover:border-gray-300 dark:hover:border-gray-700'
+          ? 'border-gray-500 bg-gray-50 dark:bg-gray-950/20' 
+          : 'border-gray-200 dark:border-gray-800 bg-white dark:bg-[#0c0c0c] hover:border-gray-300 dark:hover:border-gray-700'
         }
       `}
       onClick={() => onSelect(pkg)}
@@ -202,8 +202,8 @@ export function PackageCard({ pkg, onSelect, searchQuery, isSelected, onAdd, isA
             hasActiveVulns 
               ? 'bg-red-600 text-white hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700' 
               : hasOnlyPatchedVulns
-              ? 'bg-green-600 text-white hover:bg-green-700 dark:bg-green-600 dark:hover:bg-green-700'
-              : 'bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700'
+              ? 'bg-yellow-600 text-white hover:bg-yellow-700 dark:bg-yellow-600 dark:hover:bg-yellow-700'
+              : 'bg-violet-600 text-white hover:bg-violet-700 dark:bg-violet-600 dark:hover:bg-violet-700'
           }`}
         >
           {isAdding ? (
