@@ -87,9 +87,10 @@ interface HealthScoreChartProps {
   scorecardData?: ScorecardData | ScorecardData[]
   layout?: 'default' | 'side-by-side'
   onViewFullAssessment?: (scorecardData: ScorecardData) => void
+  tooltipType?: 'health' | 'commits'
 }
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+const CustomTooltip = ({ active, payload, label, tooltipType = 'health' }: any) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload
     
@@ -106,7 +107,10 @@ const CustomTooltip = ({ active, payload, label }: any) => {
           {format(parseISO(data.date), 'MMM dd, yyyy')}
         </div>
         <div className={`text-lg font-semibold ${getScoreColor(data.score)}`}>
-          {data.score} Health Score
+          {tooltipType === 'commits' 
+            ? `${data.score} commits in ${format(parseISO(data.date), 'MMMM')}`
+            : `${data.score} Health Score`
+          }
         </div>
         {data.commitSha && (
           <div className="text-xs text-gray-400 mt-1">
@@ -162,7 +166,8 @@ export function HealthScoreChart({
   selectedDate,
   scorecardData,
   layout = 'default',
-  onViewFullAssessment
+  onViewFullAssessment,
+  tooltipType = 'health'
 }: HealthScoreChartProps) {
   // Helper functions for scorecard colors
   const getScorecardScoreColor = (score: number) => {
@@ -278,7 +283,7 @@ export function HealthScoreChart({
                 {/* Overall Score */}
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-3xl font-bold text-white">
+                    <div className="text-3xl font-bold text-white transition-all duration-200 hover:scale-105 cursor-pointer">
                       {selectedScorecardData.score}
                     </div>
                     <div className="text-sm text-gray-400">out of 10</div>
@@ -370,7 +375,7 @@ export function HealthScoreChart({
                     tickMargin={10}
                   />
                   
-                  <Tooltip content={<CustomTooltip />} />
+                  <Tooltip content={(props) => <CustomTooltip {...props} tooltipType={tooltipType} />} />
                   
                   <Area
                     type="monotone"
@@ -455,7 +460,7 @@ export function HealthScoreChart({
               tickMargin={10}
             />
             
-            <Tooltip content={<CustomTooltip />} />
+            <Tooltip content={(props) => <CustomTooltip {...props} tooltipType={tooltipType} />} />
             
             <Area
               type="monotone"

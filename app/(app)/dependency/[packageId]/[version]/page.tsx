@@ -5,7 +5,8 @@ import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, Loader2, TrendingUp, Shield, AlertTriangle, Activity, Users, BarChart3, Settings, ExternalLink, Copy, Download, Brain, Lock, Heart, Zap, Scale } from "lucide-react"
+import { ArrowLeft, Loader2, TrendingUp, Shield, AlertTriangle, Activity, Users, BarChart3, Settings, ExternalLink, Copy, Download, Brain, Lock, Heart, Zap, Scale, Package, CheckCircle, AlertCircle } from "lucide-react"
+import Image from "next/image"
 import { cn } from "@/lib/utils"
 import { colors } from "@/lib/design-system"
 import CommitTimeline from "@/components/dependencies/CommitTimeline"
@@ -31,6 +32,8 @@ export default function DependencyDetailsPage() {
   const [showScorecardModal, setShowScorecardModal] = useState(false)
   const [selectedScorecardData, setSelectedScorecardData] = useState<any>(null)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [isGeneratingSummary, setIsGeneratingSummary] = useState(false)
+  const [summaryGenerated, setSummaryGenerated] = useState(false)
   const tabRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({})
   
   // Check if this is a watchlist package
@@ -237,8 +240,8 @@ export default function DependencyDetailsPage() {
               <ArrowLeft className="mr-2 h-4 w-4" />
               Go Back
             </Button>
+          </div>
         </div>
-      </div>
 
       {/* Scorecard Assessment Modal */}
       <Dialog open={showScorecardModal} onOpenChange={setShowScorecardModal}>
@@ -318,9 +321,9 @@ export default function DependencyDetailsPage() {
           )}
         </DialogContent>
       </Dialog>
-    </div>
-  )
-}
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen">
@@ -400,21 +403,21 @@ export default function DependencyDetailsPage() {
                 <div>
                   <h1 className="text-3xl font-bold text-white mb-2">{packageId}</h1>
                   <div className="flex items-center gap-6 text-sm text-gray-400">
-                    <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 flex items-center justify-center">
+                    <div className="flex items-center gap-2 transition-all duration-200 hover:text-blue-400 cursor-pointer group">
+                      <div className="w-4 h-4 flex items-center justify-center transition-transform duration-200 group-hover:scale-110">
                         <img src="/Npm_logo.png" alt="NPM" className="w-full h-full object-contain" />
                       </div>
                       <span>NPM Package</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <div className="flex items-center gap-2 transition-all duration-200 hover:text-blue-400 cursor-pointer group">
+                      <svg className="w-4 h-4 transition-transform duration-200 group-hover:scale-110" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
                       </svg>
                       <span>GitHub</span>
                     </div>
-                    <span>MIT License</span>
-                    <div className="flex items-center gap-1">
-                      <Download className="w-4 h-4" style={{ color: colors.text.secondary }} />
+                    <span className="transition-all duration-200 hover:text-green-400 cursor-pointer">MIT License</span>
+                    <div className="flex items-center gap-1 transition-all duration-200 hover:text-blue-400 cursor-pointer group">
+                      <Download className="w-4 h-4 transition-transform duration-200 group-hover:scale-110" style={{ color: colors.text.secondary }} />
                       <span>2.4M</span>
                     </div>
                   </div>
@@ -437,30 +440,30 @@ export default function DependencyDetailsPage() {
 
                 {/* AI Summary */}
                 <div>
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: colors.primary + '20' }}>
-                      <Brain className="h-4 w-4"/>
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: colors.primary + '20' }}>
+                        <Image src="/AI_icon.png" alt="AI" width={16} height={16} />
+                      </div>
+                      <h2 className="text-xl font-semibold" style={{ color: colors.text.primary }}>AI Summary</h2>
                     </div>
-                    <h2 className="text-xl font-semibold" style={{ color: colors.text.primary }}>AI Summary</h2>
-                  </div>
                   <p className="text-lg leading-relaxed" style={{ color: colors.text.secondary }}>
-                    This dependency shows an increasing trend in new vulnerabilities over the past six months. 
-                    However, the current version v19.2.0 has one critical vulnerability CVE-2025-4567. 
-                    The activity score remains high, but the bus factor is a potential risk. 
-                    Overall supply chain integrity is strong.
-                  </p>
+                  This dependency shows an increasing trend in new vulnerabilities over the past six months. 
+                  However, the current version v19.2.0 has one critical vulnerability CVE-2025-4567. 
+                  The activity score remains high, but the bus factor is a potential risk. 
+                  Overall supply chain integrity is strong.
+                </p>
                 </div>
               </div>
 
               {/* Right Side - Package Health Score */}
               <div>
-                <div className="rounded-xl p-6 border" style={{ backgroundColor: colors.background.card }}>
+                <div className="rounded-xl p-6 border transition-all duration-300 hover:border-red-500/30 hover:shadow-lg hover:shadow-red-500/10 group" style={{ backgroundColor: colors.background.card }}>
                   <h3 className="text-lg font-semibold mb-4" style={{ color: colors.text.primary }}>Package Score</h3>
                   <div className="text-center mb-4">
-                    <div className="text-4xl font-bold text-red-400 mb-2">{packageScore}/100</div>
-                    <div className="w-full bg-gray-700 rounded-full h-2">
+                    <div className="text-4xl font-bold text-red-400 mb-2 transition-all duration-200 hover:scale-105 cursor-pointer">{packageScore}/100</div>
+                    <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
                       <div 
-                        className="bg-red-400 h-2 rounded-full" 
+                        className="bg-red-400 h-2 rounded-full transition-all duration-500 group-hover:bg-red-300" 
                         style={{ width: `${packageScore}%` }}
                       />
                     </div>
@@ -472,35 +475,35 @@ export default function DependencyDetailsPage() {
                         <Lock className="w-4 h-4" style={{ color: colors.text.secondary }} />
                         <span className="text-sm" style={{ color: colors.text.secondary }}>Security</span>
                       </div>
-                      <span className="text-xs px-2 py-1 rounded border border-red-500/30 text-red-400 bg-red-500/10">HIGH</span>
+                      <span className="text-xs px-2 py-1 rounded border border-red-500/30 text-red-400">HIGH</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Heart className="w-4 h-4" style={{ color: colors.text.secondary }} />
                         <span className="text-sm" style={{ color: colors.text.secondary }}>Scorecard</span>
                       </div>
-                      <span className="text-xs px-2 py-1 rounded border border-yellow-500/30 text-yellow-400 bg-yellow-500/10">MODERATE</span>
+                      <span className="text-xs px-2 py-1 rounded border border-yellow-500/30 text-yellow-400">MODERATE</span>
                     </div>
-                    <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Activity className="w-4 h-4" style={{ color: colors.text.secondary }} />
                         <span className="text-sm" style={{ color: colors.text.secondary }}>Activity</span>
                       </div>
-                      <span className="text-xs px-2 py-1 rounded border border-green-500/30 text-green-400 bg-green-500/10">HIGH</span>
-                    </div>
-                    <div className="flex items-center justify-between">
+                      <span className="text-xs px-2 py-1 rounded border border-green-500/30 text-green-400">HIGH</span>
+                      </div>
+                      <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Users className="w-4 h-4" style={{ color: colors.text.secondary }} />
                         <span className="text-sm" style={{ color: colors.text.secondary }}>Bus Factor</span>
                       </div>
-                      <span className="text-xs px-2 py-1 rounded border border-yellow-500/30 text-yellow-400 bg-yellow-500/10">GOOD</span>
+                      <span className="text-xs px-2 py-1 rounded border border-yellow-500/30 text-yellow-400">GOOD</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Scale className="w-4 h-4" style={{ color: colors.text.secondary }} />
                         <span className="text-sm" style={{ color: colors.text.secondary }}>Legal Compliance</span>
                       </div>
-                      <span className="text-xs px-2 py-1 rounded border border-green-500/30 text-green-400 bg-green-500/10">COMPLIANT</span>
+                      <span className="text-xs px-2 py-1 rounded border border-green-500/30 text-green-400">COMPLIANT</span>
                     </div>
                   </div>
                 </div>
@@ -521,8 +524,8 @@ export default function DependencyDetailsPage() {
                     setSelectedScorecardData(scorecardData)
                     setShowScorecardModal(true)
                   }}
-                />
-              </div>
+                        />
+                      </div>
 
               {/* Security & Legal Compliance */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
@@ -537,42 +540,48 @@ export default function DependencyDetailsPage() {
                   
                   <div className="space-y-3">
                     {/* Version 4.17.21 - Latest */}
-                    <div className="flex items-center justify-between py-3 border-b border-gray-800">
+                    <div className="flex items-center justify-between py-2 transition-all duration-200 hover:bg-green-500/5 rounded-lg px-2 cursor-pointer group">
                       <div className="flex items-center gap-3">
-                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <div className="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center transition-transform duration-200 group-hover:scale-110">
+                          <CheckCircle className="h-4 w-4 text-green-400" />
+                        </div>
                         <div>
-                          <div className="text-sm font-semibold text-white">4.17.21</div>
+                          <div className="text-sm font-semibold text-white transition-colors duration-200 group-hover:text-green-300">4.17.21</div>
                           <div className="text-xs text-gray-400">Feb 2021</div>
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        <div className="text-xs text-gray-500">0 vulnerabilities</div>
-                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <div className="text-xs text-gray-500 transition-colors duration-200 group-hover:text-green-400">0 vulnerabilities</div>
+                        <div className="w-2 h-2 bg-green-500 rounded-full transition-all duration-200 group-hover:scale-125"></div>
                       </div>
                     </div>
-                    
+
                     {/* Version 4.16.6 */}
-                    <div className="flex items-center justify-between py-3 border-b border-gray-800">
+                    <div className="flex items-center justify-between py-2 transition-all duration-200 hover:bg-red-500/5 rounded-lg px-2 cursor-pointer group">
                       <div className="flex items-center gap-3">
-                        <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                        <div className="w-8 h-8 rounded-lg bg-red-500/20 flex items-center justify-center transition-transform duration-200 group-hover:scale-110">
+                          <AlertCircle className="h-4 w-4 text-red-400" />
+                        </div>
                         <div>
-                          <div className="text-sm font-semibold text-white">4.16.6</div>
+                          <div className="text-sm font-semibold text-white transition-colors duration-200 group-hover:text-red-300">4.16.6</div>
                           <div className="text-xs text-gray-400">Oct 2016</div>
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        <div className="text-xs text-red-400">9 vulnerabilities</div>
+                        <div className="text-xs text-red-400 transition-colors duration-200 group-hover:text-red-300">9 vulnerabilities</div>
                         <div className="flex items-center gap-1">
-                          <span className="text-xs bg-red-500 text-white px-2 py-1 rounded">6H</span>
-                          <span className="text-xs bg-orange-500 text-white px-2 py-1 rounded">3M</span>
+                          <span className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 px-2 py-1 rounded transition-all duration-200 group-hover:bg-red-500/20">6H</span>
+                          <span className="text-xs text-orange-400 bg-orange-500/10 border border-orange-500/20 px-2 py-1 rounded transition-all duration-200 group-hover:bg-orange-500/20">3M</span>
                         </div>
                       </div>
                     </div>
                     
                     {/* Version 3.10.1 */}
-                    <div className="flex items-center justify-between py-3 border-b border-gray-800">
+                    <div className="flex items-center justify-between py-2">
                       <div className="flex items-center gap-3">
-                        <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                        <div className="w-8 h-8 rounded-lg bg-red-500/20 flex items-center justify-center">
+                          <AlertCircle className="h-4 w-4 text-red-400" />
+                        </div>
                         <div>
                           <div className="text-sm font-semibold text-white">3.10.1</div>
                           <div className="text-xs text-gray-400">Aug 2015</div>
@@ -581,53 +590,35 @@ export default function DependencyDetailsPage() {
                       <div className="flex items-center gap-3">
                         <div className="text-xs text-red-400">7 vulnerabilities</div>
                         <div className="flex items-center gap-1">
-                          <span className="text-xs bg-red-500 text-white px-2 py-1 rounded">5H</span>
-                          <span className="text-xs bg-orange-500 text-white px-2 py-1 rounded">2M</span>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* Version 2.4.2 */}
-                    <div className="flex items-center justify-between py-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                        <div>
-                          <div className="text-sm font-semibold text-white">2.4.2</div>
-                          <div className="text-xs text-gray-400">Apr 2015</div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <div className="text-xs text-red-400">5 vulnerabilities</div>
-                        <div className="flex items-center gap-1">
-                          <span className="text-xs bg-red-500 text-white px-2 py-1 rounded">4H</span>
-                          <span className="text-xs bg-orange-500 text-white px-2 py-1 rounded">1M</span>
+                          <span className="text-xs text-red-400 bg-red-500/10 border border-red-500/20 px-2 py-1 rounded">5H</span>
+                          <span className="text-xs text-orange-400 bg-orange-500/10 border border-orange-500/20 px-2 py-1 rounded">2M</span>
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
-                
+            </div>
+
                 {/* License - Right Card */}
                 <div className="rounded-xl p-6 border" style={{ backgroundColor: colors.background.card }}>
                   <h2 className="text-lg font-semibold mb-6" style={{ color: colors.text.primary }}>License</h2>
                   
                   <div className="space-y-6">
                     {/* License Info */}
-                    <div>
+                    <div className="transition-all duration-200 hover:bg-green-500/5 rounded-lg p-3 cursor-pointer group-license">
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium" style={{ color: colors.text.primary }}>Package License</span>
-                        <Badge className="bg-green-500/20 text-green-300 border-green-500/30">MIT</Badge>
+                        <span className="text-sm font-medium transition-colors duration-200 group-license-hover:text-green-300" style={{ color: colors.text.primary }}>Package License</span>
+                        <Badge className="bg-green-500/20 text-green-300 border-green-500/30 transition-all duration-200 group-license-hover:bg-green-500/30 group-license-hover:scale-105">MIT</Badge>
                       </div>
-                      <p className="text-xs text-gray-400">Permissive license - safe for commercial use</p>
+                      <p className="text-xs text-gray-400 transition-colors duration-200 group-license-hover:text-green-200">Permissive license - safe for commercial use</p>
                     </div>
                     
                     {/* Compatibility Check */}
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between transition-all duration-200 hover:bg-green-500/5 rounded-lg p-3 cursor-pointer group-compat">
                       <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                        <span className="text-sm font-medium text-green-300">Compatible with your project</span>
+                        <div className="w-2 h-2 bg-green-500 rounded-full transition-all duration-200 group-compat-hover:scale-125"></div>
+                        <span className="text-sm font-medium text-green-300 transition-colors duration-200 group-compat-hover:text-green-200">Compatible with your project</span>
                       </div>
-                      <span className="text-xs text-green-400">✅ Safe to use</span>
+                      <span className="text-xs text-green-400 transition-all duration-200 group-compat-hover:text-green-300">✅ Safe to use</span>
                     </div>
                   </div>
                 </div>
@@ -638,102 +629,128 @@ export default function DependencyDetailsPage() {
 
         {currentTab === "activity" && (
           <div className="space-y-6">
-            {/* Activity and Bus Factor Cards */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Activity Card */}
-              <Card style={{ backgroundColor: colors.background.card }}>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2" style={{ color: colors.text.primary }}>
-                    <Activity className="h-5 w-5" />
-                    Activity Score
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-center mb-4">
-                    <div className="text-4xl font-bold text-green-400 mb-2">
-                      {scoreBreakdown.activity}/100
+            {/* Activity Card */}
+            <div className="rounded-xl p-6 border" style={{ backgroundColor: colors.background.card }}>
+              
+              <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                {/* Scores */}
+                <div className="lg:col-span-1 space-y-6 pl-8">
+                  {/* Activity Score */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Activity className="h-4 w-4" style={{ color: colors.text.primary }} />
+                      <span className="text-sm font-medium text-white">Activity Score</span>
                     </div>
-                    <div className="text-sm" style={{ color: colors.text.secondary }}>High Activity Level</div>
-                    <div className="w-full bg-gray-700 rounded-full h-2 mt-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl font-bold text-green-400 transition-all duration-200 hover:scale-105">85</span>
+                      <span className="text-sm text-gray-400">/100</span>
+                    </div>
+                    <div className="w-full bg-gray-800 rounded-full h-2">
                       <div 
-                        className="bg-green-500 h-2 rounded-full" 
-                        style={{ width: `${scoreBreakdown.activity}%` }}
+                        className="bg-green-500 h-2 rounded-full transition-all duration-500" 
+                        style={{ width: '85%' }}
                       />
                     </div>
+                    <p className="text-xs text-gray-400">High commit frequency</p>
                   </div>
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span style={{ color: colors.text.secondary }}>Commits (30 days):</span>
-                      <span style={{ color: colors.text.primary }}>47</span>
+                  
+                  {/* Bus Factor */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4" style={{ color: colors.text.primary }} />
+                      <span className="text-sm font-medium text-white">Bus Factor</span>
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span style={{ color: colors.text.secondary }}>Releases (30 days):</span>
-                      <span style={{ color: colors.text.primary }}>3</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl font-bold text-yellow-400 transition-all duration-200 hover:scale-105">MEDIUM</span>
+                      <span className="text-sm text-gray-400">risk</span>
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span style={{ color: colors.text.secondary }}>Issues closed:</span>
-                      <span style={{ color: colors.text.primary }}>12</span>
+                    <div className="w-full bg-gray-800 rounded-full h-2">
+                      <div 
+                        className="bg-yellow-500 h-2 rounded-full transition-all duration-500" 
+                        style={{ width: '60%' }}
+                      />
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span style={{ color: colors.text.secondary }}>PRs merged:</span>
-                      <span style={{ color: colors.text.primary }}>8</span>
-                    </div>
+                    <p className="text-xs text-gray-400">3 contributors needed for 50% of recent commits</p>
                   </div>
-                </CardContent>
-              </Card>
+                </div>
 
-              {/* Bus Factor Card */}
-              <Card style={{ backgroundColor: colors.background.card }}>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2" style={{ color: colors.text.primary }}>
-                    <Users className="h-5 w-5" />
-                    Bus Factor Score
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-center mb-4">
-                    <div className="text-4xl font-bold text-yellow-400 mb-2">
-                      {scoreBreakdown.busFactor}/100
-                    </div>
-                    <div className="text-sm" style={{ color: colors.text.secondary }}>Good Contributor Diversity</div>
-                    <div className="w-full bg-gray-700 rounded-full h-2 mt-3">
-                      <div 
-                        className="bg-yellow-500 h-2 rounded-full" 
-                        style={{ width: `${scoreBreakdown.busFactor}%` }}
-                      />
-                    </div>
+                {/* Commit History Graph */}
+                <div className="lg:col-span-3">
+                  <div style={{ height: '250px', width: '100%' }}>
+                    <HealthScoreChart 
+                      data={[
+                        { date: '2023-08-01', score: 42 },
+                        { date: '2023-09-01', score: 38 },
+                        { date: '2023-10-01', score: 45 },
+                        { date: '2023-11-01', score: 51 },
+                        { date: '2023-12-01', score: 47 },
+                        { date: '2024-01-01', score: 47 },
+                        { date: '2024-02-01', score: 35 },
+                        { date: '2024-03-01', score: 52 },
+                        { date: '2024-04-01', score: 41 },
+                        { date: '2024-05-01', score: 48 },
+                        { date: '2024-06-01', score: 39 },
+                        { date: '2024-07-01', score: 44 }
+                      ]}
+                      className="w-full"
+                      tooltipType="commits"
+                    />
                   </div>
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span style={{ color: colors.text.secondary }}>Active contributors:</span>
-                      <span style={{ color: colors.text.primary }}>15</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span style={{ color: colors.text.secondary }}>Top contributor %:</span>
-                      <span style={{ color: colors.text.primary }}>35%</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span style={{ color: colors.text.secondary }}>New contributors:</span>
-                      <span style={{ color: colors.text.primary }}>3</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span style={{ color: colors.text.secondary }}>Maintainers:</span>
-                      <span style={{ color: colors.text.primary }}>4</span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                </div>
+              </div>
             </div>
 
-            {/* Commit Timeline */}
-            <Card style={{ backgroundColor: colors.background.card }}>
-              <CardHeader>
-                <CardTitle style={{ color: colors.text.primary }}>Recent Activity</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <CommitTimeline />
-              </CardContent>
-            </Card>
+            <div className="space-y-6">
+                <div className="flex items-center justify-between mt-8">
+                  <h2 className="text-xl font-semibold" style={{ color: colors.text.primary }}>Recent Commits</h2>
+                  {!summaryGenerated && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white"
+                      onClick={() => {
+                        setIsGeneratingSummary(true);
+                        setTimeout(() => {
+                          setIsGeneratingSummary(false);
+                          setSummaryGenerated(true);
+                        }, 2000);
+                      }}
+                      disabled={isGeneratingSummary}
+                    >
+                      {isGeneratingSummary ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Analyzing...
+                        </>
+                      ) : (
+                        <>
+                          <Image src="/AI_icon.png" alt="AI" width={16} height={16} className="mr-2" />
+                          Summarize Commits
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
+              
+              {/* Commit Summary - Only show when generated */}
+              {summaryGenerated && (
+                <div className="mt-8">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: colors.primary + '20' }}>
+                      <Image src="/AI_icon.png" alt="AI" width={16} height={16} />
+                    </div>
+                    <h3 className="text-lg font-semibold" style={{ color: colors.text.primary }}>Commit Summary</h3>
+                  </div>
+                  <p className="text-base leading-relaxed" style={{ color: colors.text.secondary }}>
+                    Based on the recent commit activity, this package shows consistent development with 4 commits over the past week. 
+                    The commits include security fixes, performance optimizations, and new features. 
+                    The development team appears active with regular contributions from multiple developers.
+                  </p>
+                </div>
+              )}
+              
+              <CommitTimeline />
+            </div>
           </div>
         )}
 
