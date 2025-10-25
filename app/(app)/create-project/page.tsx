@@ -119,8 +119,9 @@ export default function CreateProjectPage() {
     // }
 
     const handleCreateProject = (repo: GitHubRepository) => {
-        setSelectedRepo(repo)
-        setDialogOpen(true) // open the modal instead of routing
+        router.push(`/create-project/new?repo=${encodeURIComponent(JSON.stringify(repo))}`)
+        // setSelectedRepo(repo)
+        // setDialogOpen(true) // open the modal instead of routing
     }
 
     const handleFileUpload = async (file: File) => {

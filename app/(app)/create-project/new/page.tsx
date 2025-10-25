@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch"
 import { Github, GitBranch, Package, Plus } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { colors } from "@/lib/design-system"
+import {useEnsureBackendUser} from "@/lib/useEnsureBackendUser";
 
 interface GitHubRepository {
   id: number
@@ -40,6 +41,9 @@ interface GitHubLicense {
 }
 
 export default function NewProjectPage() {
+  const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
+  const {backendUserId, isEnsured} = useEnsureBackendUser(apiBase);
+
   const router = useRouter()
   const searchParams = useSearchParams()
   const [branches, setBranches] = useState<GitHubBranch[]>([])
@@ -63,6 +67,7 @@ export default function NewProjectPage() {
   const { toast } = useToast()
 
   useEffect(() => {
+    if (!isEnsured || !backendUserId) return;
     const repoParam = searchParams.get('repo')
     if (repoParam) {
       try {
@@ -80,7 +85,7 @@ export default function NewProjectPage() {
     } else {
       router.push('/create-project')
     }
-  }, [searchParams, router])
+  }, [searchParams, router, isEnsured, backendUserId])
 
   // Handle framework selection when language and package.json data are available
   useEffect(() => {
@@ -111,9 +116,11 @@ export default function NewProjectPage() {
     try {
       console.log('Fetching branches for:', repoFullName)
       const repositoryUrl = `https://github.com/${repoFullName}`
-      const response = await fetch(`http://localhost:3000/github/branches?repositoryUrl=${encodeURIComponent(repositoryUrl)}`)
+      const response = await fetch(
+  `${apiBase}/github/branches?repositoryUrl=${encodeURIComponent(repositoryUrl)}&userId=${backendUserId}`
+      );
       console.log('Branches API response status:', response.status)
-      
+
       if (response.ok) {
         const branchesData = await response.json()
         console.log('Branches data received:', branchesData)
@@ -151,14 +158,16 @@ export default function NewProjectPage() {
     try {
       console.log('Fetching license for:', repoFullName)
       const repositoryUrl = `https://github.com/${repoFullName}`
-      const response = await fetch(`http://localhost:3000/github/license?repositoryUrl=${encodeURIComponent(repositoryUrl)}`)
+      const response = await fetch(
+  `${apiBase}/github/license?repositoryUrl=${encodeURIComponent(repositoryUrl)}&userId=${backendUserId}`
+      );
       console.log('License API response status:', response.status)
-      
+
       if (response.ok) {
         const licenseData = await response.json()
         console.log('License data received:', licenseData)
         setDetectedLicense(licenseData)
-        
+
         // Auto-select the detected license if it's a standard one
         if (licenseData.detected && licenseData.key !== 'custom' && licenseData.key !== 'none') {
           setSelectedLicense(licenseData.key)
@@ -184,14 +193,16 @@ export default function NewProjectPage() {
     try {
       console.log('Fetching language for:', repoFullName)
       const repositoryUrl = `https://github.com/${repoFullName}`
-      const response = await fetch(`http://localhost:3000/github/language?repositoryUrl=${encodeURIComponent(repositoryUrl)}`)
+      const response = await fetch(
+  `${apiBase}/github/language?repositoryUrl=${encodeURIComponent(repositoryUrl)}&userId=${backendUserId}`
+      );
       console.log('Language API response status:', response.status)
-      
+
       if (response.ok) {
         const languageData = await response.json()
         console.log('Language data received:', languageData)
         setDetectedLanguage(languageData.language)
-        
+
         // Auto-select the detected language if it matches our frameworks
         if (languageData.language) {
           const languageMapping: { [key: string]: string } = {
@@ -203,7 +214,7 @@ export default function NewProjectPage() {
             'Go': 'go',
             'Ruby': 'ruby'
           }
-          
+
           const mappedFramework = languageMapping[languageData.language]
           if (mappedFramework) {
             // For Node.js, we'll validate with package.json check
@@ -233,14 +244,16 @@ export default function NewProjectPage() {
     try {
       console.log('Checking for package.json in:', repoFullName, 'on branch:', selectedBranch)
       const repositoryUrl = `https://github.com/${repoFullName}`
-      const response = await fetch(`http://localhost:3000/github/package-json?repositoryUrl=${encodeURIComponent(repositoryUrl)}&branch=${encodeURIComponent(selectedBranch)}`)
+      const response = await fetch(
+  `${apiBase}/github/package-json?repositoryUrl=${encodeURIComponent(repositoryUrl)}&branch=${encodeURIComponent(selectedBranch)}&userId=${backendUserId}`
+      );
       console.log('Package.json API response status:', response.status)
-      
+
       if (response.ok) {
         const packageJsonData = await response.json()
         console.log('Package.json data received:', packageJsonData)
         setHasPackageJson(packageJsonData.exists)
-        
+
         // If we detected JavaScript/TypeScript and package.json exists, set to nodejs
         if (packageJsonData.exists && detectedLanguage && (detectedLanguage === 'JavaScript' || detectedLanguage === 'TypeScript')) {
           console.log('Setting framework to nodejs - package.json found')
@@ -267,9 +280,11 @@ export default function NewProjectPage() {
     try {
       console.log('Fetching package count for:', repoFullName, 'on branch:', selectedBranch)
       const repositoryUrl = `https://github.com/${repoFullName}`
-      const response = await fetch(`http://localhost:3000/github/package-count?repositoryUrl=${encodeURIComponent(repositoryUrl)}&branch=${encodeURIComponent(selectedBranch)}`)
+      const response = await fetch(
+  `${apiBase}/github/package-count?repositoryUrl=${encodeURIComponent(repositoryUrl)}&branch=${encodeURIComponent(selectedBranch)}&userId=${backendUserId}`
+      );
       console.log('Package count API response status:', response.status)
-      
+
       if (response.ok) {
         const packageData = await response.json()
         console.log('Package count data received:', packageData)
@@ -306,10 +321,10 @@ export default function NewProjectPage() {
 
   const handleCreateProject = async () => {
     if (!repository) return
-    
+
     setIsCreating(true)
     try {
-      const response = await fetch('http://localhost:3000/projects', {
+      const response = await fetch(`${apiBase}/projects`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -322,7 +337,7 @@ export default function NewProjectPage() {
           type: 'repo', // Repository type
           language: selectedFramework, // Map framework to language
           license: showLicense ? selectedLicense : null, // Pass license if toggle is on, null if off
-          userId: 'user-123'
+          userId: backendUserId
         })
       })
 
@@ -332,7 +347,7 @@ export default function NewProjectPage() {
 
       const newProject = await response.json()
       console.log("Project created successfully:", newProject)
-      
+
       toast({
         title: "Project Created!",
         description: "Your project is now being set up in the background.",
@@ -472,12 +487,12 @@ export default function NewProjectPage() {
                             <span className="text-gray-400 text-sm">Loading license...</span>
                           </div>
                         ) : (
-                          <Select 
-                            value={selectedLicense} 
+                          <Select
+                            value={selectedLicense}
                             onValueChange={setSelectedLicense}
                           >
-                            <SelectTrigger 
-                              className="border-gray-700 text-white" 
+                            <SelectTrigger
+                              className="border-gray-700 text-white"
                               style={{ backgroundColor: 'rgb(26, 26, 26)' }}
                             >
                               <SelectValue placeholder="Select license" />

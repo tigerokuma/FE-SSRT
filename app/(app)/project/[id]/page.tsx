@@ -145,6 +145,7 @@ interface Project {
     status?: string
     created_at: string
     updated_at: string
+    health_score?: number;
     vulnerability_notifications?: { alerts: boolean; slack: boolean; discord: boolean }
     license_notifications?: { alerts: boolean; slack: boolean; discord: boolean }
     health_notifications?: { alerts: boolean; slack: boolean; discord: boolean }
@@ -262,6 +263,7 @@ export default function ProjectDetailPage() {
     const [packageStatuses, setPackageStatuses] = useState<{
         [key: string]: { status: string, hasScores: boolean }
     }>({})
+    const [healthScore, setHealthScore]=useState<any>(0)
 
     type SortKey = 'name' | 'version' | 'contributors' | 'stars' | 'score'
     type SortDir = 'asc' | 'desc'
@@ -471,6 +473,8 @@ export default function ProjectDetailPage() {
             const projectData = await projectResponse.json()
             console.log('Project data received:', JSON.stringify(projectData, null, 2))
             setProject(projectData)
+            const healthScoreData = Math.max(0, Math.min(100, Math.round(projectData?.health_score ?? 0)));
+            setHealthScore(healthScoreData)
             setSelectedLicense(projectData.license || 'none')
             setProjectName(projectData.name || '')
             setVulnerabilityNotifications(projectData.vulnerability_notifications ?? {
@@ -489,7 +493,7 @@ export default function ProjectDetailPage() {
             }
 
             // Fetch current user
-            const userResponse = await fetch('${apiBase}/auth/me')
+            const userResponse = await fetch(`${apiBase}/auth/me`)
             if (userResponse.ok) {
                 const userData = await userResponse.json()
                 setCurrentUser(userData)
@@ -1130,15 +1134,8 @@ export default function ProjectDetailPage() {
                                         <div className="relative">
                                             <div className="relative w-48 h-48">
                                                 <svg className="w-48 h-48 transform -rotate-90" viewBox="0 0 100 100">
-                                                    <circle
-                                                        cx="50"
-                                                        cy="50"
-                                                        r="40"
-                                                        stroke="currentColor"
-                                                        strokeWidth="8"
-                                                        fill="none"
-                                                        className="text-gray-700"
-                                                    />
+                                                    <circle cx="50" cy="50" r="40" stroke="currentColor" strokeWidth="8"
+                                                            fill="none" className="text-gray-700"/>
                                                     <circle
                                                         cx="50"
                                                         cy="50"
@@ -1147,14 +1144,15 @@ export default function ProjectDetailPage() {
                                                         strokeWidth="8"
                                                         fill="none"
                                                         strokeDasharray={`${2 * Math.PI * 40}`}
-                                                        strokeDashoffset={`${2 * Math.PI * 40 * (1 - 0.78)}`}
+                                                        strokeDashoffset={`${2 * Math.PI * 40 * (1 - healthScore / 100)}`}
                                                         style={{stroke: 'rgb(84, 0, 250)'}}
                                                         strokeLinecap="round"
                                                     />
                                                 </svg>
                                                 <div className="absolute inset-0 flex items-center justify-center">
                                                     <div className="text-center">
-                                                        <div className="text-6xl font-bold text-white">78</div>
+                                                        <div
+                                                            className="text-6xl font-bold text-white">{healthScore}</div>
                                                     </div>
                                                 </div>
                                             </div>
