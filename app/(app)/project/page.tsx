@@ -10,6 +10,9 @@ import { Plus, Search, Star, Shield, AlertCircle, Clock, User, Github, GitBranch
 import { AuthService } from "@/lib/auth"
 import { colors } from "@/lib/design-system"
 import { WatchlistSearchDialog } from "@/components/watchlist/WatchlistSearchDialog"
+import {useSyncUser} from "@/lib/useSyncUser";
+import {useIngestGithubFromClerk} from "@/lib/useIngestGithubFromClerk";
+import {useEnsureBackendUser} from "@/lib/useEnsureBackendUser";
 
 interface Project {
   id: string
@@ -30,6 +33,7 @@ interface Project {
 }
 
 export default function Home() {
+  const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000"
   const router = useRouter()
   // const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [projects, setProjects] = useState<Project[]>([])
@@ -40,54 +44,49 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState('')
   const [isPlanUsageExpanded, setIsPlanUsageExpanded] = useState(false)
   const [copiedStates, setCopiedStates] = useState<{[key: string]: boolean}>({})
-  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const pollingStartTimeRef = useRef<number | null>(null)
+
+   // Ensure backend user exists & get its user_id
+  const { backendUserId, isEnsured } = useEnsureBackendUser(apiBase)
+  // Ingest GitHub (if connected in Clerk) once we have backend user id
+  useIngestGithubFromClerk(isEnsured ? backendUserId : undefined, apiBase)
 
   // Fetch projects function
   const fetchProjects = async () => {
+    if (!backendUserId) return
     try {
-      const response = await AuthService.fetchWithAuth('http://localhost:3000/projects/user/user-123')
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch projects')
-      }
-      
+      const response = await AuthService.fetchWithAuth(`${apiBase}/projects/user/${backendUserId}`)
+      if (!response.ok) throw new Error('Failed to fetch projects')
       const data = await response.json()
-      
-      // For creating projects, fetch their individual status to get progress data
-      const creatingProjects = data.filter((project: Project) => project.status === 'creating')
+
+      // Pull per-project status for "creating"
+      const creatingProjects = data.filter((p: Project) => p.status === 'creating')
       if (creatingProjects.length > 0) {
-        console.log(`🔍 Found ${creatingProjects.length} creating projects, fetching progress data...`)
-        
-        const progressPromises = creatingProjects.map(async (project: Project) => {
-          try {
-            const statusResponse = await AuthService.fetchWithAuth(`http://localhost:3000/projects/${project.id}/status`)
-            if (statusResponse.ok) {
-              const statusData = await statusResponse.json()
-              return { projectId: project.id, statusData }
-            }
-          } catch (err) {
-            console.error(`❌ ERROR fetching progress for project ${project.id}:`, err)
-          }
-          return null
-        })
-        
-        const progressResults = await Promise.all(progressPromises)
-        const validProgressResults = progressResults.filter(result => result !== null)
-        
-        // Update projects with progress data
-        if (validProgressResults.length > 0) {
-          data.forEach((project: Project) => {
-            const progressResult = validProgressResults.find(result => result.projectId === project.id)
-            if (progressResult) {
-              project.progress = progressResult.statusData.progress
-              project.totalDependencies = progressResult.statusData.totalDependencies
-              project.completedDependencies = progressResult.statusData.completedDependencies
+        const progressResults = await Promise.all(
+          creatingProjects.map(async (p: Project) => {
+            try {
+              const r = await AuthService.fetchWithAuth(`${apiBase}/projects/${p.id}/status`)
+              if (r.ok) {
+                const s = await r.json()
+                return { projectId: p.id, statusData: s }
+              }
+            } catch {}
+            return null
+          })
+        )
+        const valid = progressResults.filter(Boolean) as {projectId: string, statusData: any}[]
+        if (valid.length > 0) {
+          data.forEach((p: Project) => {
+            const hit = valid.find(v => v.projectId === p.id)
+            if (hit) {
+              p.progress = hit.statusData.progress
+              p.totalDependencies = hit.statusData.totalDependencies
+              p.completedDependencies = hit.statusData.completedDependencies
             }
           })
         }
       }
-      
       setProjects(data)
       return data
     } catch (err) {
@@ -96,6 +95,7 @@ export default function Home() {
       throw err
     }
   }
+
 
   // Function to handle copy with animation
   const handleCopy = async (text: string, key: string) => {
@@ -230,31 +230,39 @@ export default function Home() {
   }
 
   // Check authentication status and fetch projects on component mount
-  useEffect(() => {
-    const checkAuthAndFetchProjects = async () => {
-      try {
-        setLoading(true)
-        
-        // Simple: just set authenticated state for testing
-        setIsAuthenticated(true)
-        setUser({ 
-          name: 'Test User',
-          github_username: 'test-user',
-          email: 'test@example.com'
-        })
-        
-        // Fetch projects
-        await fetchProjects()
-      } catch (err) {
-        console.error('Error fetching projects:', err)
-        setError('Failed to load projects')
-      } finally {
-        setLoading(false)
-      }
-    }
+  // useEffect(() => {
+  //   const checkAuthAndFetchProjects = async () => {
+  //     try {
+  //       setLoading(true)
+  //
+  //       // Simple: just set authenticated state for testing
+  //       setIsAuthenticated(true)
+  //       setUser({
+  //         name: 'Test User',
+  //         github_username: 'test-user',
+  //         email: 'test@example.com'
+  //       })
+  //
+  //       // Fetch projects
+  //       await fetchProjects()
+  //     } catch (err) {
+  //       console.error('Error fetching projects:', err)
+  //       setError('Failed to load projects')
+  //     } finally {
+  //       setLoading(false)
+  //     }
+  //   }
+  //
+  //   checkAuthAndFetchProjects()
+  // }, [])
 
-    checkAuthAndFetchProjects()
-  }, [])
+
+  // Initial load once we have backendUserId
+  useEffect(() => {
+    if (!backendUserId) return
+    setLoading(true)
+    fetchProjects().finally(() => setLoading(false))
+  }, [backendUserId])
 
   // OPTIMIZED POLLING - Check individual project statuses for creating projects
   useEffect(() => {
@@ -349,6 +357,12 @@ export default function Home() {
       console.log('🛑 STOPPING POLLING - No creating projects')
       clearInterval(pollingIntervalRef.current)
       pollingIntervalRef.current = null
+    }
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current)
+        pollingIntervalRef.current = null
+      }
     }
   }, [projects])
 
