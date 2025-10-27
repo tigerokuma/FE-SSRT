@@ -29,7 +29,7 @@ export function useEnsureBackendUser(
           return
         }
         const payload = await res.json()
-        setBackendUserId(payload?.clerk_id)
+        setBackendUserId(payload?.user_id)
         setIsEnsured(true)
       } catch (e) {
         console.error('sync-from-clerk error', e)
