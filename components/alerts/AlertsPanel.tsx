@@ -200,7 +200,7 @@ export function AlertsPanel({
                         kind: a.kind
                     })}
                     pageSize={4}                                   // 👈 ensure fits without scroll
-                    style={{height: "calc(100vh - 280px)"}}      // keeps columns even; no scroll inside
+                    style={{height: "calc(100vh - 240px)"}}      // keeps columns even; no scroll inside
                 />
                 <AlertsCard
                     title="Watchlist Alerts"
@@ -216,7 +216,7 @@ export function AlertsPanel({
                         kind: a.kind
                     })}
                     pageSize={4}                                   // 👈 same here
-                    style={{height: "calc(100vh - 280px)"}}
+                    style={{height: "calc(100vh - 240px)"}}
                 />
             </div>
         </div>
