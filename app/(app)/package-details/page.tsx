@@ -1530,6 +1530,8 @@ export default function PackageDetailsPage() {
                       }))}
                       onDataPointSelect={handleHealthDataSelect}
                       scorecardData={packageData.scorecardHealth}
+                      repoUrl={packageData.repoUrl}
+                      isLoading={isLoading}
                     />
                   </CardContent>
                 </Card>

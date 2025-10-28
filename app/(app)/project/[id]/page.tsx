@@ -51,7 +51,7 @@ import {
     getLicenseDisplayName as getComplianceLicenseDisplayName,
     getLicenseColor
 } from "@/lib/compliance-utils"
-import {useProjects} from "@/hooks/use-projects"
+// Removed useProjects import - not needed for individual project page
 import {useUser} from "@clerk/nextjs";
 
 // Function to get project language icon based on language
@@ -214,7 +214,7 @@ export default function ProjectDetailPage() {
 
     const params = useParams()
     const router = useRouter()
-    const {getProjectById} = useProjects()
+    // Removed useProjects - not needed for individual project page
     const [project, setProject] = useState<Project | null>(null)
     const [projectDependencies, setProjectDependencies] = useState<ProjectDependency[]>([])
     const [watchlistDependencies, setWatchlistDependencies] = useState<WatchlistDependency[]>([])
@@ -1525,6 +1525,7 @@ export default function ProjectDetailPage() {
                                             dependency={dependency}
                                             searchQuery={searchQuery}
                                             projectLicense={project?.license}
+                                            projectId={projectId}
                                             isLoading={
                                                 dependency.package?.status === 'queued' ||
                                                 dependency.package?.status === 'fast'
@@ -1585,10 +1586,11 @@ export default function ProjectDetailPage() {
                                         onPackageClick={(pkg) => {
                                             const packageData = pkg.package || pkg
                                             const packageName = packageData.name || pkg.name || 'Unknown Package'
+                                            const packageId = packageData.id
 
                                             setSelectedDependency({
                                                 id: pkg.id,
-                                                // package_id: pkg.package_id, // Add the actual package ID
+                                                package_id: packageId, // Add the actual package ID
                                                 name: packageName,
                                                 version: pkg.version || 'Unknown',
                                                 addedBy: pkg.addedByUser?.name || pkg.addedByUser?.email || pkg.addedBy || pkg.added_by || 'Unknown',
@@ -2650,7 +2652,7 @@ export default function ProjectDetailPage() {
                                                 console.log('Selected dependency:', selectedDependency)
                                                 console.log('Package ID:', packageId)
                                                 if (packageId) {
-                                                    router.push(`/dependency/${packageId}/watchlist`)
+                                                    router.push(`/dependency/${projectId}/${packageId}/1`)
                                                 } else {
                                                     console.error('No package ID found in selectedDependency')
                                                 }
