@@ -10,7 +10,6 @@ import { packageToWatchlistItem, getNextId, deduplicatePackages } from './utils'
 
 // API Base URL - configurable via environment
 // Defaults to local API, falls back to remote if not set
-// const API_BASE_URL = 'http://localhost:3000'
 
 // API proxy path for Next.js rewrites
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_PROXY_PATH || '/api/backend'

@@ -1,4 +1,4 @@
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+const BASE_URL = "/api/backend";
 
 export async function checkJiraLink(user_watchlist_id: string) {
   const res = await fetch(`${BASE_URL}/jira/check-link/${user_watchlist_id}`);

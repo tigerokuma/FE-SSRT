@@ -224,7 +224,8 @@ interface ProjectUser {
 }
 
 export default function ProjectDetailPage() {
-    const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"
+    // always go through our Next.js proxy (adds Clerk JWT)
+    const apiBase = "/api/backend";
     const {user, isLoaded} = useUser()
     const backendUserId = (user?.publicMetadata as any)?.backendUserId ?? user?.id ?? null
     const [isUserReady, setIsUserReady] = useState(false)

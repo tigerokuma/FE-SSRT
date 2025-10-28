@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dialog"
 
 export default function DependencyDetailsPage() {
+  const apiBase = "/api/backend";
   const params = useParams() as { packageId: string; version?: string[] }
   const packageId = params.packageId
   const version = Array.isArray(params.version) && params.version.length > 0
@@ -203,8 +204,8 @@ export default function DependencyDetailsPage() {
       try {
         setLoading(true)
         const url = version
-        ? `http://localhost:3000/packages/id/${packageId}?version=${encodeURIComponent(version)}`
-        : `http://localhost:3000/packages/id/${packageId}`
+        ? `${apiBase}/packages/id/${packageId}?version=${encodeURIComponent(version)}`
+        : `${apiBase}/packages/id/${packageId}`
         const response = await fetch(url)
         if (!response.ok) {
           throw new Error('Failed to fetch dependency details')

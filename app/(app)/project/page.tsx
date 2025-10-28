@@ -33,7 +33,8 @@ interface Project {
 }
 
 export default function Home() {
-  const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000"
+  // always go through our Next.js proxy (adds Clerk JWT)
+  const apiBase = "/api/backend";
   const router = useRouter()
   // const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [projects, setProjects] = useState<Project[]>([])
@@ -285,7 +286,7 @@ export default function Home() {
           // Poll each creating project individually
           const statusPromises = creatingProjects.map(async (project) => {
             try {
-              const response = await AuthService.fetchWithAuth(`http://localhost:3000/projects/${project.id}/status`)
+              const response = await AuthService.fetchWithAuth(`${apiBase}/projects/${project.id}/status`)
               if (response.ok) {
                 const statusData = await response.json()
                 console.log(`📊 PROJECT ${project.id} STATUS:`, statusData)

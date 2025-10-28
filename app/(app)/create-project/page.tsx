@@ -48,7 +48,7 @@ export default function CreateProjectPage() {
 
     const {toast} = useToast()
 
-    const apiBase = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000';
+    const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "/api/backend";
     const {backendUserId, isEnsured} = useEnsureBackendUser(apiBase);
 
     const [dialogOpen, setDialogOpen] = useState(false)

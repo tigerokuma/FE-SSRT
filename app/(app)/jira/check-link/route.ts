@@ -1,5 +1,6 @@
 export async function POST(request: Request) {
-  const backendUrl = `http://localhost:3000/jira/check-link`;
+  const apiBase = "/api/backend";
+  const backendUrl = `${apiBase}/jira/check-link`;
 
   try {
     // Parse JSON body from client request

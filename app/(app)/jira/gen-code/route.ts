@@ -1,5 +1,10 @@
+
+const apiBase = "/api/backend";
 export async function GET(request: Request) {
-  const backendUrl = `http://localhost:3000/jira/gen-code`;
+  // always go through our Next.js proxy (adds Clerk JWT)
+
+
+  const backendUrl = `${apiBase}/jira/gen-code`;
 
   try {
     const backendResponse = await fetch(backendUrl, {
@@ -21,7 +26,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const backendUrl = `http://localhost:3000/jira/gen-code`;
+  const backendUrl = `${apiBase}/jira/gen-code`;
 
   try {
     const body = await request.text(); // Or request.json() if backend expects JSON

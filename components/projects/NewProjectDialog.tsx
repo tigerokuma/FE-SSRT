@@ -45,7 +45,8 @@ interface Props {
 export default function NewProjectDialog({open, onOpenChange, repo}: Props) {
     const {toast} = useToast()
 
-    const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
+    // always go through our Next.js proxy (adds Clerk JWT)
+    const apiBase = "/api/backend";
     const {backendUserId, isEnsured} = useEnsureBackendUser(apiBase);
 
     const [projectName, setProjectName] = useState('')

@@ -15,7 +15,8 @@ import {useEnsureBackendUser} from "@/lib/useEnsureBackendUser";
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 export default function SettingsPage() {
-    const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"
+    // always go through our Next.js proxy (adds Clerk JWT)
+    const apiBase = "/api/backend";
     const {user, isLoaded} = useUser()
 
     const {openUserProfile} = useClerk();
