@@ -22,7 +22,11 @@ import {
 } from "@/components/ui/dialog"
 
 export default function DependencyDetailsPage() {
-  const params = useParams()
+  const params = useParams() as { packageId: string; version?: string[] }
+  const packageId = params.packageId
+  const version = Array.isArray(params.version) && params.version.length > 0
+    ? params.version[0]
+    : undefined
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -32,13 +36,13 @@ export default function DependencyDetailsPage() {
   const [selectedScorecardData, setSelectedScorecardData] = useState<any>(null)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const tabRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({})
-  
+
   // Check if this is a watchlist package
-  const isWatchlistPackage = params.version === 'watchlist'
+  const isWatchlistPackage = version === "watchlist"
 
   // Mock data for overview tab
   const [selectedHealthData, setSelectedHealthData] = useState<{ date: string; score: number } | null>(null)
-  
+
   const healthHistory = [
     { date: "2024-04-01", score: 3.2 },
     { date: "2024-05-01", score: 3.8 },
@@ -170,9 +174,6 @@ export default function DependencyDetailsPage() {
     setIsSettingsOpen(false)
   }
 
-  const packageId = params.packageId as string
-  const version = params.version as string
-
   const tabs = [
     { id: "overview", label: "Overview" },
     { id: "activity", label: "Activity" },
@@ -201,12 +202,14 @@ export default function DependencyDetailsPage() {
     const fetchDependencyData = async () => {
       try {
         setLoading(true)
-        
-        const response = await fetch(`http://localhost:3000/packages/id/${packageId}?version=${version}`)
+        const url = version
+        ? `http://localhost:3000/packages/id/${packageId}?version=${encodeURIComponent(version)}`
+        : `http://localhost:3000/packages/id/${packageId}`
+        const response = await fetch(url)
         if (!response.ok) {
           throw new Error('Failed to fetch dependency details')
         }
-        
+
         const data = await response.json()
         console.log('Dependency data:', data)
       } catch (err) {
@@ -230,7 +233,7 @@ export default function DependencyDetailsPage() {
         <div className="container mx-auto px-4 py-8">
           <div className="text-center py-8">
             <div className="text-red-400 mb-4">{error}</div>
-            <Button 
+            <Button
               onClick={() => router.back()}
               className="bg-blue-600 hover:bg-blue-700 text-white"
             >
@@ -253,7 +256,7 @@ export default function DependencyDetailsPage() {
               })}`}
             </DialogDescription>
           </DialogHeader>
-          
+
           {selectedScorecardData && (
             <div className="space-y-6">
               {/* Overall Score */}
@@ -266,7 +269,7 @@ export default function DependencyDetailsPage() {
                     <div className="text-lg text-gray-400">out of 10</div>
                   </div>
                   <div className="w-48 bg-gray-700 rounded-full h-4">
-                    <div 
+                    <div
                       className={`h-4 rounded-full ${
                         selectedScorecardData.score >= 8 ? 'bg-green-500' :
                         selectedScorecardData.score >= 6 ? 'bg-yellow-500' :
@@ -333,7 +336,7 @@ export default function DependencyDetailsPage() {
             <div className="flex items-center justify-center w-6 h-6">
               <img src="/Npm_logo.png" alt="NPM Package" className="w-full h-full object-contain" />
             </div>
-            
+
             {/* Dependency name */}
             <div className="flex items-center gap-2">
               <h1 className="text-xl font-semibold text-white">
@@ -353,8 +356,8 @@ export default function DependencyDetailsPage() {
               return (
                 <Button
                   key={tab.id}
-                  ref={(el) => { 
-                    if (el) tabRefs.current[tab.id] = el 
+                  ref={(el) => {
+                    if (el) tabRefs.current[tab.id] = el
                   }}
                   onClick={() => setCurrentTab(tab.id)}
                   variant="ghost"
@@ -372,11 +375,11 @@ export default function DependencyDetailsPage() {
             })}
           </div>
         </div>
-        
+
         {/* Active tab indicator bar */}
         <div className="relative">
           <div className="absolute bottom-0 left-0 right-0 h-0.5"></div> {/* Base line */}
-          <div 
+          <div
             className="absolute bottom-0 h-0.5 transition-all duration-200"
             style={{
               left: indicatorStyle.left,
@@ -444,9 +447,9 @@ export default function DependencyDetailsPage() {
                     <h2 className="text-xl font-semibold" style={{ color: colors.text.primary }}>AI Summary</h2>
                   </div>
                   <p className="text-lg leading-relaxed" style={{ color: colors.text.secondary }}>
-                    This dependency shows an increasing trend in new vulnerabilities over the past six months. 
-                    However, the current version v19.2.0 has one critical vulnerability CVE-2025-4567. 
-                    The activity score remains high, but the bus factor is a potential risk. 
+                    This dependency shows an increasing trend in new vulnerabilities over the past six months.
+                    However, the current version v19.2.0 has one critical vulnerability CVE-2025-4567.
+                    The activity score remains high, but the bus factor is a potential risk.
                     Overall supply chain integrity is strong.
                   </p>
                 </div>
@@ -459,13 +462,13 @@ export default function DependencyDetailsPage() {
                   <div className="text-center mb-4">
                     <div className="text-4xl font-bold text-red-400 mb-2">{packageScore}/100</div>
                     <div className="w-full bg-gray-700 rounded-full h-2">
-                      <div 
-                        className="bg-red-400 h-2 rounded-full" 
+                      <div
+                        className="bg-red-400 h-2 rounded-full"
                         style={{ width: `${packageScore}%` }}
                       />
                     </div>
                   </div>
-                  
+
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -511,7 +514,7 @@ export default function DependencyDetailsPage() {
             <div className="space-y-6">
               {/* Scorecard Health */}
               <div className="rounded-xl p-6 border" style={{ backgroundColor: colors.background.card }}>
-                
+
                 <HealthScoreChart
                   data={healthHistory}
                   onDataPointSelect={handleHealthDataSelect}
@@ -534,7 +537,7 @@ export default function DependencyDetailsPage() {
                     </div>
                     <h2 className="text-lg font-semibold" style={{ color: colors.text.primary }}>Security</h2>
                   </div>
-                  
+
                   <div className="space-y-3">
                     {/* Version 4.17.21 - Latest */}
                     <div className="flex items-center justify-between py-3 border-b border-gray-800">
@@ -550,7 +553,7 @@ export default function DependencyDetailsPage() {
                         <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                       </div>
                     </div>
-                    
+
                     {/* Version 4.16.6 */}
                     <div className="flex items-center justify-between py-3 border-b border-gray-800">
                       <div className="flex items-center gap-3">
@@ -568,7 +571,7 @@ export default function DependencyDetailsPage() {
                         </div>
                       </div>
                     </div>
-                    
+
                     {/* Version 3.10.1 */}
                     <div className="flex items-center justify-between py-3 border-b border-gray-800">
                       <div className="flex items-center gap-3">
@@ -586,7 +589,7 @@ export default function DependencyDetailsPage() {
                         </div>
                       </div>
                     </div>
-                    
+
                     {/* Version 2.4.2 */}
                     <div className="flex items-center justify-between py-3">
                       <div className="flex items-center gap-3">
@@ -606,11 +609,11 @@ export default function DependencyDetailsPage() {
                     </div>
                   </div>
                 </div>
-                
+
                 {/* License - Right Card */}
                 <div className="rounded-xl p-6 border" style={{ backgroundColor: colors.background.card }}>
                   <h2 className="text-lg font-semibold mb-6" style={{ color: colors.text.primary }}>License</h2>
-                  
+
                   <div className="space-y-6">
                     {/* License Info */}
                     <div>
@@ -620,7 +623,7 @@ export default function DependencyDetailsPage() {
                       </div>
                       <p className="text-xs text-gray-400">Permissive license - safe for commercial use</p>
                     </div>
-                    
+
                     {/* Compatibility Check */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -655,8 +658,8 @@ export default function DependencyDetailsPage() {
                     </div>
                     <div className="text-sm" style={{ color: colors.text.secondary }}>High Activity Level</div>
                     <div className="w-full bg-gray-700 rounded-full h-2 mt-3">
-                      <div 
-                        className="bg-green-500 h-2 rounded-full" 
+                      <div
+                        className="bg-green-500 h-2 rounded-full"
                         style={{ width: `${scoreBreakdown.activity}%` }}
                       />
                     </div>
@@ -697,8 +700,8 @@ export default function DependencyDetailsPage() {
                     </div>
                     <div className="text-sm" style={{ color: colors.text.secondary }}>Good Contributor Diversity</div>
                     <div className="w-full bg-gray-700 rounded-full h-2 mt-3">
-                      <div 
-                        className="bg-yellow-500 h-2 rounded-full" 
+                      <div
+                        className="bg-yellow-500 h-2 rounded-full"
                         style={{ width: `${scoreBreakdown.busFactor}%` }}
                       />
                     </div>
@@ -761,7 +764,7 @@ export default function DependencyDetailsPage() {
                       Configure notification preferences for dependency alerts
                     </DialogDescription>
                   </DialogHeader>
-                  <DependencyAlertSettings 
+                  <DependencyAlertSettings
                     onClose={() => setIsSettingsOpen(false)}
                     onSave={handleSaveSettings}
                   />

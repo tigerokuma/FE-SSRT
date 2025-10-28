@@ -49,6 +49,7 @@ export function WatchlistSearchDialog({
   const [internalOpen, setInternalOpen] = useState(false)
   const isOpen = open !== undefined ? open : internalOpen
   const setIsOpen = onOpenChange || setInternalOpen
+  const setIsOpenExternal = onOpenChange
 
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedPackage, setSelectedPackage] = useState<PackageType | null>(null)
@@ -107,7 +108,8 @@ export function WatchlistSearchDialog({
 
       if (!response.ok) throw new Error(`Failed to add package: ${response.statusText} - ${await response.text()}`)
 
-      setIsOpen(false)
+      setInternalOpen(false)
+      if (setIsOpenExternal) setIsOpenExternal(false)
       setSearchQuery("")
       setSelectedPackage(null)
       clearSearch()
@@ -131,7 +133,11 @@ export function WatchlistSearchDialog({
     "text-xs px-1.5 py-0.5 rounded font-medium bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.06)] text-gray-300"
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={(v) => {
+      // keep both in sync
+      setInternalOpen(v)
+      onOpenChange?.(v)
+    }}>
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
 
       <DialogContent
