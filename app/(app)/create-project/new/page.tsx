@@ -41,7 +41,7 @@ interface GitHubLicense {
 }
 
 export default function NewProjectPage() {
-  const apiBase = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000";
+  const apiBase = "/api/backend";
   const {backendUserId, isEnsured} = useEnsureBackendUser(apiBase);
 
   const router = useRouter()

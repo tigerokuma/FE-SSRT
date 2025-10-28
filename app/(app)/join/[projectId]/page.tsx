@@ -12,7 +12,7 @@ export default function JoinProjectPage() {
   const router = useRouter()
 
   // ✅ API base + Clerk user
-  const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
+  const apiBase = "/api/backend";
   const { user, isLoaded } = useUser()
   const computedBackendUserId =
     (user?.publicMetadata as any)?.backendUserId ?? user?.id ?? null

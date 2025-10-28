@@ -10,6 +10,9 @@ interface Channel {
 }
 
 export default function SlackPage() {
+  // always go through our Next.js proxy (adds Clerk JWT)
+  const apiBase = "/api/backend";
+
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -31,14 +34,14 @@ export default function SlackPage() {
 
       try {
         const res = await fetch(
-          `http://localhost:3000/slack/oauth?code=${code}&state=${state}`
+          `${apiBase}/slack/oauth?code=${code}&state=${state}`
         );
         if (!res.ok) throw new Error("OAuth failed");
 
         setUserId(state);
 
         const channel_res = await fetch(
-          `http://localhost:3000/slack/channels/${state}`
+          `${apiBase}/slack/channels/${state}`
         );
         if (!channel_res.ok) throw new Error("Failed to fetch channels");
 
@@ -69,7 +72,7 @@ export default function SlackPage() {
     setJoinError(null);
 
     try {
-      const res = await fetch("http://localhost:3000/slack/join-channel", {
+      const res = await fetch(`${apiBase}/slack/join-channel`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

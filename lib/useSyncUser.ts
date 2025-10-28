@@ -4,7 +4,7 @@
 import { useEffect, useRef } from 'react'
 import { useUser } from '@clerk/nextjs'
 
-export function useSyncUser(apiBase = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000') {
+export function useSyncUser(apiBase = "/api/backend") {
   const { user, isLoaded, isSignedIn } = useUser()
   const did = useRef(false)
 
