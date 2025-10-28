@@ -7,7 +7,7 @@ const BACKEND = (process.env.BACKEND_API_BASE || "https://be-ssrt-2.onrender.com
 function buildHeaders(req: NextRequest, bearer?: string) {
   const h = new Headers(req.headers);
 
-  // strip hop-by-hop / browser-only headers
+  // Strip hop-by-hop / browser-only headers
   [
     "host","connection","content-length","accept-encoding","upgrade-insecure-requests",
     "x-forwarded-for","x-forwarded-host","x-forwarded-proto","x-real-ip",
@@ -15,11 +15,13 @@ function buildHeaders(req: NextRequest, bearer?: string) {
     "sec-ch-ua-mobile","sec-ch-ua-platform",
   ].forEach(k => h.delete(k));
 
+  // Force identity so upstream doesn't gzip
+  h.set("accept-encoding", "identity");
+
   if (bearer) h.set("authorization", `Bearer ${bearer}`);
   return h;
 }
 
-// CORS preflight (optional if only called by your Next app)
 export async function OPTIONS() {
   const res = new NextResponse(null, { status: 204 });
   res.headers.set("Access-Control-Allow-Origin", "*");
@@ -28,39 +30,51 @@ export async function OPTIONS() {
   return res;
 }
 
-// In Next 15 route handlers, params is a Promise
 type Ctx = { params: Promise<{ path?: string[] }> };
 
 async function handler(req: NextRequest, ctx: Ctx) {
   const { getToken } = await auth();
   const jwt = await getToken({ template: "BACKEND" }).catch(() => null);
 
-  const { path = [] } = await ctx.params;
+  const { path = [] } = await ctx.params;              // Next 15: params is a Promise
   const subpath = path.join("/");
   const url = `${BACKEND}/${subpath}`;
 
-  const hasBody = !["GET", "HEAD"].includes(req.method);
+  const hasBody = !["GET","HEAD"].includes(req.method);
 
-  // Buffer the body so we don’t need `duplex`
-  let body: BodyInit | undefined = undefined;
-  if (hasBody) {
-    // Choose an efficient buffer method; arrayBuffer works for JSON/form-data/etc.
-    const ab = await req.arrayBuffer();
-    body = ab.byteLength ? ab : undefined;
-  }
-
-  const upstream = await fetch(url, {
+  const init: RequestInit = {
     method: req.method,
     headers: buildHeaders(req, jwt ?? undefined),
-    body,                      // buffered body (no duplex needed)
+    body: hasBody ? (req.body as any) : undefined,
+    // @ts-expect-error: undici needs this when streaming a body
+    duplex: hasBody ? "half" : undefined,
     redirect: "manual",
-  });
+  };
 
-  const res = new NextResponse(upstream.body, {
-    status: upstream.status,
-    headers: upstream.headers,
-  });
-  // loosen CORS (tighten if you only call from your app)
+  const upstream = await fetch(url, init);
+
+  // Clone & sanitize response headers
+  const h = new Headers(upstream.headers);
+  [
+    "content-encoding",      // remove gzip/deflate headers
+    "content-length",        // let Next set it
+    "transfer-encoding",     // streaming details not valid to forward
+    "content-security-policy",
+    "content-security-policy-report-only",
+  ].forEach(k => h.delete(k));
+
+  // If you want JSON by default for empty 201/204:
+  if (!h.has("content-type") && upstream.status !== 204) {
+    h.set("content-type", "application/json; charset=utf-8");
+  }
+
+  // Normalize body: for small responses like sync-from-clerk it's fine to buffer
+  const body =
+    upstream.status === 204
+      ? null
+      : await upstream.arrayBuffer(); // avoids encoding mismatch
+
+  const res = new NextResponse(body, { status: upstream.status, headers: h });
   res.headers.set("Access-Control-Allow-Origin", "*");
   return res;
 }
