@@ -6,6 +6,7 @@ const BACKEND = (process.env.BACKEND_API_BASE || "https://be-ssrt-2.onrender.com
 
 function buildHeaders(req: NextRequest, bearer?: string) {
   const h = new Headers(req.headers);
+
   // strip hop-by-hop / browser-only headers
   [
     "host","connection","content-length","accept-encoding","upgrade-insecure-requests",
@@ -27,35 +28,39 @@ export async function OPTIONS() {
   return res;
 }
 
+// In Next 15 route handlers, params is a Promise
 type Ctx = { params: Promise<{ path?: string[] }> };
 
 async function handler(req: NextRequest, ctx: Ctx) {
   const { getToken } = await auth();
   const jwt = await getToken({ template: "BACKEND" }).catch(() => null);
 
-  // ✅ Next 15: params is a Promise
   const { path = [] } = await ctx.params;
   const subpath = path.join("/");
   const url = `${BACKEND}/${subpath}`;
 
   const hasBody = !["GET", "HEAD"].includes(req.method);
 
-  const init: RequestInit = {
+  // Buffer the body so we don’t need `duplex`
+  let body: BodyInit | undefined = undefined;
+  if (hasBody) {
+    // Choose an efficient buffer method; arrayBuffer works for JSON/form-data/etc.
+    const ab = await req.arrayBuffer();
+    body = ab.byteLength ? ab : undefined;
+  }
+
+  const upstream = await fetch(url, {
     method: req.method,
     headers: buildHeaders(req, jwt ?? undefined),
-    // ✅ If forwarding a ReadableStream body, you must set duplex
-    body: hasBody ? (req.body as any) : undefined,
-    duplex: hasBody ? ("half" as any) : undefined,
+    body,                      // buffered body (no duplex needed)
     redirect: "manual",
-  };
+  });
 
-  const upstream = await fetch(url, init);
-
-  // Pass response through
   const res = new NextResponse(upstream.body, {
     status: upstream.status,
     headers: upstream.headers,
   });
+  // loosen CORS (tighten if you only call from your app)
   res.headers.set("Access-Control-Allow-Origin", "*");
   return res;
 }
