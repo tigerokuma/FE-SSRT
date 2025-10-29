@@ -81,7 +81,42 @@ export function AlertsCard({
         >
             <CardHeader className="flex-none flex flex-col gap-2">
                 <CardTitle className="text-white">{title}</CardTitle>
-                {/* … your search + filter row … */}
+                <div className="flex items-center gap-2">
+                    <div className="flex-1">
+                        <Input
+                            placeholder="Search package..."
+                            value={search}
+                            onChange={(e) => {
+                                setPage(1);
+                                onSearchChange(e.target.value);
+                            }}
+                            style={{
+                                backgroundColor: colors.background.main,
+                                borderColor: colors.border.default,
+                                color: colors.text.primary,
+                            }}
+                        />
+                    </div>
+
+                    <select
+                        value={typeFilter}
+                        onChange={(e) => {
+                            setPage(1);
+                            onTypeChange(e.target.value as "all" | AlertKind);
+                        }}
+                        className="rounded-md px-2 py-2 text-sm"
+                        style={{
+                            backgroundColor: colors.background.card,
+                            borderColor: colors.border.default,
+                            color: colors.text.primary,
+                        }}
+                    >
+                        <option value="all">All types</option>
+                        <option value="vulnerability">Vulnerabilities</option>
+                        <option value="license">License</option>
+                        <option value="health">Health</option>
+                    </select>
+                </div>
             </CardHeader>
 
             <CardContent className="flex-1 min-h-0 flex flex-col gap-3">
