@@ -12,7 +12,7 @@ import { packageToWatchlistItem, getNextId, deduplicatePackages } from './utils'
 // Defaults to local API, falls back to remote if not set
 
 // API proxy path for Next.js rewrites
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_PROXY_PATH || '/api/backend'
+const API_BASE_URL = '/api/backend'
 
 
 
