@@ -46,13 +46,6 @@ async function handler(req: NextRequest, ctx: Ctx) {
     const search = req.nextUrl.search ?? "";
     const url = `${BACKEND}/${subpath}${search}`;
 
-    console.log("Proxy ->", {
-        BACKEND,
-        method: req.method,
-        subpath,
-        search,
-        url,
-    });
 
     const hasBody = !["GET", "HEAD"].includes(req.method);
 
