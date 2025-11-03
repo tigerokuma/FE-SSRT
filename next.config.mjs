@@ -5,7 +5,8 @@ const nextConfig = {
   images: { unoptimized: true },
 
   async rewrites() {
-    const base = (process.env.BACKEND_API_BASE || 'https://be-ssrt-2.onrender.com/' || 'http://localhost:3000').replace(/\/$/, '');
+    // Use BACKEND_API_BASE if set, otherwise default to localhost for development
+    const base = (process.env.BACKEND_API_BASE || 'http://localhost:3000').replace(/\/$/, '');
     if (!base) {
       console.warn('[next.config] BACKEND_API_BASE not set — no rewrites applied.');
       return [];
