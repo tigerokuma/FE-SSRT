@@ -1,6 +1,6 @@
 "use client"
 
-import {useState, useEffect, useRef} from "react"
+import {useState, useEffect, useRef, useMemo} from "react"
 import {useParams, useRouter} from "next/navigation"
 import {Button} from "@/components/ui/button"
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card"
@@ -51,8 +51,26 @@ import {
     getLicenseDisplayName as getComplianceLicenseDisplayName,
     getLicenseColor
 } from "@/lib/compliance-utils"
-// Removed useProjects import - not needed for individual project page
+import {useProjects} from "@/hooks/use-projects"
 import {useUser} from "@clerk/nextjs";
+
+// deps (shared pipeline)
+import {
+    filterAndSortDependencies,
+    type DependencyControls,
+    type FilterDef as DepFilterDef,
+} from "@/lib/deps-utils";
+import {useDependencyControls} from "@/lib/useDependencyControls";
+
+// watchlist (new pipeline)
+import {
+    filterAndSortWatchlist,
+    type WatchlistControls,
+} from "@/lib/watchlist-utils";
+import {useWatchlistControls} from "@/lib/useWatchlistControls";
+
+import {AlertsPanel} from "@/components/alerts/AlertsPanel";
+
 
 // Function to get project language icon based on language
 const getProjectLanguageIcon = (language?: string) => {
@@ -206,7 +224,8 @@ interface ProjectUser {
 }
 
 export default function ProjectDetailPage() {
-    const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000"
+    // always go through our Next.js proxy (adds Clerk JWT)
+    const apiBase = "/api/backend";
     const {user, isLoaded} = useUser()
     const backendUserId = (user?.publicMetadata as any)?.backendUserId ?? user?.id ?? null
     const [isUserReady, setIsUserReady] = useState(false)
@@ -214,7 +233,7 @@ export default function ProjectDetailPage() {
 
     const params = useParams()
     const router = useRouter()
-    // Removed useProjects - not needed for individual project page
+    const {getProjectById} = useProjects()
     const [project, setProject] = useState<Project | null>(null)
     const [projectDependencies, setProjectDependencies] = useState<ProjectDependency[]>([])
     const [watchlistDependencies, setWatchlistDependencies] = useState<WatchlistDependency[]>([])
@@ -263,69 +282,59 @@ export default function ProjectDetailPage() {
     const [packageStatuses, setPackageStatuses] = useState<{
         [key: string]: { status: string, hasScores: boolean }
     }>({})
-    const [healthScore, setHealthScore]=useState<any>(0)
+    const [healthScore, setHealthScore] = useState<any>(0)
+    const [showWatchFilterPopup, setShowWatchFilterPopup] = useState(false);
 
-    type SortKey = 'name' | 'version' | 'contributors' | 'stars' | 'score'
-    type SortDir = 'asc' | 'desc'
-    type SortState = { key: SortKey | null; dir: SortDir | null }
+    // --- Dependency list controls (sort via utils) ---
+    // AFTER (rename to avoid collisions)
+    const {
+        sortKey: depSortKey,
+        sortDir: depSortDir,
+        setSortKey: setDepSortKey,
+        setSortDir: setDepSortDir,
+    } = useDependencyControls({sortKey: null, sortDir: null});
 
-    const [sort, setSort] = useState<SortState>({key: null, dir: null})
-
-    const toggleSort = (key: SortKey) => {
-        setSort(prev => {
-            if (prev.key !== key) return {key, dir: 'desc'}   // first click: DESC
-            if (prev.dir === 'desc') return {key, dir: 'asc'} // second click: ASC
-            return {key: null, dir: null}                     // third click: off
-        })
-    }
-
-// small helpers
-    const isActive = (key: SortKey) => sort.key === key
-    const arrow = (key: SortKey) => isActive(key) ? (sort.dir === 'asc' ? '▲' : '▼') : ''
-
-    const cmp = (a: any, b: any) => (a < b ? -1 : a > b ? 1 : 0)
-
-    const getSortValue = (dep: ProjectDependency, key: SortKey) => {
-        switch (key) {
-            case 'name':
-                return dep.name?.toLowerCase() ?? ''
-            case 'version':
-                return dep.version ?? ''
-            case 'contributors':
-                return dep.package?.contributors ?? 0
-            case 'stars':
-                return dep.package?.stars ?? 0
-            case 'score':
-                // choose your preferred score; total_score reads like the overall
-                return dep.package?.total_score ?? dep.risk ?? 0
+    const cycleDepSort = (key: 'name' | 'version' | 'contributors' | 'stars' | 'score') => {
+        if (depSortKey !== key) {
+            // enter the cycle on this column in DESC first
+            setDepSortKey(key);
+            setDepSortDir('desc');
+            return;
         }
-    }
+        // same column: desc -> asc -> clear
+        if (depSortDir === 'desc') {
+            setDepSortDir('asc');
+        } else if (depSortDir === 'asc') {
+            // clear to default (backend order)
+            setDepSortKey(null);
+            setDepSortDir(null);
+        } else {
+            // was cleared but clicked same column: go to desc
+            setDepSortDir('desc');
+        }
+    };
 
-    // ---- Filtering types & helpers (extensible) ----
+    const depArrow = (key: 'name' | 'version' | 'contributors' | 'stars' | 'score') => {
+        if (depSortKey !== key || !depSortDir) return '';      // default state → no arrow
+        return depSortDir === 'asc' ? '▲' : '▼';
+    };
+
+    // Use the exported FilterDef to keep structural typing aligned with deps-utils
     type FilterId =
         | 'high-risk'
-        // | 'low-activity'
-        // | 'single-maintainer'
-        // | 'vulnerable'
-        // | 'weak-license'
-        // | 'missing-security-metadata'
         | 'popular'
         | 'few-contributors'
-        | 'stale'
-    // TODO (keep for later):
-    // | 'outdated'
-    // | 'non-compliant'
-        ;
+        | 'stale';
 
-    type FilterDef = {
-        id: FilterId
-        label: string
-        description: string
-        // A predicate that decides if a dependency passes this filter
-        // Return `true` if dep should be INCLUDED when this filter is active.
-        // (We AND all active filters.)
-        predicate: (dep: ProjectDependency, project: Project | null) => boolean
-    }
+    // 2) Local UI filter def with a strong id (FilterId) but util-compatible predicate
+    type LocalFilterDef = {
+        id: FilterId;
+        label: string;
+        description: string;
+        // use the predicate type from deps-utils so it matches the pipeline
+        predicate: import("@/lib/deps-utils").FilterDef["predicate"];
+    };
+
     const daysBetween = (a: string | Date, b: string | Date) =>
         Math.abs((new Date(a).getTime() - new Date(b).getTime()) / (1000 * 60 * 60 * 24))
 
@@ -333,43 +342,14 @@ export default function ProjectDetailPage() {
     // - "outdated": uses tags or a future boolean (dep.package?.is_outdated).
     // - "risky": uses a score threshold; tweak as you like.
     // - "non-compliant": uses your existing checkLicenseCompatibility(project.license, dep.package?.license)
-    const FILTER_DEFS: FilterDef[] = [
+    // 3) your FILTER_DEFS with strong ids
+    const FILTER_DEFS: LocalFilterDef[] = [
         {
             id: 'high-risk',
             label: 'High Risk',
             description: 'Total score ≤ 60',
-            predicate: (dep) => (dep.package?.total_score ?? dep.risk ?? 100) <= 60,
+            predicate: (dep, _project) => (dep.package?.total_score ?? dep.risk ?? 100) <= 60,
         },
-        // {
-        //     id: 'low-activity',
-        //     label: 'Low Activity',
-        //     description: 'Activity score < 40',
-        //     predicate: (dep) => (dep.package?.activity_score ?? 100) < 40,
-        // },
-        // {
-        //     id: 'single-maintainer',
-        //     label: 'Single-Maintainer Risk',
-        //     description: 'Bus factor < 40',
-        //     predicate: (dep) => (dep.package?.bus_factor_score ?? 100) < 40,
-        // },
-        // {
-        //     id: 'vulnerable',
-        //     label: 'Vulnerable',
-        //     description: 'Vulnerability score < 70',
-        //     predicate: (dep) => (dep.package?.vulnerability_score ?? 100) < 70,
-        // },
-        // {
-        //     id: 'weak-license',
-        //     label: 'Weak License Score',
-        //     description: 'License score < 80',
-        //     predicate: (dep) => (dep.package?.license_score ?? 100) < 80,
-        // },
-        // {
-        //     id: 'missing-security-metadata',
-        //     label: 'Missing Security Metadata',
-        //     description: 'No OpenSSF/scorecard score',
-        //     predicate: (dep) => dep.package?.scorecard_score == null,
-        // },
         {
             id: 'popular',
             label: 'Popular',
@@ -387,35 +367,69 @@ export default function ProjectDetailPage() {
             label: 'Stale',
             description: 'Updated > 180 days ago',
             predicate: (dep) => {
-                const updated = dep.updated_at
-                if (!updated) return false
-                return daysBetween(updated, new Date()) > 180
+                const updated = dep.updated_at;
+                if (!updated) return false;
+                const daysBetween = (a: string | Date, b: string | Date) =>
+                    Math.abs((new Date(a).getTime() - new Date(b).getTime()) / (1000 * 60 * 60 * 24));
+                return daysBetween(updated, new Date()) > 180;
             },
         },
+    ];
 
-        // ---------- TODO (hide for now) ----------
-        // {
-        //   id: 'outdated',
-        //   label: 'Outdated',
-        //   description: 'Newer version available',
-        //   predicate: (dep) => dep.tags?.includes('outdated') || (dep as any).is_outdated === true,
-        // },
-        // {
-        //   id: 'non-compliant',
-        //   label: 'Non-Compliant',
-        //   description: 'License incompatible with project',
-        //   predicate: (dep, project) => {
-        //     const p = project?.license
-        //     const d = dep.package?.license
-        //     if (!p || !d) return false
-        //     return !checkLicenseCompatibility(p, d).isCompatible
-        //   },
-        // },
-    ]
+    // handy map (unchanged usage)
+    const FILTER_BY_ID: Record<FilterId, LocalFilterDef> =
+        FILTER_DEFS.reduce((m, f) => (m[f.id] = f, m), {} as any);
 
-// handy maps
-    const FILTER_BY_ID: Record<FilterId, FilterDef> =
-        FILTER_DEFS.reduce((m, f) => (m[f.id] = f, m), {} as any)
+    const FILTER_DEFS_FOR_UTIL: DepFilterDef[] = FILTER_DEFS.map(d => ({
+        id: d.id,               // your FilterId (string literal) is fine
+        predicate: d.predicate, // exact predicate function
+    }));
+
+    // WATCHLIST 3-state sort (default -> desc -> asc -> default)
+    type WatchlistSortableKey = "name" | "added_at" | "risk" | "vuln" | "score" | "stars" | "contributors" | "status";
+
+    // bring in the hook
+    const {
+        state: watchState,
+        setSearch: setWatchSearch,
+        setStatus: setWatchStatus,
+        setLicenseFilter: setWatchLicenseFilter,
+        setProcessing: setWatchProcessing,
+        setRiskMin: setWatchRiskMin,
+        setRiskMax: setWatchRiskMax,
+        setSortBy: setWatchSortBy,
+        setSortDir: setWatchSortDir,
+    } = useWatchlistControls();
+
+    const [tmpWatchStatus, setTmpWatchStatus] = useState<("approved" | "pending" | "rejected")[]>([]);
+    const [tmpWatchLicenseFilter, setTmpWatchLicenseFilter] = useState<"all" | "compatible" | "incompatible" | "unknown">("all");
+    const [tmpWatchProcessing, setTmpWatchProcessing] = useState<"all" | "queued_or_running" | "done">("all");
+    const [tmpWatchRiskMin, setTmpWatchRiskMin] = useState<number>(0);
+    const [tmpWatchRiskMax, setTmpWatchRiskMax] = useState<number>(100);
+
+    const watchSortKey = watchState.sortBy;
+    const watchSortDir = watchState.sortDir;
+
+    const cycleWatchSort = (key: WatchlistSortableKey) => {
+        if (watchSortKey !== key) {
+            setWatchSortBy(key);
+            setWatchSortDir("desc");
+            return;
+        }
+        if (watchSortDir === "desc") {
+            setWatchSortDir("asc");
+        } else if (watchSortDir === "asc") {
+            setWatchSortBy(null);
+            setWatchSortDir(null); // back to backend order
+        } else {
+            setWatchSortDir("desc");
+        }
+    };
+
+    const watchArrow = (key: WatchlistSortableKey) => {
+        if (watchSortKey !== key || !watchSortDir) return "";
+        return watchSortDir === "asc" ? "▲" : "▼";
+    };
 
     // Calculate compliance data
     const complianceData = project && projectDependencies.length > 0
@@ -953,6 +967,91 @@ export default function ProjectDetailPage() {
         }
     }
 
+    // --- Build the filter/sort controls object for deps ---
+    // Keep this minimal; do NOT set defaults here.
+    const depControlsPacked: DependencyControls = {
+        search: searchQuery,
+        activeFilters,
+        sortKey: depSortKey,   // no ?? "score"
+        sortDir: depSortDir,   // no ?? "desc"
+    };
+
+    // Optional: memoize the derived list
+    const dependencyItems = useMemo(
+        () => filterAndSortDependencies(
+            projectDependencies ?? [],
+            depControlsPacked,
+            project ?? null,
+            FILTER_DEFS_FOR_UTIL
+        ),
+        [projectDependencies, depControlsPacked, project, FILTER_DEFS_FOR_UTIL]
+    );
+
+    // If you want watchlist to use its own search text, use watchState.search instead of searchQuery:
+    const watchControlsPacked: WatchlistControls = {
+        search: watchState.search,              // or searchQuery if you want shared search box
+        status: watchState.status,
+        licenseFilter: watchState.licenseFilter,
+        processing: watchState.processing,
+        riskMin: watchState.riskMin,
+        riskMax: watchState.riskMax,
+        sortBy: watchState.sortBy,              // nullable
+        sortDir: watchState.sortDir,            // nullable
+    };
+
+    const watchlistItems = useMemo(
+        () => filterAndSortWatchlist(
+            projectWatchlist ?? [],
+            watchControlsPacked,
+            project?.license ?? null
+        ),
+        [projectWatchlist, watchControlsPacked, project?.license]
+    );
+
+    // 1) put this near other helpers in page.tsx
+    const gotoDependency = (pkgId: string, version?: string) => {
+        let v = version;
+        if (!v) {
+            const found = projectDependencies.find(
+                d => d.package_id === pkgId || d.package?.id === pkgId
+            );
+            v = found?.version;
+        }
+        // optional: last chance from branch deps if you keep them in state
+
+        if (v) {
+            router.push(`/dependency/${pkgId}/${encodeURIComponent(v)}`);
+        } else {
+            // fall back to the versionless details page
+            router.push(`/dependency/${pkgId}`);
+        }
+    };
+
+
+    // 2) replace your handleAlertNavigate in page.tsx
+    const handleAlertNavigate = ({
+                                     source,
+                                     packageId,
+                                     packageName,
+                                     kind,
+                                     version,       // <- allow version to be passed if the alert has it
+                                 }: {
+        source: "dependency" | "watchlist";
+        packageId?: string;
+        packageName: string;
+        kind: "vulnerability" | "license" | "health";
+        version?: string;
+    }) => {
+        if (!packageId) return;
+
+        // If you still want to switch tabs before navigation, keep these two lines:
+        if (source === "dependency") setCurrentTab("dependencies");
+        else setCurrentTab("watchlist");
+
+        gotoDependency(packageId, version);
+    };
+
+
     if (loading) {
         return (
             <div className="min-h-screen">
@@ -1434,45 +1533,44 @@ export default function ProjectDetailPage() {
                             className="hidden md:grid grid-cols-12 items-center px-3 py-2 rounded-lg mb-2"
                             style={{backgroundColor: colors.background.card, border: '1px solid hsl(var(--border))'}}
                         >
-                            {/* Name (col-span-5) */}
                             <button
                                 type="button"
                                 className="col-span-5 text-left text-sm text-gray-300 hover:text-white"
-                                onClick={() => toggleSort('name')}
+                                onClick={() => cycleDepSort('name')}
                             >
-                                Name {arrow('name')}
+                                Name {depArrow('name')}
                             </button>
 
                             <button
                                 type="button"
                                 className="col-span-2 text-left text-sm text-gray-300 hover:text-white"
-                                onClick={() => toggleSort('version')}
+                                onClick={() => cycleDepSort('version')}
                             >
-                                Version {arrow('version')}
+                                Version {depArrow('version')}
                             </button>
 
                             <button
                                 type="button"
                                 className="col-span-2 text-left text-sm text-gray-300 hover:text-white"
-                                onClick={() => toggleSort('contributors')}
+                                onClick={() => cycleDepSort('contributors')}
                             >
-                                Contributors {arrow('contributors')}
+                                Contributors {depArrow('contributors')}
                             </button>
 
                             <button
                                 type="button"
                                 className="col-span-2 text-left text-sm text-gray-300 hover:text-white"
-                                onClick={() => toggleSort('stars')}
+                                onClick={() => cycleDepSort('stars')}
                             >
-                                Stars {arrow('stars')}
+                                Stars {depArrow('stars')}
                             </button>
 
                             <button
                                 type="button"
                                 className="col-span-1 text-left text-sm text-gray-300 hover:text-white hidden lg:block"
-                                onClick={() => toggleSort('score')}
+                                onClick={() => cycleDepSort('score')}
                             >
-                                Score {arrow('score')}
+                                Score {depArrow('score')}
                             </button>
                         </div>
 
@@ -1500,39 +1598,18 @@ export default function ProjectDetailPage() {
                                     </CardContent>
                                 </Card>
                             ) : (
-                                (() => {
-                                    const filtered = projectDependencies.filter((dep) => {
-                                        const matchesSearch =
-                                            !searchQuery || dep.name.toLowerCase().includes(searchQuery.toLowerCase())
-                                        const matchesFilters =
-                                            activeFilters.length === 0 ||
-                                            activeFilters.every((fid) => FILTER_BY_ID[fid].predicate(dep, project))
-                                        return matchesSearch && matchesFilters
-                                    })
-
-                                    const sorted = sort.key
-                                        ? [...filtered].sort((a, b) => {
-                                            const av = getSortValue(a, sort.key as SortKey)
-                                            const bv = getSortValue(b, sort.key as SortKey)
-                                            const dir = sort.dir === 'asc' ? 1 : -1
-                                            return dir * (av < bv ? -1 : av > bv ? 1 : 0)
-                                        })
-                                        : filtered
-
-                                    return sorted.map((dependency) => (
-                                        <DependencyPackageCard
-                                            key={dependency.id}
-                                            dependency={dependency}
-                                            searchQuery={searchQuery}
-                                            projectLicense={project?.license}
-                                            projectId={projectId}
-                                            isLoading={
-                                                dependency.package?.status === 'queued' ||
-                                                dependency.package?.status === 'fast'
-                                            }
-                                        />
-                                    ))
-                                })()
+                                dependencyItems.map((dependency) => (
+                                    <DependencyPackageCard
+                                        key={dependency.id}
+                                        dependency={dependency}
+                                        searchQuery={searchQuery}
+                                        projectLicense={project?.license}
+                                        isLoading={
+                                            dependency.package?.status === 'queued' ||
+                                            dependency.package?.status === 'fast'
+                                        }
+                                    />
+                                ))
                             )}
                         </div>
                     </div>
@@ -1540,91 +1617,274 @@ export default function ProjectDetailPage() {
 
                 {currentTab === "watchlist" && (
                     <div className="space-y-6">
-                        {/* Search and Add */}
                         <div className="space-y-4">
                             <div className="flex items-center gap-4">
                                 <div className="relative flex-1">
                                     <input
                                         type="text"
                                         placeholder="Search watchlist dependencies..."
-                                        value={searchQuery}
-                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        value={watchState.search}
+                                        onChange={(e) => setWatchSearch(e.target.value)}
                                         className="w-full px-4 py-2 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                         style={{
                                             backgroundColor: colors.background.card,
                                             borderColor: 'hsl(var(--border))',
-                                            borderWidth: '1px'
+                                            borderWidth: '1px',
                                         }}
                                     />
                                     <Search className="absolute right-3 top-2.5 h-4 w-4 text-gray-400"/>
                                 </div>
+
                                 <Button
                                     style={{backgroundColor: colors.primary}}
                                     className="hover:opacity-90 text-white"
                                     onClick={() => {
-                                        console.log('🎯 Opening watchlist search dialog')
-                                        setShowWatchlistSearchDialog(true)
+                                        setShowWatchlistSearchDialog(true);
                                     }}
                                 >
                                     <Plus className="h-4 w-4 mr-2"/>
                                     Add Dependency
                                 </Button>
                             </div>
+
+                            {/* B) Filters row (button + chips) */}
+                            <div className="flex items-center gap-4">
+                                <Button
+                                    variant="outline"
+                                    className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                                    onClick={() => {
+                                        // seed popup with current selections
+                                        setTmpWatchStatus(watchState.status);
+                                        setTmpWatchLicenseFilter(watchState.licenseFilter);
+                                        setTmpWatchProcessing(watchState.processing);
+                                        setTmpWatchRiskMin(watchState.riskMin);
+                                        setTmpWatchRiskMax(watchState.riskMax);
+                                        setShowWatchFilterPopup(true);
+                                    }}
+                                >
+                                    <Search className="h-4 w-4 mr-2"/>
+                                    Add Filters
+                                </Button>
+
+                                {/* Chips — show what’s active */}
+                                <div className="flex flex-wrap gap-2">
+                                    {/* Status chips */}
+                                    {watchState.status.length > 0 &&
+                                        watchState.status.map((s) => (
+                                            <div
+                                                key={`st-${s}`}
+                                                className="flex items-center gap-2 px-3 py-1 text-gray-300 text-sm rounded-full"
+                                                style={{
+                                                    backgroundColor: colors.background.card,
+                                                    borderColor: 'hsl(var(--border))',
+                                                    borderWidth: '1px',
+                                                }}
+                                            >
+                                                <span>Status: {s}</span>
+                                                <button
+                                                    onClick={() =>
+                                                        setWatchStatus(watchState.status.filter((x) => x !== s))
+                                                    }
+                                                    className="text-gray-400 hover:text-gray-300"
+                                                >
+                                                    ×
+                                                </button>
+                                            </div>
+                                        ))}
+
+                                    {/* License chip (hide when 'all') */}
+                                    {watchState.licenseFilter !== "all" && (
+                                        <div
+                                            className="flex items-center gap-2 px-3 py-1 text-gray-300 text-sm rounded-full"
+                                            style={{
+                                                backgroundColor: colors.background.card,
+                                                borderColor: 'hsl(var(--border))',
+                                                borderWidth: '1px',
+                                            }}
+                                        >
+                                            <span>License: {watchState.licenseFilter}</span>
+                                            <button
+                                                onClick={() => setWatchLicenseFilter("all")}
+                                                className="text-gray-400 hover:text-gray-300"
+                                            >
+                                                ×
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {/* Processing chip (hide when 'all') */}
+                                    {watchState.processing !== "all" && (
+                                        <div
+                                            className="flex items-center gap-2 px-3 py-1 text-gray-300 text-sm rounded-full"
+                                            style={{
+                                                backgroundColor: colors.background.card,
+                                                borderColor: 'hsl(var(--border))',
+                                                borderWidth: '1px',
+                                            }}
+                                        >
+                                            <span>Processing: {watchState.processing}</span>
+                                            <button
+                                                onClick={() => setWatchProcessing("all")}
+                                                className="text-gray-400 hover:text-gray-300"
+                                            >
+                                                ×
+                                            </button>
+                                        </div>
+                                    )}
+
+                                    {/* Risk range chip (hide when default 0–100) */}
+                                    {(watchState.riskMin !== 0 || watchState.riskMax !== 100) && (
+                                        <div
+                                            className="flex items-center gap-2 px-3 py-1 text-gray-300 text-sm rounded-full"
+                                            style={{
+                                                backgroundColor: colors.background.card,
+                                                borderColor: 'hsl(var(--border))',
+                                                borderWidth: '1px',
+                                            }}
+                                        >
+                                            <span>Risk: {watchState.riskMin}–{watchState.riskMax}</span>
+                                            <button
+                                                onClick={() => {
+                                                    setWatchRiskMin(0);
+                                                    setWatchRiskMax(100);
+                                                }}
+                                                className="text-gray-400 hover:text-gray-300"
+                                            >
+                                                ×
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
                         </div>
 
-                        {/* Watchlist Dependencies */}
-                        <div className="grid gap-4">
-                            {projectWatchlist && projectWatchlist.length > 0 ? (
-                                projectWatchlist.map((watchlistItem) => (
-                                    <WatchlistPackageCard
-                                        key={watchlistItem.id}
-                                        package={watchlistItem}
-                                        searchQuery={searchQuery}
-                                        projectLicense={project?.license}
-                                        isLoading={packageStatuses[watchlistItem.package?.id]?.status === 'queued' || packageStatuses[watchlistItem.package?.id]?.status === 'fast'}
-                                        packageStatus={packageStatuses[watchlistItem.package?.id]?.status as 'queued' | 'fast' | 'done'}
-                                        onPackageClick={(pkg) => {
-                                            const packageData = pkg.package || pkg
-                                            const packageName = packageData.name || pkg.name || 'Unknown Package'
-                                            const packageId = packageData.id
+                        {/* C) Watchlist header with sortable columns */}
+                        <div
+                            className="hidden md:grid grid-cols-12 items-center px-3 py-2 rounded-lg mb-2"
+                            style={{backgroundColor: colors.background.card, border: '1px solid hsl(var(--border))'}}
+                        >
+                            <button
+                                className="col-span-4 text-left text-sm text-gray-300 hover:text-white"
+                                onClick={() => cycleWatchSort("name")}
+                                type="button"
+                            >
+                                Name {watchArrow("name")}
+                            </button>
 
-                                            setSelectedDependency({
-                                                id: pkg.id,
-                                                package_id: packageId, // Add the actual package ID
-                                                name: packageName,
-                                                version: pkg.version || 'Unknown',
-                                                addedBy: pkg.addedByUser?.name || pkg.addedByUser?.email || pkg.addedBy || pkg.added_by || 'Unknown',
-                                                addedAt: pkg.addedAt || pkg.added_at || new Date(),
-                                                comments: pkg.comments || [],
-                                                riskScore: pkg.package?.total_score || pkg.riskScore || 0,
-                                                status: pkg.status || 'pending',
-                                                approvedBy: pkg.approvedByUser?.name || pkg.approvedBy,
-                                                rejectedBy: pkg.rejectedByUser?.name || pkg.rejectedBy,
-                                                approvedAt: pkg.approvedAt,
-                                                rejectedAt: pkg.rejectedAt,
-                                                healthScore: (pkg.package as any)?.scorecard_score || (pkg.package as any)?.health_score || pkg.healthScore || 0,
-                                                activityScore: pkg.package?.activity_score || pkg.activityScore || 0,
-                                                busFactor: pkg.package?.bus_factor_score || pkg.busFactor || 0,
-                                                license: pkg.package?.license || pkg.license || 'Unknown',
-                                                projectLicense: project?.license || null,
-                                                vulnerabilities: pkg.package?.vulnerability_score || pkg.vulnerabilities || 0,
-                                                licenseScore: pkg.package?.license_score || 0,
-                                                pastVulnerabilities: pkg.pastVulnerabilities || 0
-                                            })
-                                            setShowDependencyReviewDialog(true)
-                                        }}
-                                    />
-                                ))
+                            <button
+                                className="col-span-2 text-left text-sm text-gray-300 hover:text-white"
+                                onClick={() => cycleWatchSort("added_at")}
+                                type="button"
+                            >
+                                Added {watchArrow("added_at")}
+                            </button>
+
+                            <button
+                                className="col-span-2 text-left text-sm text-gray-300 hover:text-white"
+                                onClick={() => cycleWatchSort("risk")}
+                                type="button"
+                            >
+                                Risk {watchArrow("risk")}
+                            </button>
+
+                            <button
+                                className="col-span-2 text-left text-sm text-gray-300 hover:text-white"
+                                onClick={() => cycleWatchSort("stars")}
+                                type="button"
+                            >
+                                Stars {watchArrow("stars")}
+                            </button>
+
+                            <button
+                                className="col-span-2 text-left text-sm text-gray-300 hover:text-white"
+                                onClick={() => cycleWatchSort("status")}
+                                type="button"
+                            >
+                                Status {watchArrow("status")}
+                            </button>
+                        </div>
+
+                        {/* D) Watchlist list */}
+                        <div className="grid gap-4">
+                            {watchlistItems && watchlistItems.length > 0 ? (
+                                watchlistItems.map((w) => {
+                                    const pkgId = w.package?.id;
+                                    const statusObj = pkgId ? packageStatuses[pkgId] : undefined;
+                                    const isLoading =
+                                        statusObj?.status === "queued" || statusObj?.status === "fast";
+                                    const packageStatus = statusObj?.status as "queued" | "fast" | "done" | undefined;
+
+                                    return (
+                                        <WatchlistPackageCard
+                                            key={w.id ?? pkgId ?? `${Math.random()}`}
+                                            package={w}
+                                            searchQuery={watchState.search}
+                                            projectLicense={project?.license}
+                                            isLoading={isLoading}
+                                            packageStatus={packageStatus}
+                                            onPackageClick={(pkg) => {
+                                                const packageData = pkg.package || pkg;
+                                                const packageName = packageData.name || pkg.name || "Unknown Package";
+
+                                                setSelectedDependency({
+                                                    id: pkg.id,
+                                                    package_id: pkg.package?.id || (pkg as any).package_id,
+                                                    name: packageName,
+                                                    version: (pkg as any).version || "Unknown",
+                                                    addedBy:
+                                                        pkg.addedByUser?.name ||
+                                                        pkg.addedByUser?.email ||
+                                                        (pkg as any).addedBy ||
+                                                        (pkg as any).added_by ||
+                                                        "Unknown",
+                                                    addedAt:
+                                                        (pkg as any).addedAt ||
+                                                        (pkg as any).added_at ||
+                                                        new Date(),
+                                                    comments: (pkg as any).comments || [],
+                                                    riskScore: pkg.package?.total_score || (pkg as any).riskScore || 0,
+                                                    status: (pkg as any).status || "pending",
+                                                    approvedBy:
+                                                        (pkg as any).approvedByUser?.name || (pkg as any).approvedBy,
+                                                    rejectedBy:
+                                                        (pkg as any).rejectedByUser?.name || (pkg as any).rejectedBy,
+                                                    approvedAt: (pkg as any).approvedAt,
+                                                    rejectedAt: (pkg as any).rejectedAt,
+                                                    healthScore:
+                                                        (pkg.package as any)?.scorecard_score ||
+                                                        (pkg.package as any)?.health_score ||
+                                                        (pkg as any).healthScore ||
+                                                        0,
+                                                    activityScore:
+                                                        pkg.package?.activity_score || (pkg as any).activityScore || 0,
+                                                    busFactor:
+                                                        pkg.package?.bus_factor_score || (pkg as any).busFactor || 0,
+                                                    license: pkg.package?.license || (pkg as any).license || "Unknown",
+                                                    projectLicense: project?.license || null,
+                                                    vulnerabilities:
+                                                        pkg.package?.vulnerability_score ||
+                                                        (pkg as any).vulnerabilities ||
+                                                        0,
+                                                    licenseScore: pkg.package?.license_score || 0,
+                                                    pastVulnerabilities: (pkg as any).pastVulnerabilities || 0,
+                                                });
+                                                setShowDependencyReviewDialog(true);
+                                            }}
+                                        />
+                                    );
+                                })
                             ) : (
                                 <div className="text-center py-12">
                                     <div
                                         className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center"
-                                        style={{backgroundColor: 'rgb(84, 0, 250)'}}>
+                                        style={{backgroundColor: 'rgb(84, 0, 250)'}}
+                                    >
                                         <img src="/package_icon.png" alt="Package" className="w-8 h-8"/>
                                     </div>
                                     <h3 className="text-lg font-semibold text-white mb-2">No packages in watchlist</h3>
-                                    <p className="text-gray-400 mb-6">Add packages to your watchlist to monitor their
-                                        security and health</p>
+                                    <p className="text-gray-400 mb-6">
+                                        Add packages to your watchlist to monitor their security and health
+                                    </p>
                                     <Button
                                         style={{backgroundColor: colors.primary}}
                                         className="hover:opacity-90 text-white"
@@ -1636,7 +1896,9 @@ export default function ProjectDetailPage() {
                                 </div>
                             )}
                         </div>
+
                     </div>
+
                 )}
 
                 {currentTab === "compliance" && (
@@ -1813,29 +2075,18 @@ export default function ProjectDetailPage() {
 
                 {currentTab === "alerts" && (
                     <div className="space-y-6">
-                        {/* No Alerts Message */}
-                        <div className="text-center py-12">
-                            <div className="w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center"
-                                 style={{backgroundColor: 'rgb(84, 0, 250)'}}>
-                                <Bell className="w-8 h-8 text-white"/>
-                            </div>
-                            <h3 className="text-lg font-semibold text-white mb-2">No Alerts Found</h3>
-                            <p className="text-gray-400 mb-6">No alerts have been triggered for this repository yet.
-                                Click here to configure alert settings.</p>
-                            <Button
-                                style={{backgroundColor: colors.primary}}
-                                className="hover:opacity-90 text-white"
-                                onClick={() => {
-                                    // Navigate to settings or open alert configuration
-                                    console.log('Configure alert settings clicked')
-                                }}
-                            >
-                                <Bell className="h-4 w-4 mr-2"/>
-                                Configure Alert Settings
-                            </Button>
-                        </div>
+                        <AlertsPanel
+                            dependencies={projectDependencies}
+                            watchlist={projectWatchlist}
+                            onOpenSettings={() => {
+                                setCurrentTab("settings");
+                                setCurrentSettingsTab("alerts");
+                            }}
+                            onNavigate={handleAlertNavigate}   // NEW
+                        />
                     </div>
                 )}
+
 
                 {currentTab === "settings" && (
                     <div className="flex h-full overflow-hidden scrollbar-hide">
@@ -2413,7 +2664,7 @@ export default function ProjectDetailPage() {
                 )}
             </div>
 
-            {/* Filter Popup Dialog */}
+            {/* Dependency Filter Popup Dialog */}
             <Dialog open={showFilterPopup} onOpenChange={(open) => {
                 setShowFilterPopup(open)
                 if (open) setTempSelectedFilters(activeFilters) // seed temp selection on open
@@ -2503,6 +2754,140 @@ export default function ProjectDetailPage() {
                     </div>
                 </DialogContent>
             </Dialog>
+            <Dialog open={showWatchFilterPopup} onOpenChange={setShowWatchFilterPopup}>
+                <DialogContent className="max-w-md" style={{backgroundColor: colors.background.card}}>
+                    <DialogHeader>
+                        <DialogTitle className="text-white">Watchlist Filters</DialogTitle>
+                    </DialogHeader>
+
+                    <div className="space-y-5">
+                        {/* Status (multi-select via checkboxes) */}
+                        <div>
+                            <div className="text-sm text-gray-300 mb-2">Status</div>
+                            {(["approved", "pending", "rejected"] as const).map((s) => {
+                                const checked = tmpWatchStatus.includes(s);
+                                return (
+                                    <label key={s} className="flex items-center gap-2 text-gray-300 mb-1">
+                                        <input
+                                            type="checkbox"
+                                            checked={checked}
+                                            onChange={() =>
+                                                setTmpWatchStatus(prev =>
+                                                    prev.includes(s) ? prev.filter(x => x !== s) : [...prev, s]
+                                                )
+                                            }
+                                        />
+                                        {s}
+                                    </label>
+                                );
+                            })}
+                        </div>
+
+                        {/* License filter */}
+                        <div>
+                            <div className="text-sm text-gray-300 mb-2">License</div>
+                            <select
+                                value={tmpWatchLicenseFilter}
+                                onChange={(e) => setTmpWatchLicenseFilter(e.target.value as any)}
+                                className="w-full px-3 py-2 rounded text-white bg-transparent border border-gray-600"
+                                style={{
+                                    backgroundColor: colors.background.card,
+                                    color: colors.text.primary,
+                                    borderColor: colors.border.default,
+                                }}
+                            >
+                                <option value="all">All</option>
+                                <option value="compatible">Compatible</option>
+                                <option value="incompatible">Incompatible</option>
+                                <option value="unknown">Unknown</option>
+                            </select>
+                        </div>
+
+                        {/* Processing filter */}
+                        <div>
+                            <div className="text-sm text-gray-300 mb-2">Processing</div>
+                            <select
+                                value={tmpWatchProcessing}
+                                onChange={(e) => setTmpWatchProcessing(e.target.value as any)}
+                                className="w-full px-3 py-2 rounded text-white bg-transparent border border-gray-600"
+                                style={{
+                                    backgroundColor: colors.background.card,
+                                    color: colors.text.primary,
+                                    borderColor: colors.border.default,
+                                }}
+                            >
+                                <option value="all">All</option>
+                                <option value="queued_or_running">Queued / Running</option>
+                                <option value="done">Done</option>
+                            </select>
+                        </div>
+
+                        {/* Risk range */}
+                        <div>
+                            <div className="text-sm text-gray-300 mb-2">Risk Range</div>
+                            <div className="flex items-center gap-3">
+                                <input
+                                    type="number"
+                                    min={0}
+                                    max={100}
+                                    value={tmpWatchRiskMin}
+                                    onChange={(e) => setTmpWatchRiskMin(Math.max(0, Math.min(100, Number(e.target.value))))}
+                                    className="w-20 px-2 py-1 rounded text-white bg-transparent border border-gray-600"
+                                />
+                                <span className="text-gray-400">to</span>
+                                <input
+                                    type="number"
+                                    min={0}
+                                    max={100}
+                                    value={tmpWatchRiskMax}
+                                    onChange={(e) => setTmpWatchRiskMax(Math.max(0, Math.min(100, Number(e.target.value))))}
+                                    className="w-20 px-2 py-1 rounded text-white bg-transparent border border-gray-600"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex justify-between pt-2">
+                            <Button
+                                variant="outline"
+                                className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                                onClick={() => {
+                                    setTmpWatchStatus([]);
+                                    setTmpWatchLicenseFilter("all");
+                                    setTmpWatchProcessing("all");
+                                    setTmpWatchRiskMin(0);
+                                    setTmpWatchRiskMax(100);
+                                }}
+                            >
+                                Reset
+                            </Button>
+                            <div className="flex gap-2">
+                                <Button
+                                    variant="outline"
+                                    className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                                    onClick={() => setShowWatchFilterPopup(false)}
+                                >
+                                    Cancel
+                                </Button>
+                                <Button
+                                    style={{backgroundColor: colors.primary}}
+                                    className="text-white"
+                                    onClick={() => {
+                                        setWatchStatus(tmpWatchStatus);
+                                        setWatchLicenseFilter(tmpWatchLicenseFilter);
+                                        setWatchProcessing(tmpWatchProcessing);
+                                        setWatchRiskMin(tmpWatchRiskMin);
+                                        setWatchRiskMax(tmpWatchRiskMax);
+                                        setShowWatchFilterPopup(false);
+                                    }}
+                                >
+                                    Apply
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
 
             {/* Invite Dialog */}
             <Dialog open={showInviteDialog} onOpenChange={setShowInviteDialog}>
@@ -2558,8 +2943,17 @@ export default function ProjectDetailPage() {
                         ])
 
                         if (projectWatchlistResponse.ok) {
-                            const projectWatchlistData = await projectWatchlistResponse.json()
-                            setProjectWatchlist(projectWatchlistData)
+                            const raw = await projectWatchlistResponse.json();
+                            const normalized = raw.map((x: any) => ({
+                                ...x,
+                                // ensure nested package exists and has a stable id
+                                package: {
+                                    ...(x.package ?? {}),
+                                    id: x.package?.id ?? x.package_id ?? x.packageId, // <- cover all cases
+                                    name: x.package?.name ?? x.name,                  // helpful for cards/links
+                                },
+                            }));
+                            setProjectWatchlist(normalized);
                         }
 
                         if (packageStatusResponse.ok) {
@@ -2647,12 +3041,19 @@ export default function ProjectDetailPage() {
                                             size="sm"
                                             className="border-gray-600 text-gray-300 hover:bg-gray-700"
                                             onClick={() => {
-                                                // Extract the actual package ID from the watchlist package
-                                                const packageId = selectedDependency?.package_id || selectedDependency?.package?.id
-                                                console.log('Selected dependency:', selectedDependency)
-                                                console.log('Package ID:', packageId)
-                                                if (packageId) {
-                                                    router.push(`/dependency/${projectId}/${packageId}/1`)
+                                                const pkgId =
+                                                    selectedDependency?.package_id ??
+                                                    selectedDependency?.package?.id ??
+                                                    selectedDependency?.packageId
+
+                                                const ver =
+                                                    selectedDependency?.version ??
+                                                    projectDependencies.find(d =>
+                                                        d.package_id === pkgId || d.package?.id === pkgId
+                                                    )?.version
+
+                                                if (pkgId) {
+                                                    gotoDependency(pkgId, ver)   // ✅ uses your helper
                                                 } else {
                                                     console.error('No package ID found in selectedDependency')
                                                 }

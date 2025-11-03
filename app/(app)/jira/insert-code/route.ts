@@ -1,5 +1,8 @@
+// always go through our Next.js proxy (adds Clerk JWT)
+const apiBase = "/api/backend";
+
 export async function GET(request: Request) {
-  const backendUrl = `http://localhost:3000/jira/insert-code`;
+  const backendUrl = `${apiBase}/jira/insert-code`;
 
   try {
     const backendResponse = await fetch(backendUrl, {
@@ -20,7 +23,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const backendUrl = `http://localhost:3000/jira/insert-code`;
+  const backendUrl = `${apiBase}/jira/insert-code`;
 
   try {
     const body = await request.json(); // parse JSON body from client request

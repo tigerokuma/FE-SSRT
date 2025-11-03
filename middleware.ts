@@ -5,6 +5,7 @@ const isPublicRoute = createRouteMatcher([
   '/sign-in(.*)',
   '/sign-up(.*)',
   '/',                 // marketing home (public)
+  "/api/backend(.*)",
   '/favicon(.*)',
   '/api/backend(.*)',  // Backend API routes - let Next.js rewrite proxy to backend (port 3000)
 ])

@@ -1,9 +1,10 @@
-import AppShell from "@/components/app-shell";
-import { auth } from "@clerk/nextjs/server";
+// app/(app)/layout.tsx  (SERVER component)
+import { auth } from '@clerk/nextjs/server';
+import ClientAppShell from '@/components/ClientAppShell';
 
-export default async function AppSectionLayout({ children }: {children: React.ReactNode}) {
+export default async function AppSectionLayout({ children }: { children: React.ReactNode }) {
   const { userId, redirectToSignIn } = await auth();
-  if (!userId) redirectToSignIn({ returnBackUrl: "/project" });
+  if (!userId) redirectToSignIn({ returnBackUrl: '/project' });
 
-  return <AppShell>{children}</AppShell>;   // ✅ the only place you mount the shell
+  return <ClientAppShell>{children}</ClientAppShell>;
 }

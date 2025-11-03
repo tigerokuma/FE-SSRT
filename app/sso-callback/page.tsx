@@ -25,7 +25,8 @@ export default function SsoCallback() {
       });
 
       if (hasVerifiedGithub) {
-        const apiBase = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000';
+        // always go through our Next.js proxy (adds Clerk JWT)
+        const apiBase = "/api/backend";
         // prefer an endpoint that ingests by clerk_id
         await fetch(`${apiBase}/users/ingest-clerk-github-by-clerk-id`, {
           method: 'POST',

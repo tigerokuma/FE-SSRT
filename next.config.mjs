@@ -4,18 +4,18 @@ const nextConfig = {
   typescript: { ignoreBuildErrors: true },
   images: { unoptimized: true },
 
-  async rewrites() {
-    // Use BACKEND_API_BASE if set, otherwise default to localhost for development
-    const base = (process.env.BACKEND_API_BASE || 'http://localhost:3000').replace(/\/$/, '');
-    if (!base) {
-      console.warn('[next.config] BACKEND_API_BASE not set — no rewrites applied.');
-      return [];
-    }
-    return [
-      // main proxy: /api/backend/* -> {BACKEND_API_BASE}/*
-      { source: '/api/backend/:path*', destination: `${base}/:path*` },
-    ];
-  },
+  // Rewrites commented out - using API route handler instead (app/api/backend/[[...path]]/route.ts)
+  // The route handler handles authentication and proxying to backend
+  // async rewrites() {
+  //   const base = (process.env.BACKEND_API_BASE || 'http://localhost:3000').replace(/\/$/, '');
+  //   if (!base) {
+  //     console.warn('[next.config] BACKEND_API_BASE not set — no rewrites applied.');
+  //     return [];
+  //   }
+  //   return [
+  //     { source: '/api/backend/:path*', destination: `${base}/:path*` },
+  //   ];
+  // },
 };
 
 export default nextConfig;

@@ -13,6 +13,9 @@ type User = {
 };
 
 export default function JiraOAuthPage() {
+  // always go through our Next.js proxy (adds Clerk JWT)
+  const apiBase = "/api/backend";
+
   const searchParams = useSearchParams();
   const [user, setUser] = useState<User | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -32,7 +35,7 @@ export default function JiraOAuthPage() {
       try {
         const encodedCode = encodeURIComponent(code);
 
-        const res = await fetch(`http://localhost:3000/jira/oAuth/${encodeURIComponent(user_id)}?code=${encodedCode}`);
+        const res = await fetch(`${apiBase}/jira/oAuth/${encodeURIComponent(user_id)}?code=${encodedCode}`);
         if (!res.ok) {
           // If status 410 or others, handle appropriately
           const text = await res.text();

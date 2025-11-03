@@ -201,6 +201,9 @@ interface PackageDetails {
 }
 
 export default function PackageDetailsPage() {
+  // always go through our Next.js proxy (adds Clerk JWT)
+  const apiBase = "/api/backend";
+
   const searchParams = useSearchParams()
   const router = useRouter()
   const userWatchlistId = searchParams.get("id")
@@ -259,7 +262,7 @@ export default function PackageDetailsPage() {
       setIsLoading(true)
       try {
         // Fetch data from the new API endpoint
-        const response = await fetch(`http://localhost:3000/watchlist/${userWatchlistId}/details`)
+        const response = await fetch(`${apiBase}/watchlist/${userWatchlistId}/details`)
         if (!response.ok) {
           throw new Error('Failed to fetch package details')
         }
