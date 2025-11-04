@@ -7,9 +7,17 @@ export interface CommitData {
   filesChanged: number
   timestamp: string
   anomalyScore: number // 0-30
+  scoreBreakdown?: Array<{
+    factor: string
+    points: number
+    reason: string
+  }>
   contributorProfile: {
     avgLinesChanged: { added: number, deleted: number }
+    stddevLinesChanged?: { added: number, deleted: number }
     avgFilesChanged: number
+    stddevFilesChanged?: number
+    totalCommits?: number
     typicalTimes: string // e.g., "Weekdays, 9 AM - 5 PM PST"
     heatmapData: number[][] // 7x24 grid
     thisCommitTime: string

@@ -1608,6 +1608,7 @@ export default function ProjectDetailPage() {
                                             dependency.package?.status === 'queued' ||
                                             dependency.package?.status === 'fast'
                                         }
+                                        projectId={projectId}
                                     />
                                 ))
                             )}

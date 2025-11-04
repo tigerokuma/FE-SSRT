@@ -39,6 +39,8 @@ export default function DependencyDetailsPage() {
   const [versionsLoading, setVersionsLoading] = useState(false)
   const [monthlyCommits, setMonthlyCommits] = useState<any[]>([])
   const [monthlyCommitsLoading, setMonthlyCommitsLoading] = useState(false)
+  const [commits, setCommits] = useState<any[]>([])
+  const [commitsLoading, setCommitsLoading] = useState(false)
   const tabRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({})
   
   // Check if this is a watchlist package
@@ -339,6 +341,9 @@ export default function DependencyDetailsPage() {
   const packageId = params.packageId as string
   const version = params.version as string
 
+  // Use Next.js API proxy to add authentication headers
+  const apiBase = "/api/backend"
+
   const tabs = [
     { id: "overview", label: "Overview" },
     { id: "activity", label: "Activity" },
@@ -367,7 +372,7 @@ export default function DependencyDetailsPage() {
     try {
       setVersionsLoading(true)
       
-      const apiUrl = `http://localhost:3000/packages/${packageId}/versions?limit=3`
+      const apiUrl = `${apiBase}/packages/${packageId}/versions?limit=3`
       console.log('🔍 Fetching package versions from:', apiUrl)
       
       const response = await fetch(apiUrl)
@@ -395,7 +400,7 @@ export default function DependencyDetailsPage() {
     try {
       setMonthlyCommitsLoading(true)
       
-      const apiUrl = `http://localhost:3000/packages/${packageId}/monthly-commits?months=12`
+      const apiUrl = `${apiBase}/packages/${packageId}/monthly-commits?months=12`
       console.log('🔍 Fetching monthly commits from:', apiUrl)
       
       const response = await fetch(apiUrl)
@@ -418,13 +423,127 @@ export default function DependencyDetailsPage() {
     }
   }
 
+  // Helper function to format relative time
+  const getTimeAgo = (date: Date): string => {
+    const now = new Date()
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000)
+
+    if (diffInSeconds < 60) return `${diffInSeconds} seconds ago`
+    if (diffInSeconds < 3600) return `${Math.floor(diffInSeconds / 60)} minutes ago`
+    if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)} hours ago`
+    if (diffInSeconds < 2592000) return `${Math.floor(diffInSeconds / 86400)} days ago`
+    if (diffInSeconds < 31536000) return `${Math.floor(diffInSeconds / 2592000)} months ago`
+    return `${Math.floor(diffInSeconds / 31536000)} years ago`
+  }
+
+  // Fetch package commits with anomaly scores
+  const fetchPackageCommits = async () => {
+    if (!packageId || commits.length > 0) return
+
+    try {
+      setCommitsLoading(true)
+      
+      const apiUrl = `${apiBase}/packages/${packageId}/commits?limit=50`
+      console.log('🔍 Fetching package commits from:', apiUrl)
+      
+      const response = await fetch(apiUrl)
+      console.log('📡 Commits API Response status:', response.status, response.statusText)
+      
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('❌ Commits API Error:', errorText)
+        throw new Error(`Failed to fetch commits: ${response.status} ${response.statusText}`)
+      }
+      
+      const data = await response.json()
+      console.log('✅ Commits received:', data)
+      
+      // Transform backend data to match CommitData interface
+      const transformedCommits = (data.commits || []).map((commit: any) => {
+        const commitDate = new Date(commit.timestamp)
+        const profile = commit.contributor_profile || {}
+        
+        // Use commit_time_heatmap if available (7x24 grid), transform to Monday-first order
+        // Database format: [Sunday, Monday, ..., Saturday] (0-6)
+        // Component expects: [Monday, Tuesday, ..., Sunday] (Mon first)
+        let heatmapData: number[][] = []
+        if (profile.commit_time_heatmap && Array.isArray(profile.commit_time_heatmap)) {
+          // Transform from Sunday-first to Monday-first order
+          // [Sun, Mon, Tue, Wed, Thu, Fri, Sat] -> [Mon, Tue, Wed, Thu, Fri, Sat, Sun]
+          const dbHeatmap = profile.commit_time_heatmap
+          if (dbHeatmap.length === 7) {
+            heatmapData = [
+              dbHeatmap[1] || Array(24).fill(0), // Monday
+              dbHeatmap[2] || Array(24).fill(0), // Tuesday
+              dbHeatmap[3] || Array(24).fill(0), // Wednesday
+              dbHeatmap[4] || Array(24).fill(0), // Thursday
+              dbHeatmap[5] || Array(24).fill(0), // Friday
+              dbHeatmap[6] || Array(24).fill(0), // Saturday
+              dbHeatmap[0] || Array(24).fill(0), // Sunday
+            ]
+          } else {
+            heatmapData = Array(7).fill(null).map(() => Array(24).fill(0))
+          }
+        } else {
+          // Fallback: create empty heatmap
+          heatmapData = Array(7).fill(null).map(() => Array(24).fill(0))
+        }
+        
+        return {
+          id: commit.id || commit.sha,
+          contributor: {
+            name: commit.author || 'Unknown',
+            avatar: `https://avatars.githubusercontent.com/${commit.sha}?s=400&v=4` // Use commit SHA for avatar fallback
+          },
+          message: commit.message || 'No message',
+          linesAdded: commit.lines_added || 0,
+          linesDeleted: commit.lines_deleted || 0,
+          filesChanged: commit.files_changed || 0,
+          timestamp: getTimeAgo(commitDate),
+          date: commitDate, // Store actual date for grouping
+          anomalyScore: commit.anomaly_score || 0,
+          scoreBreakdown: Array.isArray(commit.score_breakdown) ? commit.score_breakdown : [],
+          contributorProfile: {
+            avgLinesChanged: { 
+              added: profile.avg_lines_added || 0, 
+              deleted: profile.avg_lines_deleted || 0 
+            },
+            stddevLinesChanged: {
+              added: profile.stddev_lines_added || 0,
+              deleted: profile.stddev_lines_deleted || 0
+            },
+            avgFilesChanged: profile.avg_files_changed || 0,
+            stddevFilesChanged: profile.stddev_files_changed || 0,
+            totalCommits: profile.total_commits || 0,
+            typicalTimes: '',
+            heatmapData: heatmapData,
+            thisCommitTime: commitDate.toLocaleString('en-US', { 
+              weekday: 'long', 
+              hour: 'numeric', 
+              minute: '2-digit',
+              timeZoneName: 'short'
+            })
+          }
+        }
+      })
+      
+      setCommits(transformedCommits)
+    } catch (err) {
+      console.error('💥 Error fetching commits:', err)
+      // Don't set error state - keep empty array
+      setCommits([])
+    } finally {
+      setCommitsLoading(false)
+    }
+  }
+
   // Fetch dependency data
   useEffect(() => {
     const fetchDependencyData = async () => {
       try {
         setLoading(true)
         
-        const apiUrl = `http://localhost:3000/packages/project/${projectId}/dependency/${packageId}/${version}`
+        const apiUrl = `${apiBase}/packages/project/${projectId}/dependency/${packageId}/${version}`
         console.log('🔍 Fetching dependency data from:', apiUrl)
         console.log('📦 Project ID:', projectId, 'Package ID:', packageId, 'Version:', version)
         
@@ -458,6 +577,14 @@ export default function DependencyDetailsPage() {
       fetchDependencyData()
     }
   }, [packageId, projectId, version])
+
+  // Fetch commits when activity tab is selected
+  useEffect(() => {
+    if (currentTab === "activity" && packageId && commits.length === 0 && !commitsLoading) {
+      fetchPackageCommits()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentTab, packageId])
 
   // Remove loading state - show tabs immediately like projects screen
 
@@ -1220,7 +1347,7 @@ export default function DependencyDetailsPage() {
                 </div>
               )}
               
-              <CommitTimeline />
+              <CommitTimeline commits={commits} isLoading={commitsLoading} />
             </div>
           </div>
         )}

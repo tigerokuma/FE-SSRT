@@ -2,21 +2,23 @@
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { ChevronDown, ChevronUp, AlertTriangle, FileText, GitCommit, GitBranch, Plus, Minus, FileIcon, BarChart3 } from "lucide-react"
+import { ChevronDown, ChevronUp, AlertTriangle, FileText, GitCommit, GitBranch, Plus, Minus, FileIcon, BarChart3, Loader2 } from "lucide-react"
 import { colors } from "@/lib/design-system"
-import { dummyCommits, CommitData } from "@/lib/dummyCommitData"
+import { CommitData } from "@/lib/dummyCommitData"
 import Image from "next/image"
 import CommitBehaviorGraph from "./CommitBehaviorGraph"
 import ContributorHeatmap from "./ContributorHeatmap"
 
 // Helper function to get colors based on anomaly score
 function getAnomalyColors(score: number) {
-  if (score >= 25) {
+  // Anomaly score is now just a number, not out of 30
+  // Adjust thresholds based on typical anomaly score ranges
+  if (score >= 20) {
     return {
       border: 'rgb(239, 68, 68)', // Red
       text: 'rgb(239, 68, 68)' // Red
     }
-  } else if (score >= 15) {
+  } else if (score >= 10) {
     return {
       border: 'rgb(245, 158, 11)', // Orange
       text: 'rgb(245, 158, 11)' // Orange
@@ -29,37 +31,76 @@ function getAnomalyColors(score: number) {
   }
 }
 
+// Extended CommitData with date field for grouping
+interface CommitDataWithDate extends CommitData {
+  date?: Date
+}
+
 // Group commits by date
-function groupCommitsByDate(commits: CommitData[]) {
-  const groups: { [key: string]: CommitData[] } = {}
+function groupCommitsByDate(commits: CommitDataWithDate[]) {
+  const groups: { [key: string]: CommitDataWithDate[] } = {}
   
   commits.forEach(commit => {
-    const date = getDateFromTimestamp(commit.timestamp)
-    if (!groups[date]) {
-      groups[date] = []
+    // Use the actual date if available, otherwise try to parse from timestamp
+    let date: Date
+    if (commit.date instanceof Date) {
+      date = commit.date
+    } else {
+      // Fallback: try to parse from timestamp string (for dummy data compatibility)
+      date = getDateFromTimestampString(commit.timestamp)
     }
-    groups[date].push(commit)
+    
+    // Format date for grouping (e.g., "January 15, 2024")
+    const dateKey = date.toLocaleDateString('en-US', { 
+      month: 'long', 
+      day: 'numeric', 
+      year: 'numeric' 
+    })
+    
+    if (!groups[dateKey]) {
+      groups[dateKey] = []
+    }
+    groups[dateKey].push(commit)
   })
   
   return groups
 }
 
-function getDateFromTimestamp(timestamp: string): string {
-  // Convert relative timestamps to date strings for grouping
+// Helper function for parsing relative timestamps (for backward compatibility with dummy data)
+function getDateFromTimestampString(timestamp: string): Date {
   const now = new Date()
+  
+  // Handle relative timestamps ("2 days ago")
   if (timestamp.includes('days ago')) {
     const days = parseInt(timestamp.split(' ')[0])
-    const date = new Date(now.getTime() - days * 24 * 60 * 60 * 1000)
-    return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+    return new Date(now.getTime() - days * 24 * 60 * 60 * 1000)
   } else if (timestamp.includes('week ago')) {
-    const date = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-    return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+    return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
   } else if (timestamp.includes('weeks ago')) {
     const weeks = parseInt(timestamp.split(' ')[0])
-    const date = new Date(now.getTime() - weeks * 7 * 24 * 60 * 60 * 1000)
-    return date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+    return new Date(now.getTime() - weeks * 7 * 24 * 60 * 60 * 1000)
+  } else if (timestamp.includes('hours ago')) {
+    const hours = parseInt(timestamp.split(' ')[0])
+    return new Date(now.getTime() - hours * 60 * 60 * 1000)
+  } else if (timestamp.includes('minutes ago')) {
+    const minutes = parseInt(timestamp.split(' ')[0])
+    return new Date(now.getTime() - minutes * 60 * 1000)
+  } else if (timestamp.includes('months ago')) {
+    const months = parseInt(timestamp.split(' ')[0])
+    return new Date(now.getTime() - months * 30 * 24 * 60 * 60 * 1000)
+  } else if (timestamp.includes('years ago')) {
+    const years = parseInt(timestamp.split(' ')[0])
+    return new Date(now.getTime() - years * 365 * 24 * 60 * 60 * 1000)
   }
-  return 'Recent'
+  
+  // If it's not a relative timestamp, try to parse as ISO date
+  const parsedDate = new Date(timestamp)
+  if (!isNaN(parsedDate.getTime())) {
+    return parsedDate
+  }
+  
+  // Default to now if we can't parse
+  return now
 }
 
 interface CommitItemProps {
@@ -70,7 +111,8 @@ interface CommitItemProps {
 function CommitItem({ commit, isLast = false }: CommitItemProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [isVisible, setIsVisible] = useState(false)
-  const isAnomaly = commit.anomalyScore >= 20
+  // Adjust threshold since anomaly score is now just a number
+  const isAnomaly = commit.anomalyScore >= 10
   const anomalyColors = getAnomalyColors(commit.anomalyScore)
 
   useEffect(() => {
@@ -104,11 +146,12 @@ function CommitItem({ commit, isLast = false }: CommitItemProps) {
             <div className="flex items-center gap-3 mb-2">
               <div className="relative">
                 <Image
-                  src={commit.contributor.avatar || 'https://avatars.githubusercontent.com/u/169111517?s=400&v=4'}
+                  src={'/Github_icon.png'}
                   alt={commit.contributor.name}
                   width={24}
                   height={24}
                   className="rounded-full transition-transform duration-200 group-hover:scale-110"
+                  style={{ filter: 'invert(1) brightness(2)' }}
                 />
                 {isAnomaly && (
                   <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse border-2 border-white"></div>
@@ -125,7 +168,7 @@ function CommitItem({ commit, isLast = false }: CommitItemProps) {
                     backgroundColor: isAnomaly ? `${anomalyColors.text}20` : 'transparent'
                   }}
                 >
-                  {commit.anomalyScore}/30
+                  {commit.anomalyScore}
                 </span>
               </div>
             </div>
@@ -183,9 +226,9 @@ function CommitItem({ commit, isLast = false }: CommitItemProps) {
                 Commit Details
               </h3>
               <div className="flex flex-wrap gap-6 text-sm" style={{ color: colors.text.secondary }}>
-                <span className="text-green-400">+{commit.contributorProfile.avgLinesChanged.added}</span>
-                <span className="text-red-400">-{commit.contributorProfile.avgLinesChanged.deleted}</span>
-                <span>{commit.contributorProfile.avgFilesChanged} files</span>
+                <span className="text-green-400">+{commit.linesAdded}</span>
+                <span className="text-red-400">-{commit.linesDeleted}</span>
+                <span>{commit.filesChanged} files</span>
                 <span>{commit.contributorProfile.thisCommitTime}</span>
               </div>
             </div>
@@ -196,26 +239,40 @@ function CommitItem({ commit, isLast = false }: CommitItemProps) {
                 <div className="space-y-1">
                   <div className="text-sm" style={{ color: colors.text.primary }}>Anomaly Score</div>
                   <div className="text-2xl font-bold" style={{ color: anomalyColors.text }}>
-                    {commit.anomalyScore}/30
+                    {commit.anomalyScore}
                   </div>
                 </div>
               </div>
               
               <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm" style={{ color: colors.text.secondary }}>Suspicious Timestamp</span>
-                  <span className="text-sm font-medium text-orange-500">+2</span>
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  <span className="text-sm" style={{ color: colors.text.secondary }}>New Files Changed</span>
-                  <span className="text-sm font-medium text-red-500">+5</span>
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  <span className="text-sm" style={{ color: colors.text.secondary }}>Abnormal Lines Changed</span>
-                  <span className="text-sm font-medium text-yellow-500">+3</span>
-                </div>
+                {commit.scoreBreakdown && commit.scoreBreakdown.length > 0 ? (
+                  commit.scoreBreakdown.map((item, index) => {
+                    // Determine color based on points
+                    let pointColor: string = colors.text.secondary
+                    if (item.points >= 5) {
+                      pointColor = 'rgb(239, 68, 68)' // Red for high points
+                    } else if (item.points >= 3) {
+                      pointColor = 'rgb(245, 158, 11)' // Orange for medium points
+                    } else {
+                      pointColor = 'rgb(234, 179, 8)' // Yellow for low points
+                    }
+                    
+                    return (
+                      <div key={index} className="flex items-center gap-2" title={item.reason}>
+                        <span className="text-sm" style={{ color: colors.text.secondary }}>
+                          {item.factor}
+                        </span>
+                        <span className="text-sm font-medium" style={{ color: pointColor }}>
+                          +{item.points.toFixed(1)}
+                        </span>
+                      </div>
+                    )
+                  })
+                ) : (
+                  <div className="text-sm" style={{ color: colors.text.secondary }}>
+                    No anomaly factors detected
+                  </div>
+                )}
               </div>
             </div>
 
@@ -231,25 +288,33 @@ function CommitItem({ commit, isLast = false }: CommitItemProps) {
                     <div className="flex items-center gap-3">
                       <GitBranch className="h-4 w-4" style={{ color: colors.text.secondary }} />
                       <span className="text-sm" style={{ color: colors.text.secondary }}>Total Commits</span>
-                      <span className="text-sm font-medium" style={{ color: colors.text.primary }}>47</span>
+                      <span className="text-sm font-medium" style={{ color: colors.text.primary }}>
+                        {commit.contributorProfile.totalCommits || 0}
+                      </span>
                     </div>
                     
                     <div className="flex items-center gap-3">
                       <Plus className="h-4 w-4 text-green-400" />
                       <span className="text-sm" style={{ color: colors.text.secondary }}>Average Lines Added</span>
-                      <span className="text-sm font-medium" style={{ color: colors.text.primary }}>{commit.contributorProfile.avgLinesChanged.added} ± 15</span>
+                      <span className="text-sm font-medium" style={{ color: colors.text.primary }}>
+                        {commit.contributorProfile.avgLinesChanged.added.toFixed(1)} ± {commit.contributorProfile.stddevLinesChanged?.added?.toFixed(1) || '0.0'}
+                      </span>
                     </div>
                     
                     <div className="flex items-center gap-3">
                       <Minus className="h-4 w-4 text-red-400" />
                       <span className="text-sm" style={{ color: colors.text.secondary }}>Average Lines Deleted</span>
-                      <span className="text-sm font-medium" style={{ color: colors.text.primary }}>{commit.contributorProfile.avgLinesChanged.deleted} ± 8</span>
+                      <span className="text-sm font-medium" style={{ color: colors.text.primary }}>
+                        {commit.contributorProfile.avgLinesChanged.deleted.toFixed(1)} ± {commit.contributorProfile.stddevLinesChanged?.deleted?.toFixed(1) || '0.0'}
+                      </span>
                     </div>
                     
                     <div className="flex items-center gap-3">
                       <FileIcon className="h-4 w-4" style={{ color: colors.text.secondary }} />
                       <span className="text-sm" style={{ color: colors.text.secondary }}>Average Files Changed</span>
-                      <span className="text-sm font-medium" style={{ color: colors.text.primary }}>{commit.contributorProfile.avgFilesChanged} ± 1.2</span>
+                      <span className="text-sm font-medium" style={{ color: colors.text.primary }}>
+                        {commit.contributorProfile.avgFilesChanged.toFixed(1)} ± {commit.contributorProfile.stddevFilesChanged?.toFixed(1) || '0.0'}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -286,9 +351,14 @@ function CommitItem({ commit, isLast = false }: CommitItemProps) {
   )
 }
 
-export default function CommitTimeline() {
+interface CommitTimelineProps {
+  commits?: CommitData[]
+  isLoading?: boolean
+}
+
+export default function CommitTimeline({ commits = [], isLoading = false }: CommitTimelineProps) {
   const [isVisible, setIsVisible] = useState(false)
-  const commitGroups = groupCommitsByDate(dummyCommits)
+  const commitGroups = groupCommitsByDate(commits)
   const sortedDates = Object.keys(commitGroups).sort((a, b) => {
     // Sort dates in descending order (most recent first)
     return new Date(b).getTime() - new Date(a).getTime()
@@ -298,6 +368,24 @@ export default function CommitTimeline() {
     const timer = setTimeout(() => setIsVisible(true), 100)
     return () => clearTimeout(timer)
   }, [])
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin" style={{ color: colors.text.secondary }} />
+      </div>
+    )
+  }
+
+  if (commits.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-sm" style={{ color: colors.text.secondary }}>
+          No commits available yet.
+        </p>
+      </div>
+    )
+  }
 
   return (
     <div className={`space-y-0 transition-all duration-700 ${isVisible ? 'opacity-100' : 'opacity-0'}`}>
