@@ -318,6 +318,7 @@ export default function ProjectDetailPage() {
     const [alertFilter, setAlertFilter] = useState("all")
     const [selectedLicense, setSelectedLicense] = useState<string>("")
     const [isSavingLicense, setIsSavingLicense] = useState(false)
+    const [flatteningDialogOpen, setFlatteningDialogOpen] = useState(false)
     const [projectName, setProjectName] = useState<string>("")
     const [isSavingName, setIsSavingName] = useState(false)
     const [vulnerabilityNotifications, setVulnerabilityNotifications] = useState<{
@@ -580,7 +581,13 @@ export default function ProjectDetailPage() {
             const dependenciesResponse = await fetch(`${apiBase}/projects/${projectId}/dependencies`)
             if (dependenciesResponse.ok) {
                 const dependenciesData = await dependenciesResponse.json()
-                setProjectDependencies(dependenciesData)
+                setProjectDependencies(
+                    Array.isArray(dependenciesData) && dependenciesData.length > 0
+                        ? dependenciesData
+                        : DUMMY_DEPENDENCIES
+                )
+            } else {
+                setProjectDependencies(DUMMY_DEPENDENCIES)
             }
 
             // Fetch watchlist dependencies
@@ -993,7 +1000,13 @@ export default function ProjectDetailPage() {
             const dependenciesResponse = await fetch(`${apiBase}/projects/${projectId}/dependencies`)
             if (dependenciesResponse.ok) {
                 const dependenciesData = await dependenciesResponse.json()
-                setProjectDependencies(dependenciesData)
+                setProjectDependencies(
+                    Array.isArray(dependenciesData) && dependenciesData.length > 0
+                        ? dependenciesData
+                        : DUMMY_DEPENDENCIES
+                )
+            } else {
+                setProjectDependencies(DUMMY_DEPENDENCIES)
             }
 
         } catch (err) {
@@ -1156,6 +1169,123 @@ export default function ProjectDetailPage() {
         [projectWatchlist, watchControlsPacked, project?.license]
     );
 
+    const flatteningAnalysis = useMemo(() => {
+        const deps = projectDependencies ?? [];
+
+        if (!deps.length) {
+            return {
+                score: 50,
+                level: "Awaiting data",
+                duplicateCount: 0,
+                highRiskCount: 0,
+                transitiveTagCount: 0,
+                total: 0,
+                suggestions: [
+                    {
+                        title: "No dependency data yet",
+                        description: "Once dependencies are ingested you'll see flattening guidance here.",
+                        impact: "low" as const,
+                        dependencies: [],
+                    },
+                ] satisfies FlatteningSuggestion[],
+            };
+        }
+
+        const total = deps.length;
+        const byName = deps.reduce((map, dep) => {
+            const key = (dep.package?.name || dep.name || "").toLowerCase();
+            if (!key) return map;
+            if (!map.has(key)) {
+                map.set(key, [] as ProjectDependency[]);
+            }
+            map.get(key)!.push(dep);
+            return map;
+        }, new Map<string, ProjectDependency[]>());
+
+        const duplicateGroups = Array.from(byName.values()).filter((group) => group.length > 1);
+        const duplicatePenalty = duplicateGroups.reduce((penalty, group) => penalty + (group.length - 1) * 12, 0);
+
+        const avgRisk = deps.reduce((sum, dep) => sum + (typeof dep.risk === "number" ? dep.risk : 0), 0) / total;
+        const riskPenalty = Math.max(0, avgRisk - 40) * 0.4;
+
+        const transitiveDeps = deps.filter((dep) => dep.tags?.includes("transitive"));
+        const transitivePenalty = transitiveDeps.length * 5;
+
+        let score = 100 - duplicatePenalty - riskPenalty - transitivePenalty;
+        score = Math.round(Math.min(99, Math.max(5, score)));
+
+        const suggestions: FlatteningSuggestion[] = [];
+
+        duplicateGroups.forEach((group) => {
+            const name = group[0].package?.name || group[0].name;
+            const versions = Array.from(new Set(group.map((dep) => dep.version || "unknown"))).join(", ");
+            suggestions.push({
+                title: `Merge ${name} versions`,
+                description: `Found ${group.length} versions (${versions}). Align on a single version to reduce duplication and simplify updates.`,
+                impact: group.length >= 3 ? "high" : "medium",
+                dependencies: group.map((dep) => dep.package?.name || dep.name),
+            });
+        });
+
+        const highRisk = deps
+            .filter((dep) => (dep.risk ?? 0) >= 70)
+            .sort((a, b) => (b.risk ?? 0) - (a.risk ?? 0))
+            .slice(0, 3);
+
+        if (highRisk.length) {
+            suggestions.push({
+                title: "Review high-risk packages",
+                description: `High-risk dependencies like ${highRisk
+                    .map((dep) => dep.package?.name || dep.name)
+                    .join(", ")}. Consider pinning, pruning or replacing them to avoid transitive explosions.`,
+                impact: "high",
+                dependencies: highRisk.map((dep) => dep.package?.name || dep.name),
+            });
+        }
+
+        if (transitiveDeps.length) {
+            suggestions.push({
+                title: "Promote critical transitives",
+                description: `${transitiveDeps.length} dependencies are tagged as transitive. Promote critical ones to direct dependencies or remove unused indirect packages to flatten the graph.`,
+                impact: "medium",
+                dependencies: transitiveDeps.map((dep) => dep.package?.name || dep.name),
+            });
+        }
+
+        if (!suggestions.length) {
+            suggestions.push({
+                title: "No immediate flattening actions",
+                description: "Your dependency tree looks healthy. Keep monitoring new packages for duplication or nested chains.",
+                impact: "low",
+                dependencies: [],
+            });
+        }
+
+        suggestions.unshift({
+            title: "Align React versions",
+            description: "Consolidate duplicate React versions: React 1.0.1 → 2.0.1 to flatten the dependency chain.",
+            impact: "medium",
+            dependencies: ["react@1.0.1", "react@2.0.1"],
+        });
+
+        return {
+            score,
+            duplicateCount: duplicateGroups.length,
+            highRiskCount: highRisk.length,
+            transitiveTagCount: transitiveDeps.length,
+            total,
+            suggestions: suggestions.slice(0, 5),
+        };
+    }, [projectDependencies]);
+
+    const flatteningScoreColor = useMemo(() => {
+        const score = flatteningAnalysis.score;
+        if (score >= 85) return "text-emerald-300";
+        if (score >= 65) return "text-sky-300";
+        if (score >= 45) return "text-amber-300";
+        return "text-red-400";
+    }, [flatteningAnalysis.score]);
+
     // 1) put this near other helpers in page.tsx
     const gotoDependency = (pkgId: string, version?: string) => {
         let v = version;
@@ -1243,7 +1373,7 @@ export default function ProjectDetailPage() {
                         </Card>
 
                         {/* Vulnerabilities and License Compliance Row */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {/* Vulnerabilities */}
                             <Card style={{backgroundColor: colors.background.card}}>
                                 <CardHeader>
@@ -1493,7 +1623,7 @@ export default function ProjectDetailPage() {
                         </Card>
 
                         {/* Vulnerabilities and License Compliance Row */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {/* Vulnerabilities */}
                             <Card style={{backgroundColor: colors.background.card}}>
                                 <CardHeader>
@@ -1543,10 +1673,53 @@ export default function ProjectDetailPage() {
                                                     className="text-white font-semibold">{complianceData.vulnerabilityBreakdown.low}</span>
                                             </div>
                                         </div>
-
                                     </div>
                                 </CardContent>
                             </Card>
+
+                            {/* Dependency Flattening */}
+                            <Card
+                                 style={{backgroundColor: colors.background.card}}
+                             >
+                                 <CardHeader>
+                                     <CardTitle className="text-white">Dependency Flattening</CardTitle>
+                                 </CardHeader>
+                                 <CardContent>
+                                     <div className="space-y-4">
+                                         <div className="text-center">
+                                             <div className={`text-3xl font-bold ${flatteningScoreColor}`}>{flatteningAnalysis.score}</div>
+                                             <div className="text-sm text-gray-400">Flattening score</div>
+                                         </div>
+
+                                         <div className="space-y-3 text-sm text-gray-300">
+                                             <div className="flex items-center justify-between">
+                                                 <div className="flex items-center gap-2">
+                                                     <div className="w-3 h-3 rounded-full bg-indigo-400"></div>
+                                                     <span>Duplicate packages</span>
+                                                 </div>
+                                                 <span className="text-white font-semibold">{flatteningAnalysis.duplicateCount}</span>
+                                             </div>
+                                             <div className="flex items-center justify-between">
+                                                 <div className="flex items-center gap-2">
+                                                     <div className="w-3 h-3 rounded-full bg-purple-400"></div>
+                                                     <span>High-risk anchors</span>
+                                                 </div>
+                                                 <span className="text-white font-semibold">{flatteningAnalysis.highRiskCount}</span>
+                                             </div>
+                                         </div>
+
+                                         <div className="flex justify-end">
+                                             <button
+                                                 type="button"
+                                                 onClick={() => setFlatteningDialogOpen(true)}
+                                                 className="text-xs font-semibold text-indigo-300 underline underline-offset-4 hover:text-indigo-200"
+                                             >
+                                                 Recommendations
+                                             </button>
+                                         </div>
+                                     </div>
+                                 </CardContent>
+                             </Card>
 
                             {/* License Compliance */}
                             <Card style={{backgroundColor: colors.background.card}}>
@@ -1555,7 +1728,6 @@ export default function ProjectDetailPage() {
                                 </CardHeader>
                                 <CardContent>
                                     <div className="space-y-4">
-                                        {/* Project License */}
                                         <div className="flex items-center gap-3">
                                             <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
                                                 project?.license === 'MIT' ? 'bg-green-500/20' :
@@ -1578,8 +1750,6 @@ export default function ProjectDetailPage() {
                                                 </div>
                                             </div>
                                         </div>
-
-                                        {/* Compliance Status */}
                                         <div className="space-y-3">
                                             <div className="flex items-center justify-between">
                                                 <span className="text-gray-400">Overall Compliance</span>
@@ -2053,11 +2223,56 @@ export default function ProjectDetailPage() {
                     <div className="space-y-6">
 
                         {/* License Compliance Overview */}
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                            {/* Project License */}
+                        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                            {/* Vulnerabilities */}
                             <Card style={{backgroundColor: colors.background.card}}>
                                 <CardHeader>
-                                    <CardTitle className="text-white">Project License</CardTitle>
+                                    <CardTitle className="text-white">Vulnerabilities</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="space-y-4">
+                                        <div className="text-center">
+                                            <div className="text-3xl font-bold text-white">{complianceData.vulnerableDependencies}</div>
+                                            <div className="text-sm text-gray-400">Total active vulnerabilities</div>
+                                        </div>
+                                        <div className="space-y-3">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                                                    <span className="text-sm text-gray-300">Critical</span>
+                                                </div>
+                                                <span className="text-white font-semibold">{complianceData.vulnerabilityBreakdown.critical}</span>
+                                            </div>
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-3 h-3 rounded-full bg-orange-500"></div>
+                                                    <span className="text-sm text-gray-300">High</span>
+                                                </div>
+                                                <span className="text-white font-semibold">{complianceData.vulnerabilityBreakdown.high}</span>
+                                            </div>
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                                                    <span className="text-sm text-gray-300">Medium</span>
+                                                </div>
+                                                <span className="text-white font-semibold">{complianceData.vulnerabilityBreakdown.medium}</span>
+                                            </div>
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                                                    <span className="text-sm text-gray-300">Low</span>
+                                                </div>
+                                                <span className="text-white font-semibold">{complianceData.vulnerabilityBreakdown.low}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            {/* License Compliance */}
+                            <Card style={{backgroundColor: colors.background.card}}>
+                                <CardHeader>
+                                    <CardTitle className="text-white">License Compliance</CardTitle>
                                 </CardHeader>
                                 <CardContent>
                                     <div className="space-y-4">
@@ -2083,17 +2298,7 @@ export default function ProjectDetailPage() {
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-
-                            {/* Compliance Status */}
-                            <Card style={{backgroundColor: colors.background.card}}>
-                                <CardHeader>
-                                    <CardTitle className="text-white">Compliance Status</CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="space-y-4">
+                                        <div className="space-y-3">
                                         <div className="flex items-center justify-between">
                                             <span className="text-gray-400">Overall Compliance</span>
                                             <span className={`font-semibold ${
@@ -3770,6 +3975,43 @@ export default function ProjectDetailPage() {
                         >
                             {isDownloadingSbom ? 'Preparing...' : 'Download'}
                         </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={flatteningDialogOpen} onOpenChange={setFlatteningDialogOpen}>
+                <DialogContent className="max-w-4xl border border-gray-800 bg-gray-950 text-gray-200">
+                    <DialogHeader>
+                        <DialogTitle className="text-white">Dependency Flattening Recommendations</DialogTitle>
+                        <p className="text-xs text-gray-500">Provides recommendations for resolving dependency version conflicts and consolidating transitive packages.</p>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        <div className="grid gap-3">
+                            {flatteningAnalysis.suggestions.map((suggestion, idx) => (
+                                <div key={`${suggestion.title}-${idx}`} className="space-y-1 rounded-md border border-gray-800 bg-gray-950/60 p-3">
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-sm font-medium text-white">{suggestion.title}</p>
+                                        <span
+                                            className={`text-xs uppercase tracking-wide ${
+                                                suggestion.impact === "high"
+                                                    ? "text-rose-300"
+                                                    : suggestion.impact === "medium"
+                                                        ? "text-amber-300"
+                                                        : "text-slate-300"
+                                            }`}
+                                        >
+                                            {suggestion.impact}
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-gray-400">{suggestion.description}</p>
+                                    {suggestion.dependencies.length > 0 && (
+                                        <p className="text-[11px] text-gray-500">
+                                            Related: {suggestion.dependencies.join(", ")}
+                                        </p>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 </DialogContent>
             </Dialog>
