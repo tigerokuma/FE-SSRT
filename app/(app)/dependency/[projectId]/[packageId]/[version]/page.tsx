@@ -35,6 +35,7 @@ export default function DependencyDetailsPage() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false)
   const [summaryGenerated, setSummaryGenerated] = useState(false)
+  const [commitSummary, setCommitSummary] = useState<string>('')
   const [packageVersions, setPackageVersions] = useState<any[]>([])
   const [versionsLoading, setVersionsLoading] = useState(false)
   const [monthlyCommits, setMonthlyCommits] = useState<any[]>([])
@@ -585,6 +586,63 @@ export default function DependencyDetailsPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentTab, packageId])
+
+  // Generate commit summary using Gemini API
+  const generateCommitSummary = async () => {
+    if (!packageId || commits.length === 0) {
+      console.error('No commits available to summarize')
+      return
+    }
+
+    try {
+      setIsGeneratingSummary(true)
+      
+      // Transform commits to match backend format
+      const commitsForSummary = commits.map((commit: any) => ({
+        sha: commit.id,
+        author: commit.contributor.name,
+        author_email: '', // Not needed for summary
+        message: commit.message,
+        timestamp: commit.date?.toISOString() || new Date().toISOString(),
+        lines_added: commit.linesAdded,
+        lines_deleted: commit.linesDeleted,
+        files_changed: commit.filesChanged,
+        anomaly_score: commit.anomalyScore || 0,
+      }))
+
+      const apiUrl = `${apiBase}/packages/${packageId}/commits/summarize`
+      console.log('🔍 Generating commit summary from:', apiUrl)
+      
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          commits: commitsForSummary,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('❌ Summary API Error:', errorText)
+        throw new Error(`Failed to generate summary: ${response.status} ${response.statusText}`)
+      }
+
+      const data = await response.json()
+      console.log('✅ Summary received:', data)
+      
+      setCommitSummary(data.summary || '')
+      setSummaryGenerated(true)
+    } catch (err) {
+      console.error('💥 Error generating summary:', err)
+      // Still show generated state with error message
+      setCommitSummary('Failed to generate summary. Please try again.')
+      setSummaryGenerated(true)
+    } finally {
+      setIsGeneratingSummary(false)
+    }
+  }
 
   // Remove loading state - show tabs immediately like projects screen
 
@@ -1306,14 +1364,8 @@ export default function DependencyDetailsPage() {
                       variant="outline" 
                       size="sm" 
                       className="border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white"
-                      onClick={() => {
-                        setIsGeneratingSummary(true);
-                        setTimeout(() => {
-                          setIsGeneratingSummary(false);
-                          setSummaryGenerated(true);
-                        }, 2000);
-                      }}
-                      disabled={isGeneratingSummary}
+                      onClick={generateCommitSummary}
+                      disabled={isGeneratingSummary || commits.length === 0}
                     >
                       {isGeneratingSummary ? (
                         <>
@@ -1340,9 +1392,7 @@ export default function DependencyDetailsPage() {
                     <h3 className="text-lg font-semibold" style={{ color: colors.text.primary }}>Commit Summary</h3>
                   </div>
                   <p className="text-base leading-relaxed" style={{ color: colors.text.secondary }}>
-                    Based on the recent commit activity, this package shows consistent development with 4 commits over the past week. 
-                    The commits include security fixes, performance optimizations, and new features. 
-                    The development team appears active with regular contributions from multiple developers.
+                    {commitSummary || 'Summary generated successfully.'}
                   </p>
                 </div>
               )}
