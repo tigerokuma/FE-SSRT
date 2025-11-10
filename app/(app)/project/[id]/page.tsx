@@ -201,6 +201,64 @@ interface ProjectDependency {
     }
 }
 
+type FlatteningSuggestion = {
+    title: string
+    description: string
+    impact: "high" | "medium" | "low"
+    dependencies: string[]
+}
+
+const DUMMY_DEPENDENCIES: ProjectDependency[] = [
+    {
+        id: 'dummy-react',
+        name: 'react',
+        version: '18.2.0',
+        risk: 35,
+        tags: ['ui', 'framework'],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        package_id: 'pkg-react',
+        package: {
+            id: 'pkg-react',
+            name: 'react',
+            status: 'done',
+            license: 'MIT',
+            stars: 210000,
+            contributors: 1600,
+            summary: 'The React JavaScript library for building user interfaces.',
+            total_score: 85,
+            activity_score: 90,
+            vulnerability_score: 80,
+            bus_factor_score: 75,
+            scorecard_score: 88,
+        },
+    },
+    {
+        id: 'dummy-lodash',
+        name: 'lodash',
+        version: '4.17.21',
+        risk: 20,
+        tags: ['utility'],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        package_id: 'pkg-lodash',
+        package: {
+            id: 'pkg-lodash',
+            name: 'lodash',
+            status: 'done',
+            license: 'MIT',
+            stars: 55000,
+            contributors: 650,
+            summary: 'A modern JavaScript utility library delivering modularity, performance, and extras.',
+            total_score: 78,
+            activity_score: 72,
+            vulnerability_score: 82,
+            bus_factor_score: 68,
+            scorecard_score: 80,
+        },
+    },
+];
+
 interface WatchlistDependency {
     id: string
     name: string
@@ -2054,28 +2112,6 @@ export default function ProjectDetailPage() {
                         {complianceData.licenseConflicts}
                       </span>
                                         </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-
-                            {/* SBOM Download */}
-                            <Card style={{backgroundColor: colors.background.card}}>
-                                <CardHeader>
-                                    <CardTitle className="text-white">Software Bill of Materials</CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="space-y-4">
-                                        <Button
-                                            className="w-full hover:opacity-90 text-white"
-                                            style={{backgroundColor: colors.primary}}
-                                            onClick={() => setShowSbomDownloadDialog(true)}
-                                        >
-                                            <Download className="h-4 w-4 mr-2"/>
-                                            Download SBOM
-                                        </Button>
-                                        <div className="text-xs text-gray-500">
-                                            Last
-                                            updated: {project?.updated_at ? formatRelativeDate(project.updated_at) : 'Unknown'}
                                         </div>
                                     </div>
                                 </CardContent>
