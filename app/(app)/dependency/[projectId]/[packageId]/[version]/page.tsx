@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useLayoutEffect, useRef } from "react"
+import { useState, useEffect, useLayoutEffect, useRef, useMemo } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -11,8 +11,7 @@ import { cn } from "@/lib/utils"
 import { colors } from "@/lib/design-system"
 import CommitTimeline from "@/components/dependencies/CommitTimeline"
 import { HealthScoreChart } from "@/components/health-score-chart"
-import { DependencyAlertCard } from "@/components/dependencies/DependencyAlertCard"
-import { DependencyAlertSettings } from "@/components/dependencies/DependencyAlertSettings"
+import { AlertsCard, AlertItem, AlertKind } from "@/components/alerts/AlertsCard"
 import {
   Dialog,
   DialogContent,
@@ -20,7 +19,11 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
 } from "@/components/ui/dialog"
+import { Slider } from "@/components/ui/slider"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 export default function DependencyDetailsPage() {
   const params = useParams()
@@ -33,6 +36,12 @@ export default function DependencyDetailsPage() {
   const [showScorecardModal, setShowScorecardModal] = useState(false)
   const [selectedScorecardData, setSelectedScorecardData] = useState<any>(null)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [alertSettings, setAlertSettings] = useState({
+    anomaly_threshold: 50.0,
+    vulnerability_threshold: "medium" as "low" | "medium" | "high" | "critical"
+  })
+  const [isLoadingSettings, setIsLoadingSettings] = useState(false)
+  const [isSavingSettings, setIsSavingSettings] = useState(false)
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false)
   const [summaryGenerated, setSummaryGenerated] = useState(false)
   const [commitSummary, setCommitSummary] = useState<string>('')
@@ -44,8 +53,18 @@ export default function DependencyDetailsPage() {
   const [commitsLoading, setCommitsLoading] = useState(false)
   const tabRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({})
   
+  // Extract params early
+  const projectId = params.projectId as string
+  const packageId = params.packageId as string
+  const version = params.version as string
+  
+  // Alert filtering state
+  const [alertSearch, setAlertSearch] = useState("")
+  const [alertTypeFilter, setAlertTypeFilter] = useState<"all" | AlertKind>("all")
+  const [showResolvedAlerts, setShowResolvedAlerts] = useState(false)
+  
   // Check if this is a watchlist package
-  const isWatchlistPackage = params.version === 'watchlist'
+  const isWatchlistPackage = version === 'watchlist'
 
   // Mock data for overview tab
   const [selectedHealthData, setSelectedHealthData] = useState<{ date: string; score: number } | null>(null)
@@ -230,117 +249,192 @@ export default function DependencyDetailsPage() {
       shadow: 'hover:shadow-red-500/10'
     }
   }
-  const scoreBreakdown = {
-    activity: 95,
-    busFactor: 95,
-    supplyChain: 85,
-    legalCompliance: 100,
-    health: 67,
-    vulnerability: 10
-  }
-
-  const vulnerabilities = [
-    {
-      id: "CVE-2025-4567",
-      title: "Improper neutralization of input during web page generate",
-      severity: "MODERATE" as const,
-      description: "Improper neutralization of input during web page generate"
-    }
-  ]
-
-  // Mock alerts data
-  const dependencyAlerts = [
-    {
-      id: "alert-1",
-      type: "suspicious_commit_behavior",
-      title: "Suspicious Commit Behavior Detected",
-      description: "Unusual commit pattern detected with 2,500 lines changed in a single commit, significantly above normal contributor patterns.",
-      severity: "high" as const,
-      status: "open" as const,
-      createdAt: "2024-01-15T10:30:00Z",
-      timeAgo: "2 hours ago",
-      value: 2500,
-      thresholdValue: 1000,
-      commitSha: "a1b2c3d4e5f6",
-      contributor: "dev-user-123"
-    },
-    {
-      id: "alert-2",
-      type: "health_score_drop",
-      title: "Package Health Score Dropped",
-      description: "Package health score decreased by 2.3 points from 6.1 to 3.8, indicating potential maintenance issues.",
-      severity: "medium" as const,
-      status: "open" as const,
-      createdAt: "2024-01-14T15:45:00Z",
-      timeAgo: "1 day ago",
-      value: 3.8,
-      thresholdValue: 5.0
-    },
-    {
-      id: "alert-3",
-      type: "vulnerability_detected",
-      title: "New Vulnerability Reported",
-      description: "CVE-2025-4567 detected in current version with MODERATE severity. Improper neutralization of input during web page generation.",
-      severity: "medium" as const,
-      status: "open" as const,
-      createdAt: "2024-01-13T09:15:00Z",
-      timeAgo: "2 days ago"
-    },
-    {
-      id: "alert-4",
-      type: "package_score_drop",
-      title: "Package Score Decreased",
-      description: "Overall package score dropped by 8 points from 28 to 20, indicating declining project health.",
-      severity: "high" as const,
-      status: "open" as const,
-      createdAt: "2024-01-12T14:20:00Z",
-      timeAgo: "3 days ago",
-      value: 20,
-      thresholdValue: 25
-    },
-    {
-      id: "alert-5",
-      type: "files_changed",
-      title: "Unusual File Change Pattern",
-      description: "Commit modified 45 files, which is 3.2x above the contributor's normal pattern and 2.8x above repository average.",
-      severity: "low" as const,
-      status: "resolved" as const,
-      createdAt: "2024-01-10T11:30:00Z",
-      timeAgo: "5 days ago",
-      value: 45,
-      thresholdValue: 20,
-      commitSha: "f7e8d9c0b1a2",
-      contributor: "maintainer-456"
-    }
-  ]
-
   // Health data selection handler
   const handleHealthDataSelect = (data: { date: string; score: number }) => {
     setSelectedHealthData(data)
   }
 
-  // Alert handlers
-  const handleResolveAlert = async (alertId: string) => {
-    console.log('Resolving alert:', alertId)
-    // In a real implementation, this would call an API
-    // For now, just log the action
+  // Fetch alerts from backend API
+  const generateAlerts = async (): Promise<AlertItem[]> => {
+    const id = packageData?.id || packageId
+    const name = packageData?.name || packageId
+
+    try {
+      const response = await fetch(
+        `${apiBase}/packages/project/${projectId}/package/${packageId}/alerts`
+      )
+      
+      if (!response.ok) {
+        console.error('Failed to fetch alerts:', response.statusText)
+        return []
+      }
+
+      const backendAlerts = await response.json()
+      
+      // Map backend alerts to frontend AlertItem format
+      return backendAlerts.map((alert: any) => {
+        if (alert.alert_type === 'vulnerability') {
+          const vulnDetails = alert.vulnerability_details || {}
+          return {
+            id: alert.id,
+            source: "dependency" as const,
+            pkg: { id, name },
+            kind: "vulnerability" as const,
+            severity: (alert.severity || 'low') as "critical" | "high" | "medium" | "low",
+            message: vulnDetails.summary || `Vulnerability detected: ${alert.vulnerability_id || 'Unknown'}`,
+            detectedAt: alert.detected_at || alert.created_at,
+            status: (alert.status || 'unread') as "unread" | "read" | "resolved",
+            activity: {
+              metric: "vulnerability",
+              value: undefined,
+              commitSha: undefined,
+              analysisDate: alert.detected_at || alert.created_at,
+            },
+          }
+        } else if (alert.alert_type === 'anomaly') {
+          const scoreBreakdown = (alert.score_breakdown || []) as Array<{
+            factor: string;
+            points: number;
+            reason: string;
+          }>
+          const factorCount = scoreBreakdown.length
+          const score = alert.anomaly_score?.toFixed(1) || '0'
+          
+          // Format factor names to be more readable
+          const formatFactorName = (factor: string): string => {
+            const factorMap: Record<string, string> = {
+              'files_changed': 'Files Changed',
+              'lines_changed': 'Lines Changed',
+              'message_length': 'Message Length',
+              'insert_delete_ratio': 'Insert/Delete Ratio',
+              'abnormal_time': 'Abnormal Time',
+              'abnormal_day': 'Abnormal Day',
+              'new_files': 'New Files',
+            }
+            return factorMap[factor] || factor.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+          }
+          
+          // Build breakdown text
+          let breakdownText = ''
+          if (scoreBreakdown.length > 0) {
+            const breakdownItems = scoreBreakdown.map(item => 
+              `${formatFactorName(item.factor)}: +${item.points.toFixed(1)}`
+            ).join(', ')
+            breakdownText = ` (${breakdownItems})`
+          }
+          
+          let message = `Commit generated anomaly score of ${score}${breakdownText}`
+          
+          return {
+            id: alert.id,
+            source: "dependency" as const,
+            pkg: { id, name },
+            kind: "anomaly" as const,
+            // Don't set severity for anomalies - only for vulnerabilities
+            message: message,
+            detectedAt: alert.detected_at || alert.created_at,
+            status: (alert.status || 'unread') as "unread" | "read" | "resolved",
+            activity: {
+              metric: "anomaly_score",
+              value: alert.anomaly_score,
+              commitSha: alert.commit_sha,
+              analysisDate: alert.detected_at || alert.created_at,
+            },
+          }
+        }
+        
+        // Fallback for unknown alert types
+        return {
+          id: alert.id,
+          source: "dependency" as const,
+          pkg: { id, name },
+          kind: "vulnerability" as const,
+          message: 'Unknown alert type',
+          detectedAt: alert.detected_at || alert.created_at,
+          status: (alert.status || 'unread') as "unread" | "read" | "resolved",
+        }
+      })
+    } catch (err) {
+      console.error('Error fetching alerts:', err)
+      return []
+    }
+  }
+  const [dependencyAlerts, setDependencyAlerts] = useState<AlertItem[]>([])
+  
+  useEffect(() => {
+    if (packageData && packageId && projectId) {
+      generateAlerts().then(setDependencyAlerts)
+    }
+  }, [packageData, packageId, projectId, alertSettings])
+
+  // Load alert settings when dialog opens
+  useEffect(() => {
+    if (isSettingsOpen && projectId && packageId) {
+      loadAlertSettings()
+    }
+  }, [isSettingsOpen, projectId, packageId])
+
+  // Load alert settings from backend
+  const loadAlertSettings = async () => {
+    try {
+      setIsLoadingSettings(true)
+      const response = await fetch(
+        `${apiBase}/packages/project/${projectId}/package/${packageId}/alert-settings`
+      )
+      if (!response.ok) {
+        throw new Error('Failed to load alert settings')
+      }
+      const data = await response.json()
+      setAlertSettings({
+        anomaly_threshold: data.anomaly_threshold || 50.0,
+        vulnerability_threshold: data.vulnerability_threshold || "medium"
+      })
+    } catch (err) {
+      console.error('Error loading alert settings:', err)
+      // Keep default values
+    } finally {
+      setIsLoadingSettings(false)
+    }
   }
 
-  const handleSendToJira = async (alertId: string) => {
-    console.log('Sending alert to Jira:', alertId)
-    // In a real implementation, this would call an API to create a Jira ticket
-    // For now, just log the action
+  // Handle settings dialog
+  const handleOpenSettings = () => {
+    setIsSettingsOpen(true)
   }
 
-  const handleSaveSettings = async (settings: any) => {
-    console.log('Saving alert settings:', settings)
-    // In a real implementation, this would save the settings
-    setIsSettingsOpen(false)
+  const handleSaveSettings = async () => {
+    try {
+      setIsSavingSettings(true)
+      const response = await fetch(
+        `${apiBase}/packages/project/${projectId}/package/${packageId}/alert-settings`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(alertSettings),
+        }
+      )
+      if (!response.ok) {
+        throw new Error('Failed to save alert settings')
+      }
+      setIsSettingsOpen(false)
+      // Refresh alerts with new settings
+      generateAlerts().then(setDependencyAlerts)
+    } catch (err) {
+      console.error('Error saving alert settings:', err)
+      // Optionally show an error message
+    } finally {
+      setIsSavingSettings(false)
+    }
   }
 
-  const projectId = params.projectId as string
-  const packageId = params.packageId as string
-  const version = params.version as string
+  // Handle alert click
+  const handleAlertClick = (alert: AlertItem) => {
+    // For a single dependency view, we're already on the dependency page
+    // Could navigate to activity tab if needed, but for now just log
+    console.log('Alert clicked:', alert)
+  }
 
   // Use Next.js API proxy to add authentication headers
   const apiBase = "/api/backend"
@@ -1407,54 +1501,217 @@ export default function DependencyDetailsPage() {
             {/* Alerts Header */}
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-2xl font-bold text-white mb-2">Dependency Alerts</h2>
+                <h2 className="text-2xl font-bold text-white mb-2">Package Alerts</h2>
                 <p className="text-gray-400">
-                  Monitor security and activity alerts for {packageId} v{version} in project {projectId}
+                  Monitor security and activity alerts for {packageData?.name || packageId}
                 </p>
               </div>
-              <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
-                <DialogTrigger asChild>
-                  <Button variant="outline" size="sm" className="border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white">
-                    <Settings className="mr-2 h-4 w-4" />
-                    Settings
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden">
-                  <DialogHeader>
-                    <DialogTitle>Alert Settings</DialogTitle>
-                    <DialogDescription>
-                      Configure notification preferences for dependency alerts
-                    </DialogDescription>
-                  </DialogHeader>
-                  <DependencyAlertSettings 
-                    onClose={() => setIsSettingsOpen(false)}
-                    onSave={handleSaveSettings}
-                  />
-                </DialogContent>
-              </Dialog>
+              <Button
+                variant="outline"
+                onClick={handleOpenSettings}
+                className="text-sm border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white"
+                style={{
+                  backgroundColor: colors.background.card,
+                  borderColor: colors.border.default,
+                  color: colors.text.primary,
+                }}
+              >
+                <Settings className="mr-2 h-4 w-4" />
+                Alert Settings
+              </Button>
             </div>
 
-            {/* Alerts Grid */}
-            {dependencyAlerts.length === 0 ? (
-              <div className="flex flex-col items-center justify-center rounded-lg border bg-card p-8" style={{ backgroundColor: colors.background.card }}>
-                <AlertTriangle className="h-12 w-12 text-muted-foreground" />
-                <h3 className="mt-4 text-lg font-medium" style={{ color: colors.text.primary }}>No Alerts Found</h3>
-                <p className="mt-2 text-sm text-muted-foreground text-center" style={{ color: colors.text.secondary }}>
-                  No alerts have been triggered for this dependency yet.
-                </p>
+            {/* Single Alerts Card with Custom Filter */}
+            <div className="space-y-4">
+              {/* Custom Filter Row */}
+              <div className="flex items-center gap-2">
+                <select
+                  value={alertTypeFilter}
+                  onChange={(e) => setAlertTypeFilter(e.target.value as "all" | AlertKind)}
+                  className="rounded-md px-3 py-2 text-sm"
+                  style={{
+                    backgroundColor: colors.background.card,
+                    borderColor: colors.border.default,
+                    color: colors.text.primary,
+                  }}
+                >
+                  <option value="all">All alert types</option>
+                  <option value="anomaly">Anomaly Commits</option>
+                  <option value="vulnerability">Vulnerabilities Detected</option>
+                </select>
               </div>
-            ) : (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {dependencyAlerts.map((alert) => (
-                  <DependencyAlertCard
-                    key={alert.id}
-                    alert={alert}
-                    onResolve={handleResolveAlert}
-                    onSendToJira={handleSendToJira}
-                  />
-                ))}
-              </div>
-            )}
+
+              <AlertsCard
+                title="Alerts"
+                items={dependencyAlerts}
+                search={alertSearch}
+                typeFilter={alertTypeFilter}
+                onSearchChange={setAlertSearch}
+                onTypeChange={setAlertTypeFilter}
+                onAlertClick={handleAlertClick}
+                onResolve={async (alertId: string) => {
+                  try {
+                    const response = await fetch(
+                      `${apiBase}/packages/project/${projectId}/package/${packageId}/alerts/${alertId}`,
+                      {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ status: 'resolved' }),
+                      }
+                    )
+                    if (!response.ok) {
+                      throw new Error('Failed to resolve alert')
+                    }
+                    // Refresh alerts
+                    generateAlerts().then(setDependencyAlerts)
+                  } catch (err) {
+                    console.error('Error resolving alert:', err)
+                  }
+                }}
+                onSendToJira={async (alertId: string) => {
+                  // Find the alert to get details
+                  const alert = dependencyAlerts.find(a => a.id === alertId)
+                  if (!alert) return
+                  
+                  try {
+                    // For now, just log - you can implement Jira integration later
+                    // This would need project context and Jira configuration
+                    console.log('Send to Jira:', alert)
+                    // TODO: Implement Jira integration
+                    window.alert('Jira integration coming soon!')
+                  } catch (err) {
+                    console.error('Error sending to Jira:', err)
+                  }
+                }}
+                showResolved={showResolvedAlerts}
+                onShowResolvedChange={setShowResolvedAlerts}
+                pageSize={6}
+                style={{height: "calc(100vh - 350px)"}}
+                hideTypeFilter={true}
+              />
+            </div>
+            
+            {/* Settings Dialog */}
+            <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
+              <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Alert Settings</DialogTitle>
+                  <DialogDescription>
+                    Configure alert thresholds for {packageData?.name || packageId}
+                  </DialogDescription>
+                </DialogHeader>
+                {isLoadingSettings ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+                  </div>
+                ) : (
+                  <div className="space-y-6 py-4">
+                    {/* Anomaly Threshold */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm font-medium text-white">
+                          Anomaly Commit Threshold
+                        </Label>
+                        <span className="text-sm text-gray-400">
+                          {alertSettings.anomaly_threshold}
+                        </span>
+                      </div>
+                      <div className="px-2">
+                        <Slider
+                          value={[alertSettings.anomaly_threshold]}
+                          onValueChange={(value) =>
+                            setAlertSettings((prev) => ({
+                              ...prev,
+                              anomaly_threshold: value[0],
+                            }))
+                          }
+                          min={0}
+                          max={100}
+                          step={1}
+                          className="w-full"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <p className="text-xs text-gray-400">
+                          Commits with anomaly scores above this threshold will trigger alerts. Anomaly scores are calculated based on 7 factors:
+                        </p>
+                        <ul className="text-xs text-gray-500 list-disc list-inside space-y-1 ml-2">
+                          <li>Files changed (unusual number of files)</li>
+                          <li>Lines changed (unusual number of lines)</li>
+                          <li>Message length (unusually long or short commit messages)</li>
+                          <li>Insert-to-delete ratio (unusual code change patterns)</li>
+                          <li>Abnormal time (commits at unusual hours)</li>
+                          <li>Abnormal day (commits on unusual days)</li>
+                          <li>New files (working on files not in contributor's history)</li>
+                        </ul>
+                      </div>
+                    </div>
+
+                    {/* Vulnerability Threshold */}
+                    <div className="space-y-3">
+                      <Label className="text-sm font-medium text-white">
+                        Vulnerability Severity Threshold
+                      </Label>
+                      <Select
+                        value={alertSettings.vulnerability_threshold}
+                        onValueChange={(value: "low" | "medium" | "high" | "critical") =>
+                          setAlertSettings((prev) => ({
+                            ...prev,
+                            vulnerability_threshold: value,
+                          }))
+                        }
+                      >
+                        <SelectTrigger className="w-full bg-gray-900 border-gray-700 text-white">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-gray-900 border-gray-700">
+                          <SelectItem value="low" className="text-white hover:bg-gray-800">
+                            Low
+                          </SelectItem>
+                          <SelectItem value="medium" className="text-white hover:bg-gray-800">
+                            Medium
+                          </SelectItem>
+                          <SelectItem value="high" className="text-white hover:bg-gray-800">
+                            High
+                          </SelectItem>
+                          <SelectItem value="critical" className="text-white hover:bg-gray-800">
+                            Critical
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-gray-400">
+                        Only vulnerabilities with this severity or higher will trigger alerts. Vulnerability data is provided by OSV (Open Source Vulnerabilities) database.
+                      </p>
+                    </div>
+                  </div>
+                )}
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsSettingsOpen(false)}
+                    disabled={isSavingSettings}
+                    className="border-gray-700 text-gray-300 hover:bg-gray-800"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleSaveSettings}
+                    disabled={isSavingSettings || isLoadingSettings}
+                    className="text-white"
+                    style={{ backgroundColor: 'rgb(84, 0, 250)' }}
+                  >
+                    {isSavingSettings ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      'Save Settings'
+                    )}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
         )}
       </div>
