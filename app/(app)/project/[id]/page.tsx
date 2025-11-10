@@ -284,6 +284,11 @@ export default function ProjectDetailPage() {
     }>({})
     const [healthScore, setHealthScore] = useState<any>(0)
     const [showWatchFilterPopup, setShowWatchFilterPopup] = useState(false);
+    const [showSbomDownloadDialog, setShowSbomDownloadDialog] = useState(false);
+    const [sbomFormat, setSbomFormat] = useState<'cyclonedx' | 'spdx'>('cyclonedx');
+    const [sbomCompressed, setSbomCompressed] = useState(false);
+    const [sbomIncludeWatchlist, setSbomIncludeWatchlist] = useState(true);
+    const [isDownloadingSbom, setIsDownloadingSbom] = useState(false);
 
     // --- Dependency list controls (sort via utils) ---
     // AFTER (rename to avoid collisions)
@@ -758,6 +763,91 @@ export default function ProjectDetailPage() {
         {value: 'Unlicense', label: 'The Unlicense'},
         {value: 'CC0-1.0', label: 'CC0 1.0 Universal'}
     ]
+    const triggerFileDownload = (blob: Blob, fileName: string) => {
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = fileName
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        URL.revokeObjectURL(url)
+    }
+
+    const handleSbomDownload = async () => {
+        if (!projectId) {
+            toast({
+                title: "Project not ready",
+                description: "We need a project id to generate an SBOM.",
+                variant: "destructive",
+            })
+            return
+        }
+
+        setIsDownloadingSbom(true)
+
+        try {
+            const response = await fetch(`${apiBase}/sbom/sbom/create-custom`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    project_id: projectId,
+                    format: sbomFormat,
+                    compressed: sbomCompressed,
+                    include_dependencies: true,
+                    include_watchlist_dependencies: sbomIncludeWatchlist,
+                }),
+            })
+
+            if (!response.ok) {
+                throw new Error(`Request failed with status ${response.status}`)
+            }
+
+            const projectName = project?.name?.trim() || 'project'
+            const slugifiedName = projectName.toLowerCase().replace(/[^a-z0-9]+/gi, '-').replace(/(^-|-$)/g, '') || 'project'
+            const formatSuffix = sbomFormat === 'spdx' ? 'spdx' : 'cyclonedx'
+            const extension = sbomCompressed
+                ? '.json.br'
+                : sbomFormat === 'spdx'
+                    ? '.spdx.json'
+                    : '.json'
+            const fileName = `${slugifiedName}-sbom-${formatSuffix}${extension}`
+
+            if (sbomCompressed) {
+                const base64Payload = (await response.text()).trim()
+                if (!base64Payload) {
+                    throw new Error('Received empty compressed payload')
+                }
+                const binaryString = atob(base64Payload)
+                const buffer = new Uint8Array(binaryString.length)
+                for (let i = 0; i < binaryString.length; i++) {
+                    buffer[i] = binaryString.charCodeAt(i)
+                }
+                const blob = new Blob([buffer], {type: 'application/octet-stream'})
+                triggerFileDownload(blob, fileName)
+            } else {
+                const sbomJson = await response.json()
+                const blob = new Blob([JSON.stringify(sbomJson, null, 2)], {type: 'application/json'})
+                triggerFileDownload(blob, fileName)
+            }
+
+            toast({
+                title: "SBOM ready",
+                description: `Downloading ${sbomCompressed ? 'compressed ' : ''}${sbomFormat.toUpperCase()} SBOM.`,
+            })
+            setShowSbomDownloadDialog(false)
+        } catch (error) {
+            console.error('Error downloading SBOM:', error)
+            toast({
+                title: "Download failed",
+                description: error instanceof Error ? error.message : 'Unable to download SBOM. Please try again.',
+                variant: "destructive",
+            })
+        } finally {
+            setIsDownloadingSbom(false)
+        }
+    }
+
     useEffect(() => {
         setIsUserReady(isLoaded && !!backendUserId)
     }, [isLoaded, backendUserId])
@@ -1978,40 +2068,7 @@ export default function ProjectDetailPage() {
                                         <Button
                                             className="w-full hover:opacity-90 text-white"
                                             style={{backgroundColor: colors.primary}}
-                                            onClick={() => {
-                                                // Generate SBOM data
-                                                const sbomData = {
-                                                    project: {
-                                                        name: project?.name || 'Unknown Project',
-                                                        license: project?.license || 'unlicensed',
-                                                        totalDependencies: complianceData.totalDependencies
-                                                    },
-                                                    dependencies: projectDependencies.map(dep => ({
-                                                        name: dep.name,
-                                                        version: dep.version,
-                                                        licenseScore: dep.package?.license_score || 0,
-                                                        vulnerabilityScore: dep.package?.vulnerability_score || 0,
-                                                        totalScore: dep.package?.total_score || 0
-                                                    })),
-                                                    compliance: {
-                                                        overallCompliance: complianceData.overallCompliance,
-                                                        licenseConflicts: complianceData.licenseConflicts,
-                                                        vulnerableDependencies: complianceData.vulnerableDependencies
-                                                    },
-                                                    generatedAt: new Date().toISOString()
-                                                }
-
-                                                // Download as JSON
-                                                const blob = new Blob([JSON.stringify(sbomData, null, 2)], {type: 'application/json'})
-                                                const url = URL.createObjectURL(blob)
-                                                const a = document.createElement('a')
-                                                a.href = url
-                                                a.download = `${project?.name || 'project'}-sbom.json`
-                                                document.body.appendChild(a)
-                                                a.click()
-                                                document.body.removeChild(a)
-                                                URL.revokeObjectURL(url)
-                                            }}
+                                            onClick={() => setShowSbomDownloadDialog(true)}
                                         >
                                             <Download className="h-4 w-4 mr-2"/>
                                             Download SBOM
@@ -3617,6 +3674,67 @@ export default function ProjectDetailPage() {
 
                         </div>
                     )}
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={showSbomDownloadDialog} onOpenChange={setShowSbomDownloadDialog}>
+                <DialogContent className="bg-gray-900 border-gray-800">
+                    <DialogHeader>
+                        <DialogTitle className="text-white">Download SBOM</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-5">
+                        <div>
+                            <div className="text-sm font-medium text-gray-300 mb-2">SBOM Type</div>
+                            <Select
+                                value={sbomFormat}
+                                onValueChange={(value) => setSbomFormat(value as 'cyclonedx' | 'spdx')}
+                            >
+                                <SelectTrigger className="text-white" style={{backgroundColor: 'rgb(18, 18, 18)'}}>
+                                    <div className="flex items-center gap-2">
+                                        <FileText className="h-4 w-4 text-gray-400"/>
+                                        <SelectValue placeholder="Select format"/>
+                                    </div>
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="cyclonedx">CycloneDX (JSON)</SelectItem>
+                                    <SelectItem value="spdx">SPDX (JSON)</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="flex items-center justify-between rounded-lg border border-gray-800 px-4 py-3"
+                             style={{backgroundColor: 'rgb(18, 18, 18)'}}>
+                            <div>
+                                <div className="text-sm font-medium text-white">Include Watchlist Dependencies</div>
+                                <p className="text-xs text-gray-400">When off, only direct project dependencies are exported.</p>
+                            </div>
+                            <Switch
+                                checked={sbomIncludeWatchlist}
+                                onCheckedChange={setSbomIncludeWatchlist}
+                            />
+                        </div>
+
+                        <div className="flex items-center justify-between rounded-lg border border-gray-800 px-4 py-3"
+                              style={{backgroundColor: 'rgb(18, 18, 18)'}}>
+                             <div>
+                                 <div className="text-sm font-medium text-white">Brotli Compression</div>
+                                 <p className="text-xs text-gray-400">Smaller download, requires decompression to view.</p>
+                             </div>
+                            <Switch
+                                checked={sbomCompressed}
+                                onCheckedChange={setSbomCompressed}
+                            />
+                        </div>
+
+                        <Button
+                            className="w-full hover:opacity-90 text-white"
+                            style={{backgroundColor: colors.primary}}
+                            onClick={handleSbomDownload}
+                            disabled={isDownloadingSbom}
+                        >
+                            {isDownloadingSbom ? 'Preparing...' : 'Download'}
+                        </Button>
+                    </div>
                 </DialogContent>
             </Dialog>
         </div>
