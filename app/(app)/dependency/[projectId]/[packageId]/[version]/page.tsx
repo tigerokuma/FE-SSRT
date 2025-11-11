@@ -1584,7 +1584,6 @@ export default function DependencyDetailsPage() {
                   }
                 }}
                 showResolved={showResolvedAlerts}
-                onShowResolvedChange={setShowResolvedAlerts}
                 pageSize={6}
                 style={{height: "calc(100vh - 350px)"}}
                 hideTypeFilter={true}

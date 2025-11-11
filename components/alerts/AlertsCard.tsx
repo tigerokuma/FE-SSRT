@@ -5,6 +5,7 @@ import {Card, CardHeader, CardTitle, CardContent} from "@/components/ui/card";
 import {Button} from "@/components/ui/button";
 import {Input} from "@/components/ui/input";
 import {Badge} from "@/components/ui/badge";
+import {Skeleton} from "@/components/ui/skeleton";
 import {colors} from "@/lib/design-system";
 import Image from "next/image";
 
@@ -42,7 +43,7 @@ export function AlertsCard({
                                style,
                                hideTypeFilter = false,
                                showResolved = false,
-                               onShowResolvedChange,
+                               isLoading = false,
                            }: {
     title: string;
     items: AlertItem[];
@@ -57,7 +58,7 @@ export function AlertsCard({
     style?: React.CSSProperties;
     hideTypeFilter?: boolean;
     showResolved?: boolean;
-    onShowResolvedChange?: (show: boolean) => void;
+    isLoading?: boolean;
 }) {
     const [page, setPage] = useState(1);
     const [resolvingIds, setResolvingIds] = useState<Set<string>>(new Set());
@@ -137,31 +138,36 @@ export function AlertsCard({
                             <option value="anomaly">Anomaly</option>
                         </select>
                     )}
-                    {onShowResolvedChange && (
-                        <select
-                            value={showResolved ? "all" : "active"}
-                            onChange={(e) => {
-                                setPage(1);
-                                onShowResolvedChange(e.target.value === "all");
-                            }}
-                            className="rounded-md px-2 py-2 text-sm"
-                            style={{
-                                backgroundColor: colors.background.card,
-                                borderColor: colors.border.default,
-                                color: colors.text.primary,
-                            }}
-                        >
-                            <option value="active">Active alerts</option>
-                            <option value="all">All alerts</option>
-                        </select>
-                    )}
                 </div>
             </CardHeader>
 
             <CardContent className="flex-1 min-h-0 flex flex-col gap-3">
                 {/* Scrollable list area */}
                 <div className="flex-1 min-h-0 overflow-y-auto space-y-3 pr-1">
-                    {pageItems.length === 0 ? (
+                    {isLoading ? (
+                        // Loading skeleton
+                        Array.from({ length: 3 }).map((_, i) => (
+                            <div
+                                key={`skeleton-${i}`}
+                                className="w-full p-3 rounded-lg border"
+                                style={{
+                                    borderColor: colors.border.default,
+                                }}
+                            >
+                                <div className="flex items-center justify-between gap-2 mb-2">
+                                    <Skeleton className="h-5 w-32" />
+                                    <div className="flex items-center gap-2">
+                                        <Skeleton className="h-5 w-20" />
+                                        <Skeleton className="h-5 w-16" />
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <Skeleton className="h-4 w-full" />
+                                    <Skeleton className="h-3 w-3/4" />
+                                </div>
+                            </div>
+                        ))
+                    ) : pageItems.length === 0 ? (
                         <div className="text-sm text-gray-400">No alerts.</div>
                     ) : (
                         pageItems.map((a) => {
@@ -213,7 +219,7 @@ export function AlertsCard({
                                         <div className="text-white font-medium break-words">{a.pkg.name}</div>
                                         <div className="flex items-center gap-2 shrink-0">
                                             <span className={pill(a.kind)}>{a.kind}</span>
-                                            {a.severity && (
+                                            {a.severity && a.kind !== 'health' && a.kind !== 'license' && (
                                                 <Badge
                                                     variant="outline"
                                                     className="text-xs"
