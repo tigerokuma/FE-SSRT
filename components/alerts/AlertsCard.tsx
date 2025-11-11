@@ -43,6 +43,7 @@ export function AlertsCard({
                                style,
                                hideTypeFilter = false,
                                showResolved = false,
+                               onShowResolvedChange,
                                isLoading = false,
                            }: {
     title: string;
@@ -58,6 +59,7 @@ export function AlertsCard({
     style?: React.CSSProperties;
     hideTypeFilter?: boolean;
     showResolved?: boolean;
+    onShowResolvedChange?: (show: boolean) => void;
     isLoading?: boolean;
 }) {
     const [page, setPage] = useState(1);
@@ -136,6 +138,24 @@ export function AlertsCard({
                             <option value="license">License</option>
                             <option value="health">Health</option>
                             <option value="anomaly">Anomaly</option>
+                        </select>
+                    )}
+                    {onShowResolvedChange && (
+                        <select
+                            value={showResolved ? "all" : "active"}
+                            onChange={(e) => {
+                                setPage(1);
+                                onShowResolvedChange(e.target.value === "all");
+                            }}
+                            className="rounded-md px-2 py-2 text-sm"
+                            style={{
+                                backgroundColor: colors.background.card,
+                                borderColor: colors.border.default,
+                                color: colors.text.primary,
+                            }}
+                        >
+                            <option value="active">Active alerts</option>
+                            <option value="all">All alerts</option>
                         </select>
                     )}
                 </div>
