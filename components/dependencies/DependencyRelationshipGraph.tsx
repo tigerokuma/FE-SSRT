@@ -235,7 +235,7 @@ export default function DependencyRelationshipGraph({
         })
 
         const response = await fetch(
-          `${apiBase}/dependencies/graph-filter?${params.toString()}`,
+          `${apiBase}/sbom/dependency-graph/${packageId}?${params.toString()}`,
           { signal: controller.signal }
         )
 
