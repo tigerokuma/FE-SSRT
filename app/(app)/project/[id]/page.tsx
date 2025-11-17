@@ -153,6 +153,8 @@ const getLicenseDisplayName = (license: string) => {
 }
 
 interface Project {
+    github_app_installation_id?: string | null
+    github_actions_enabled?: boolean
     id: string
     name: string
     description?: string
@@ -1663,26 +1665,27 @@ export default function ProjectDetailPage() {
                             </div>
 
                             {/* B) Filters row (button + chips) */}
-                            <div className="flex items-center gap-4">
-                                <Button
-                                    variant="outline"
-                                    className="border-gray-600 text-gray-300 hover:bg-gray-700"
-                                    onClick={() => {
-                                        // seed popup with current selections
-                                        setTmpWatchStatus(watchState.status);
-                                        setTmpWatchLicenseFilter(watchState.licenseFilter);
-                                        setTmpWatchProcessing(watchState.processing);
-                                        setTmpWatchRiskMin(watchState.riskMin);
-                                        setTmpWatchRiskMax(watchState.riskMax);
-                                        setShowWatchFilterPopup(true);
-                                    }}
-                                >
-                                    <Search className="h-4 w-4 mr-2"/>
-                                    Add Filters
-                                </Button>
+                            <div className="flex items-center justify-between gap-4">
+                                <div className="flex items-center gap-4 flex-1">
+                                    <Button
+                                        variant="outline"
+                                        className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                                        onClick={() => {
+                                            // seed popup with current selections
+                                            setTmpWatchStatus(watchState.status);
+                                            setTmpWatchLicenseFilter(watchState.licenseFilter);
+                                            setTmpWatchProcessing(watchState.processing);
+                                            setTmpWatchRiskMin(watchState.riskMin);
+                                            setTmpWatchRiskMax(watchState.riskMax);
+                                            setShowWatchFilterPopup(true);
+                                        }}
+                                    >
+                                        <Search className="h-4 w-4 mr-2"/>
+                                        Add Filters
+                                    </Button>
 
-                                {/* Chips — show what’s active */}
-                                <div className="flex flex-wrap gap-2">
+                                    {/* Chips — show what's active */}
+                                    <div className="flex flex-wrap gap-2">
                                     {/* Status chips */}
                                     {watchState.status.length > 0 &&
                                         watchState.status.map((s) => (
@@ -1769,7 +1772,44 @@ export default function ProjectDetailPage() {
                                             </button>
                                         </div>
                                     )}
+                                    </div>
                                 </div>
+
+                                {/* GitHub Actions Integration - Right side */}
+                                {!project?.github_app_installation_id ? (
+                                    <Button
+                                        variant="outline"
+                                        size="default"
+                                        className="border-blue-500 text-blue-400 hover:bg-blue-500/20 font-medium"
+                                        onClick={async () => {
+                                            try {
+                                                const response = await fetch(`${apiBase}/projects/${projectId}/github-app/installation-url`);
+                                                if (response.ok) {
+                                                    const data = await response.json();
+                                                    window.open(data.installationUrl, '_blank');
+                                                }
+                                            } catch (error) {
+                                                console.error('Error getting installation URL:', error);
+                                            }
+                                        }}
+                                    >
+                                        <img src="/Github_icon.png" alt="GitHub" className="w-5 h-5 mr-2"/>
+                                        Integrate GitHub
+                                    </Button>
+                                ) : (
+                                    <button
+                                        onClick={() => {
+                                            setCurrentTab("settings");
+                                            setCurrentSettingsTab("integrations");
+                                        }}
+                                        className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-600 bg-gray-800/50 hover:bg-gray-700/50 transition-colors cursor-pointer"
+                                    >
+                                        <img src="/Github_icon.png" alt="GitHub" className="w-5 h-5"/>
+                                        <span className="text-sm font-medium text-gray-300">
+                                            Integrated
+                                        </span>
+                                    </button>
+                                )}
                             </div>
                         </div>
 
@@ -2415,13 +2455,57 @@ export default function ProjectDetailPage() {
                                                         </div>
                                                         <div>
                                                             <div className="text-white font-medium">GitHub Actions</div>
-                                                            <div className="text-xs text-gray-400">CI/CD workflows</div>
+                                                            <div className="text-xs text-gray-400">
+                                                                {project?.github_app_installation_id 
+                                                                    ? 'Automatic PR comments active' 
+                                                                    : 'Automatic PR comments'}
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                    <Button variant="outline" size="sm"
-                                                            className="border-gray-600 text-gray-300 hover:bg-gray-700">
-                                                        Connect
-                                                    </Button>
+                                                    {project?.github_app_installation_id ? (
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-xs text-green-400 bg-green-400/10 px-2 py-1 rounded">
+                                                                Active
+                                                            </span>
+                                                            <Button 
+                                                                variant="outline" 
+                                                                size="sm"
+                                                                className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                                                                onClick={async () => {
+                                                                    try {
+                                                                        const response = await fetch(`${apiBase}/projects/${projectId}/github-app/installation-url`);
+                                                                        if (response.ok) {
+                                                                            const data = await response.json();
+                                                                            window.open(data.installationUrl, '_blank');
+                                                                        }
+                                                                    } catch (error) {
+                                                                        console.error('Error getting installation URL:', error);
+                                                                    }
+                                                                }}
+                                                            >
+                                                                Reconnect
+                                                            </Button>
+                                                        </div>
+                                                    ) : (
+                                                        <Button 
+                                                            variant="outline" 
+                                                            size="sm"
+                                                            className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                                                            onClick={async () => {
+                                                                try {
+                                                                    const response = await fetch(`${apiBase}/projects/${projectId}/github-app/installation-url`);
+                                                                    if (response.ok) {
+                                                                        const data = await response.json();
+                                                                        window.open(data.installationUrl, '_blank');
+                                                                    }
+                                                                } catch (error) {
+                                                                    console.error('Error getting installation URL:', error);
+                                                                }
+                                                            }}
+                                                        >
+                                                            Connect
+                                                        </Button>
+                                                    )}
                                                 </div>
                                             </CardContent>
                                         </Card>
