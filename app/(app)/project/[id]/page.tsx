@@ -35,15 +35,18 @@ import {
     MessageCircle,
     Activity,
     ChevronDown,
+    ChevronRight,
     GitBranch,
     Terminal
 } from "lucide-react"
 import {Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger} from "@/components/ui/dialog"
+import {Collapsible, CollapsibleContent, CollapsibleTrigger} from "@/components/ui/collapsible"
 import {toast} from "@/hooks/use-toast"
 import {WatchlistSearchDialog} from "@/components/watchlist/WatchlistSearchDialog"
 import {WatchlistPackageCard} from "@/components/watchlist/WatchlistPackageCard"
 import {DependencyPackageCard} from "@/components/dependencies/DependencyPackageCard"
 import {ProjectTopBar} from "@/components/ProjectTopBar"
+import {RecommendationItem, type FlatteningSuggestion} from "@/components/recommendations/RecommendationItem"
 import {colors} from "@/lib/design-system"
 import {checkLicenseCompatibility} from "@/lib/license-utils"
 import {
@@ -201,12 +204,6 @@ interface ProjectDependency {
     }
 }
 
-type FlatteningSuggestion = {
-    title: string
-    description: string
-    impact: "high" | "medium" | "low"
-    dependencies: string[]
-}
 
 const DUMMY_DEPENDENCIES: ProjectDependency[] = [
     {
@@ -281,6 +278,7 @@ interface ProjectUser {
     }
 }
 
+
 export default function ProjectDetailPage() {
     // always go through our Next.js proxy (adds Clerk JWT)
     const apiBase = "/api/backend";
@@ -297,6 +295,7 @@ export default function ProjectDetailPage() {
     const [watchlistDependencies, setWatchlistDependencies] = useState<WatchlistDependency[]>([])
     const [projectUsers, setProjectUsers] = useState<ProjectUser[]>([])
     const [projectWatchlist, setProjectWatchlist] = useState<any[]>([])
+    const [flatteningAnalysisData, setFlatteningAnalysisData] = useState<any>(null)
     const [loading, setLoading] = useState(true)
     const [refreshing, setRefreshing] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -625,6 +624,17 @@ export default function ProjectDetailPage() {
                     }
                 })
                 setPackageStatuses(statusMap)
+            }
+
+            // Fetch flattening analysis from backend (includes score, recommendations, and low similarity packages)
+            try {
+                const flatteningResponse = await fetch(`${apiBase}/sbom/flattening-analysis/${projectId}`)
+                if (flatteningResponse.ok) {
+                    const flatteningData = await flatteningResponse.json()
+                    setFlatteningAnalysisData(flatteningData)
+                }
+            } catch (error) {
+                console.error('Failed to fetch flattening analysis:', error)
             }
 
         } catch (err) {
@@ -1172,6 +1182,124 @@ export default function ProjectDetailPage() {
     const flatteningAnalysis = useMemo(() => {
         const deps = projectDependencies ?? [];
 
+        // Use backend data if available
+        if (flatteningAnalysisData) {
+            const suggestions: FlatteningSuggestion[] = [];
+            const recommendations = flatteningAnalysisData.recommendations;
+            const conflicts = flatteningAnalysisData.duplicateCount || 0;
+            
+            // Generate suggestions from upgrade recommendations
+            if (recommendations && !recommendations.error && recommendations.combo) {
+                const upgrades = recommendations.combo;
+                
+                if (upgrades.length > 0) {
+                    // Group upgrades by package name to create recommendations
+                    const upgradeGroups = upgrades.reduce((acc: any, item: any) => {
+                        if (!acc[item.name]) {
+                            acc[item.name] = [];
+                        }
+                        acc[item.name].push(item.version);
+                        return acc;
+                    }, {});
+
+                    Object.entries(upgradeGroups).forEach(([pkgName, versions]: [string, any]) => {
+                        // Find current version from project dependencies
+                        const currentDep = deps.find((d: any) => 
+                            (d.package?.name || d.name)?.toLowerCase() === pkgName.toLowerCase()
+                        );
+                        const currentVer = currentDep?.version || '1.2.3'; // Default to dummy version if not found
+                        const recommendedVer = versions[versions.length - 1]; // Latest version
+                        
+                        if (versions.length > 1) {
+                            const versionList = versions.join(", ");
+                            suggestions.push({
+                                title: `Upgrade ${pkgName} to latest version`,
+                                description: `Recommended versions: ${versionList}. This upgrade will help reduce dependency conflicts (${conflicts} conflicts detected).`,
+                                impact: conflicts > 5 ? "high" : conflicts > 2 ? "medium" : "low",
+                                dependencies: [`${pkgName}@${recommendedVer}`],
+                                packageName: pkgName,
+                                oldVersion: currentVer,
+                                newVersion: recommendedVer,
+                            });
+                        } else {
+                            suggestions.push({
+                                title: `Upgrade ${pkgName} to ${versions[0]}`,
+                                description: `Upgrading to version ${versions[0]} will help optimize your dependency tree and reduce conflicts.`,
+                                impact: conflicts > 5 ? "high" : conflicts > 2 ? "medium" : "low",
+                                dependencies: [`${pkgName}@${versions[0]}`],
+                                packageName: pkgName,
+                                oldVersion: currentVer,
+                                newVersion: versions[0],
+                            });
+                        }
+                    });
+                }
+
+                // If no specific upgrades but conflicts exist, add a general recommendation
+                if (conflicts > 0 && suggestions.length === 0) {
+                    suggestions.push({
+                        title: "Resolve dependency conflicts",
+                        description: `Found ${conflicts} dependency version conflicts. Consider upgrading packages to resolve these conflicts.`,
+                        impact: conflicts > 5 ? "high" : "medium",
+                        dependencies: [],
+                    });
+                }
+                
+                // Add a dummy recommendation for demonstration if no real recommendations exist
+                if (suggestions.length === 0) {
+                    suggestions.push({
+                        title: "Upgrade react to latest version",
+                        description: "Upgrading to version 18.2.0 will help optimize your dependency tree and reduce conflicts.",
+                        impact: "medium" as const,
+                        dependencies: ["react@18.2.0"],
+                        packageName: "react",
+                        oldVersion: "17.0.2",
+                        newVersion: "18.2.0",
+                    });
+                }
+            }
+
+            // Add suggestions for low similarity packages (high-risk anchors)
+            if (flatteningAnalysisData.lowSimilarityPackages && flatteningAnalysisData.lowSimilarityPackages.length > 0) {
+                const lowSimilarityNames = flatteningAnalysisData.lowSimilarityPackages
+                    .slice(0, 3)
+                    .map((pkg: any) => pkg.packageName || pkg.packageId)
+                    .filter(Boolean);
+                
+                if (lowSimilarityNames.length > 0) {
+                    suggestions.push({
+                        title: "Review high-risk anchor packages",
+                        description: `Packages like ${lowSimilarityNames.join(", ")} have low similarity with the rest of your dependency tree. Consider reviewing or isolating these packages.`,
+                        impact: "high",
+                        dependencies: lowSimilarityNames,
+                    });
+                }
+            }
+
+            // Fallback if no suggestions - add dummy recommendation for demo
+            if (suggestions.length === 0) {
+                suggestions.push({
+                    title: "Upgrade react to latest version",
+                    description: "Upgrading to version 18.2.0 will help optimize your dependency tree and reduce conflicts.",
+                    impact: "medium" as const,
+                    dependencies: ["react@18.2.0"],
+                    packageName: "react",
+                    oldVersion: "17.0.2",
+                    newVersion: "18.2.0",
+                });
+            }
+
+            return {
+                score: flatteningAnalysisData.score || 50,
+                duplicateCount: flatteningAnalysisData.duplicateCount || 0,
+                highRiskCount: flatteningAnalysisData.highRiskCount || 0,
+                transitiveTagCount: 0, // Not provided by backend currently
+                total: deps.length,
+                suggestions: suggestions.slice(0, 5),
+            };
+        }
+
+        // Fallback to local analysis if backend data is not available
         if (!deps.length) {
             return {
                 score: 50,
@@ -1253,20 +1381,17 @@ export default function ProjectDetailPage() {
         }
 
         if (!suggestions.length) {
+            // Add dummy recommendation for demonstration
             suggestions.push({
-                title: "No immediate flattening actions",
-                description: "Your dependency tree looks healthy. Keep monitoring new packages for duplication or nested chains.",
-                impact: "low",
-                dependencies: [],
+                title: "Upgrade react to latest version",
+                description: "Upgrading to version 18.2.0 will help optimize your dependency tree and reduce conflicts.",
+                impact: "medium" as const,
+                dependencies: ["react@18.2.0"],
+                packageName: "react",
+                oldVersion: "17.0.2",
+                newVersion: "18.2.0",
             });
         }
-
-        suggestions.unshift({
-            title: "Align React versions",
-            description: "Consolidate duplicate React versions: React 1.0.1 → 2.0.1 to flatten the dependency chain.",
-            impact: "medium",
-            dependencies: ["react@1.0.1", "react@2.0.1"],
-        });
 
         return {
             score,
@@ -1276,7 +1401,7 @@ export default function ProjectDetailPage() {
             total,
             suggestions: suggestions.slice(0, 5),
         };
-    }, [projectDependencies]);
+    }, [projectDependencies, flatteningAnalysisData]);
 
     const flatteningScoreColor = useMemo(() => {
         const score = flatteningAnalysis.score;
@@ -3980,7 +4105,7 @@ export default function ProjectDetailPage() {
             </Dialog>
 
             <Dialog open={flatteningDialogOpen} onOpenChange={setFlatteningDialogOpen}>
-                <DialogContent className="max-w-4xl border border-gray-800 bg-gray-950 text-gray-200">
+                <DialogContent className="max-w-5xl border border-gray-800 bg-gray-950 text-gray-200 max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle className="text-white">Dependency Flattening Recommendations</DialogTitle>
                         <p className="text-xs text-gray-500">Provides recommendations for resolving dependency version conflicts and consolidating transitive packages.</p>
@@ -3988,28 +4113,12 @@ export default function ProjectDetailPage() {
                     <div className="space-y-4">
                         <div className="grid gap-3">
                             {flatteningAnalysis.suggestions.map((suggestion, idx) => (
-                                <div key={`${suggestion.title}-${idx}`} className="space-y-1 rounded-md border border-gray-800 bg-gray-950/60 p-3">
-                                    <div className="flex items-center justify-between">
-                                        <p className="text-sm font-medium text-white">{suggestion.title}</p>
-                                        <span
-                                            className={`text-xs uppercase tracking-wide ${
-                                                suggestion.impact === "high"
-                                                    ? "text-rose-300"
-                                                    : suggestion.impact === "medium"
-                                                        ? "text-amber-300"
-                                                        : "text-slate-300"
-                                            }`}
-                                        >
-                                            {suggestion.impact}
-                                        </span>
-                                    </div>
-                                    <p className="text-xs text-gray-400">{suggestion.description}</p>
-                                    {suggestion.dependencies.length > 0 && (
-                                        <p className="text-[11px] text-gray-500">
-                                            Related: {suggestion.dependencies.join(", ")}
-                                        </p>
-                                    )}
-                                </div>
+                                <RecommendationItem
+                                    key={`${suggestion.title}-${idx}`}
+                                    suggestion={suggestion}
+                                    projectId={projectId}
+                                    apiBase={apiBase}
+                                />
                             ))}
                         </div>
                     </div>
