@@ -24,6 +24,7 @@ import {
 import { Slider } from "@/components/ui/slider"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import DependencyRelationshipGraph from "@/components/dependencies/DependencyRelationshipGraph"
 
 export default function DependencyDetailsPage() {
   const params = useParams()
@@ -1340,6 +1341,8 @@ export default function DependencyDetailsPage() {
                   </div>
                 </div>
               </div>
+              {/* Direct Dependency Graph */}
+              <DependencyRelationshipGraph packageId={packageId} version={version} />
             </div>
           </div>
         )}

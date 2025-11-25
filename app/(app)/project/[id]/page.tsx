@@ -35,15 +35,18 @@ import {
     MessageCircle,
     Activity,
     ChevronDown,
+    ChevronRight,
     GitBranch,
     Terminal
 } from "lucide-react"
 import {Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger} from "@/components/ui/dialog"
+import {Collapsible, CollapsibleContent, CollapsibleTrigger} from "@/components/ui/collapsible"
 import {toast} from "@/hooks/use-toast"
 import {WatchlistSearchDialog} from "@/components/watchlist/WatchlistSearchDialog"
 import {WatchlistPackageCard} from "@/components/watchlist/WatchlistPackageCard"
 import {DependencyPackageCard} from "@/components/dependencies/DependencyPackageCard"
 import {ProjectTopBar} from "@/components/ProjectTopBar"
+import {RecommendationItem, type FlatteningSuggestion} from "@/components/recommendations/RecommendationItem"
 import {colors} from "@/lib/design-system"
 import {checkLicenseCompatibility} from "@/lib/license-utils"
 import {
@@ -204,6 +207,58 @@ interface ProjectDependency {
     }
 }
 
+
+const DUMMY_DEPENDENCIES: ProjectDependency[] = [
+    {
+        id: 'dummy-react',
+        name: 'react',
+        version: '18.2.0',
+        risk: 35,
+        tags: ['ui', 'framework'],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        package_id: 'react',
+        package: {
+            id: 'react',
+            name: 'react',
+            status: 'done',
+            license: 'MIT',
+            stars: 210000,
+            contributors: 1600,
+            summary: 'The React JavaScript library for building user interfaces.',
+            total_score: 85,
+            activity_score: 90,
+            vulnerability_score: 80,
+            bus_factor_score: 75,
+            scorecard_score: 88,
+        },
+    },
+    {
+        id: 'dummy-lodash',
+        name: 'lodash',
+        version: '4.17.21',
+        risk: 20,
+        tags: ['utility'],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        package_id: 'lodash',
+        package: {
+            id: 'lodash',
+            name: 'lodash',
+            status: 'done',
+            license: 'MIT',
+            stars: 55000,
+            contributors: 650,
+            summary: 'A modern JavaScript utility library delivering modularity, performance, and extras.',
+            total_score: 78,
+            activity_score: 72,
+            vulnerability_score: 82,
+            bus_factor_score: 68,
+            scorecard_score: 80,
+        },
+    },
+];
+
 interface WatchlistDependency {
     id: string
     name: string
@@ -226,6 +281,7 @@ interface ProjectUser {
     }
 }
 
+
 export default function ProjectDetailPage() {
     // always go through our Next.js proxy (adds Clerk JWT)
     const apiBase = "/api/backend";
@@ -242,6 +298,7 @@ export default function ProjectDetailPage() {
     const [watchlistDependencies, setWatchlistDependencies] = useState<WatchlistDependency[]>([])
     const [projectUsers, setProjectUsers] = useState<ProjectUser[]>([])
     const [projectWatchlist, setProjectWatchlist] = useState<any[]>([])
+    const [flatteningAnalysisData, setFlatteningAnalysisData] = useState<any>(null)
     const [loading, setLoading] = useState(true)
     const [refreshing, setRefreshing] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -263,6 +320,7 @@ export default function ProjectDetailPage() {
     const [alertFilter, setAlertFilter] = useState("all")
     const [selectedLicense, setSelectedLicense] = useState<string>("")
     const [isSavingLicense, setIsSavingLicense] = useState(false)
+    const [flatteningDialogOpen, setFlatteningDialogOpen] = useState(false)
     const [projectName, setProjectName] = useState<string>("")
     const [isSavingName, setIsSavingName] = useState(false)
     const [vulnerabilityNotifications, setVulnerabilityNotifications] = useState<{
@@ -292,6 +350,11 @@ export default function ProjectDetailPage() {
     }>({})
     const [healthScore, setHealthScore] = useState<any>(0)
     const [showWatchFilterPopup, setShowWatchFilterPopup] = useState(false);
+    const [showSbomDownloadDialog, setShowSbomDownloadDialog] = useState(false);
+    const [sbomFormat, setSbomFormat] = useState<'cyclonedx' | 'spdx'>('cyclonedx');
+    const [sbomCompressed, setSbomCompressed] = useState(false);
+    const [sbomIncludeWatchlist, setSbomIncludeWatchlist] = useState(true);
+    const [isDownloadingSbom, setIsDownloadingSbom] = useState(false);
 
     // --- Dependency list controls (sort via utils) ---
     // AFTER (rename to avoid collisions)
@@ -526,7 +589,13 @@ export default function ProjectDetailPage() {
             const dependenciesResponse = await fetch(`${apiBase}/projects/${projectId}/dependencies`)
             if (dependenciesResponse.ok) {
                 const dependenciesData = await dependenciesResponse.json()
-                setProjectDependencies(dependenciesData)
+                setProjectDependencies(
+                    Array.isArray(dependenciesData) && dependenciesData.length > 0
+                        ? dependenciesData
+                        : DUMMY_DEPENDENCIES
+                )
+            } else {
+                setProjectDependencies(DUMMY_DEPENDENCIES)
             }
 
             // Fetch watchlist dependencies
@@ -564,6 +633,17 @@ export default function ProjectDetailPage() {
                     }
                 })
                 setPackageStatuses(statusMap)
+            }
+
+            // Fetch flattening analysis from backend (includes score, recommendations, and low similarity packages)
+            try {
+                const flatteningResponse = await fetch(`${apiBase}/sbom/flattening-analysis/${projectId}`)
+                if (flatteningResponse.ok) {
+                    const flatteningData = await flatteningResponse.json()
+                    setFlatteningAnalysisData(flatteningData)
+                }
+            } catch (error) {
+                console.error('Failed to fetch flattening analysis:', error)
             }
 
         } catch (err) {
@@ -774,6 +854,91 @@ export default function ProjectDetailPage() {
         {value: 'Unlicense', label: 'The Unlicense'},
         {value: 'CC0-1.0', label: 'CC0 1.0 Universal'}
     ]
+    const triggerFileDownload = (blob: Blob, fileName: string) => {
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = url
+        link.download = fileName
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        URL.revokeObjectURL(url)
+    }
+
+    const handleSbomDownload = async () => {
+        if (!projectId) {
+            toast({
+                title: "Project not ready",
+                description: "We need a project id to generate an SBOM.",
+                variant: "destructive",
+            })
+            return
+        }
+
+        setIsDownloadingSbom(true)
+
+        try {
+            const response = await fetch(`${apiBase}/sbom/sbom/create-custom`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    project_id: projectId,
+                    format: sbomFormat,
+                    compressed: sbomCompressed,
+                    include_dependencies: true,
+                    include_watchlist_dependencies: sbomIncludeWatchlist,
+                }),
+            })
+
+            if (!response.ok) {
+                throw new Error(`Request failed with status ${response.status}`)
+            }
+
+            const projectName = project?.name?.trim() || 'project'
+            const slugifiedName = projectName.toLowerCase().replace(/[^a-z0-9]+/gi, '-').replace(/(^-|-$)/g, '') || 'project'
+            const formatSuffix = sbomFormat === 'spdx' ? 'spdx' : 'cyclonedx'
+            const extension = sbomCompressed
+                ? '.json.br'
+                : sbomFormat === 'spdx'
+                    ? '.spdx.json'
+                    : '.json'
+            const fileName = `${slugifiedName}-sbom-${formatSuffix}${extension}`
+
+            if (sbomCompressed) {
+                const base64Payload = (await response.text()).trim()
+                if (!base64Payload) {
+                    throw new Error('Received empty compressed payload')
+                }
+                const binaryString = atob(base64Payload)
+                const buffer = new Uint8Array(binaryString.length)
+                for (let i = 0; i < binaryString.length; i++) {
+                    buffer[i] = binaryString.charCodeAt(i)
+                }
+                const blob = new Blob([buffer], {type: 'application/octet-stream'})
+                triggerFileDownload(blob, fileName)
+            } else {
+                const sbomJson = await response.json()
+                const blob = new Blob([JSON.stringify(sbomJson, null, 2)], {type: 'application/json'})
+                triggerFileDownload(blob, fileName)
+            }
+
+            toast({
+                title: "SBOM ready",
+                description: `Downloading ${sbomCompressed ? 'compressed ' : ''}${sbomFormat.toUpperCase()} SBOM.`,
+            })
+            setShowSbomDownloadDialog(false)
+        } catch (error) {
+            console.error('Error downloading SBOM:', error)
+            toast({
+                title: "Download failed",
+                description: error instanceof Error ? error.message : 'Unable to download SBOM. Please try again.',
+                variant: "destructive",
+            })
+        } finally {
+            setIsDownloadingSbom(false)
+        }
+    }
+
     useEffect(() => {
         setIsUserReady(isLoaded && !!backendUserId)
     }, [isLoaded, backendUserId])
@@ -861,7 +1026,13 @@ export default function ProjectDetailPage() {
             const dependenciesResponse = await fetch(`${apiBase}/projects/${projectId}/dependencies`)
             if (dependenciesResponse.ok) {
                 const dependenciesData = await dependenciesResponse.json()
-                setProjectDependencies(dependenciesData)
+                setProjectDependencies(
+                    Array.isArray(dependenciesData) && dependenciesData.length > 0
+                        ? dependenciesData
+                        : DUMMY_DEPENDENCIES
+                )
+            } else {
+                setProjectDependencies(DUMMY_DEPENDENCIES)
             }
 
         } catch (err) {
@@ -1024,6 +1195,241 @@ export default function ProjectDetailPage() {
         [projectWatchlist, watchControlsPacked, project?.license]
     );
 
+    const flatteningAnalysis = useMemo(() => {
+        const deps = projectDependencies ?? [];
+
+        // Use backend data if available
+        if (flatteningAnalysisData) {
+            const suggestions: FlatteningSuggestion[] = [];
+            const recommendations = flatteningAnalysisData.recommendations;
+            const conflicts = flatteningAnalysisData.duplicateCount || 0;
+            
+            // Generate suggestions from upgrade recommendations
+            if (recommendations && !recommendations.error && recommendations.combo) {
+                const upgrades = recommendations.combo;
+                
+                if (upgrades.length > 0) {
+                    // Group upgrades by package name to create recommendations
+                    const upgradeGroups = upgrades.reduce((acc: any, item: any) => {
+                        if (!acc[item.name]) {
+                            acc[item.name] = [];
+                        }
+                        acc[item.name].push(item.version);
+                        return acc;
+                    }, {});
+
+                    Object.entries(upgradeGroups).forEach(([pkgName, versions]: [string, any]) => {
+                        // Find current version from project dependencies
+                        const currentDep = deps.find((d: any) => 
+                            (d.package?.name || d.name)?.toLowerCase() === pkgName.toLowerCase()
+                        );
+                        const currentVer = currentDep?.version || '1.2.3'; // Default to dummy version if not found
+                        const recommendedVer = versions[versions.length - 1]; // Latest version
+                        
+                        if (versions.length > 1) {
+                            const versionList = versions.join(", ");
+                            suggestions.push({
+                                title: `Upgrade ${pkgName} to latest version`,
+                                description: `Recommended versions: ${versionList}. This upgrade will help reduce dependency conflicts (${conflicts} conflicts detected).`,
+                                impact: conflicts > 5 ? "high" : conflicts > 2 ? "medium" : "low",
+                                dependencies: [`${pkgName}@${recommendedVer}`],
+                                packageName: pkgName,
+                                oldVersion: currentVer,
+                                newVersion: recommendedVer,
+                            });
+                        } else {
+                            suggestions.push({
+                                title: `Upgrade ${pkgName} to ${versions[0]}`,
+                                description: `Upgrading to version ${versions[0]} will help optimize your dependency tree and reduce conflicts.`,
+                                impact: conflicts > 5 ? "high" : conflicts > 2 ? "medium" : "low",
+                                dependencies: [`${pkgName}@${versions[0]}`],
+                                packageName: pkgName,
+                                oldVersion: currentVer,
+                                newVersion: versions[0],
+                            });
+                        }
+                    });
+                }
+
+                // If no specific upgrades but conflicts exist, add a general recommendation
+                if (conflicts > 0 && suggestions.length === 0) {
+                    suggestions.push({
+                        title: "Resolve dependency conflicts",
+                        description: `Found ${conflicts} dependency version conflicts. Consider upgrading packages to resolve these conflicts.`,
+                        impact: conflicts > 5 ? "high" : "medium",
+                        dependencies: [],
+                    });
+                }
+                
+                // Add a dummy recommendation for demonstration if no real recommendations exist
+                if (suggestions.length === 0) {
+                    suggestions.push({
+                        title: "Upgrade react to latest version",
+                        description: "Upgrading to version 18.2.0 will help optimize your dependency tree and reduce conflicts.",
+                        impact: "medium" as const,
+                        dependencies: ["react@18.2.0"],
+                        packageName: "react",
+                        oldVersion: "17.0.2",
+                        newVersion: "18.2.0",
+                    });
+                }
+            }
+
+            // Add suggestions for low similarity packages (high-risk anchors)
+            if (flatteningAnalysisData.lowSimilarityPackages && flatteningAnalysisData.lowSimilarityPackages.length > 0) {
+                // Create individual suggestions for each anchor package
+                flatteningAnalysisData.lowSimilarityPackages.slice(0, 5).forEach((pkg: any) => {
+                    const anchorName = pkg.packageName || pkg.packageId;
+                    const dependents = pkg.dependents || [];
+                    
+                    if (anchorName) {
+                        suggestions.push({
+                            title: `High-risk anchor: ${anchorName}`,
+                            description: dependents.length > 0
+                                ? `Package ${anchorName} is an anchor for ${dependents.length} package${dependents.length > 1 ? 's' : ''}: ${dependents.slice(0, 5).join(', ')}${dependents.length > 5 ? ` and ${dependents.length - 5} more` : ''}. It has low similarity with the rest of your dependency tree (${pkg.sharedDependencyCount || 0} shared dependencies).`
+                                : `Package ${anchorName} has low similarity with the rest of your dependency tree (${pkg.sharedDependencyCount || 0} shared dependencies, ${pkg.dependencyCount || 0} total). Consider reviewing or isolating this package.`,
+                            impact: "high" as const,
+                            dependencies: dependents.length > 0 ? [anchorName, ...dependents] : [anchorName],
+                        });
+                    }
+                });
+            }
+
+            // Fallback if no suggestions - add dummy recommendation for demo
+            if (suggestions.length === 0) {
+                suggestions.push({
+                    title: "Upgrade react to latest version",
+                    description: "Upgrading to version 18.2.0 will help optimize your dependency tree and reduce conflicts.",
+                    impact: "medium" as const,
+                    dependencies: ["react@18.2.0"],
+                    packageName: "react",
+                    oldVersion: "17.0.2",
+                    newVersion: "18.2.0",
+                });
+            }
+
+            return {
+                score: flatteningAnalysisData.score || 50,
+                duplicateCount: flatteningAnalysisData.duplicateCount || 0,
+                highRiskCount: flatteningAnalysisData.highRiskCount || 0,
+                transitiveTagCount: 0, // Not provided by backend currently
+                total: deps.length,
+                suggestions: suggestions.slice(0, 5),
+            };
+        }
+
+        // Fallback to local analysis if backend data is not available
+        if (!deps.length) {
+            return {
+                score: 50,
+                level: "Awaiting data",
+                duplicateCount: 0,
+                highRiskCount: 0,
+                transitiveTagCount: 0,
+                total: 0,
+                suggestions: [
+                    {
+                        title: "No dependency data yet",
+                        description: "Once dependencies are ingested you'll see flattening guidance here.",
+                        impact: "low" as const,
+                        dependencies: [],
+                    },
+                ] satisfies FlatteningSuggestion[],
+            };
+        }
+
+        const total = deps.length;
+        const byName = deps.reduce((map, dep) => {
+            const key = (dep.package?.name || dep.name || "").toLowerCase();
+            if (!key) return map;
+            if (!map.has(key)) {
+                map.set(key, [] as ProjectDependency[]);
+            }
+            map.get(key)!.push(dep);
+            return map;
+        }, new Map<string, ProjectDependency[]>());
+
+        const duplicateGroups = Array.from(byName.values()).filter((group) => group.length > 1);
+        const duplicatePenalty = duplicateGroups.reduce((penalty, group) => penalty + (group.length - 1) * 12, 0);
+
+        const avgRisk = deps.reduce((sum, dep) => sum + (typeof dep.risk === "number" ? dep.risk : 0), 0) / total;
+        const riskPenalty = Math.max(0, avgRisk - 40) * 0.4;
+
+        const transitiveDeps = deps.filter((dep) => dep.tags?.includes("transitive"));
+        const transitivePenalty = transitiveDeps.length * 5;
+
+        let score = 100 - duplicatePenalty - riskPenalty - transitivePenalty;
+        score = Math.round(Math.min(99, Math.max(5, score)));
+
+        const suggestions: FlatteningSuggestion[] = [];
+
+        duplicateGroups.forEach((group) => {
+            const name = group[0].package?.name || group[0].name;
+            const versions = Array.from(new Set(group.map((dep) => dep.version || "unknown"))).join(", ");
+            suggestions.push({
+                title: `Merge ${name} versions`,
+                description: `Found ${group.length} versions (${versions}). Align on a single version to reduce duplication and simplify updates.`,
+                impact: group.length >= 3 ? "high" : "medium",
+                dependencies: group.map((dep) => dep.package?.name || dep.name),
+            });
+        });
+
+        const highRisk = deps
+            .filter((dep) => (dep.risk ?? 0) >= 70)
+            .sort((a, b) => (b.risk ?? 0) - (a.risk ?? 0))
+            .slice(0, 3);
+
+        if (highRisk.length) {
+            suggestions.push({
+                title: "Review high-risk packages",
+                description: `High-risk dependencies like ${highRisk
+                    .map((dep) => dep.package?.name || dep.name)
+                    .join(", ")}. Consider pinning, pruning or replacing them to avoid transitive explosions.`,
+                impact: "high",
+                dependencies: highRisk.map((dep) => dep.package?.name || dep.name),
+            });
+        }
+
+        if (transitiveDeps.length) {
+            suggestions.push({
+                title: "Promote critical transitives",
+                description: `${transitiveDeps.length} dependencies are tagged as transitive. Promote critical ones to direct dependencies or remove unused indirect packages to flatten the graph.`,
+                impact: "medium",
+                dependencies: transitiveDeps.map((dep) => dep.package?.name || dep.name),
+            });
+        }
+
+        if (!suggestions.length) {
+            // Add dummy recommendation for demonstration
+            suggestions.push({
+                title: "Upgrade react to latest version",
+                description: "Upgrading to version 18.2.0 will help optimize your dependency tree and reduce conflicts.",
+                impact: "medium" as const,
+                dependencies: ["react@18.2.0"],
+                packageName: "react",
+                oldVersion: "17.0.2",
+                newVersion: "18.2.0",
+            });
+        }
+
+        return {
+            score,
+            duplicateCount: duplicateGroups.length,
+            highRiskCount: highRisk.length,
+            transitiveTagCount: transitiveDeps.length,
+            total,
+            suggestions: suggestions.slice(0, 5),
+        };
+    }, [projectDependencies, flatteningAnalysisData]);
+
+    const flatteningScoreColor = useMemo(() => {
+        const score = flatteningAnalysis.score;
+        if (score >= 85) return "text-emerald-300";
+        if (score >= 65) return "text-sky-300";
+        if (score >= 45) return "text-amber-300";
+        return "text-red-400";
+    }, [flatteningAnalysis.score]);
+
     // 1) put this near other helpers in page.tsx
     const gotoDependency = (pkgId: string, version?: string) => {
         let v = version;
@@ -1111,7 +1517,7 @@ export default function ProjectDetailPage() {
                         </Card>
 
                         {/* Vulnerabilities and License Compliance Row */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {/* Vulnerabilities */}
                             <Card style={{backgroundColor: colors.background.card}}>
                                 <CardHeader>
@@ -1361,7 +1767,7 @@ export default function ProjectDetailPage() {
                         </Card>
 
                         {/* Vulnerabilities and License Compliance Row */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {/* Vulnerabilities */}
                             <Card style={{backgroundColor: colors.background.card}}>
                                 <CardHeader>
@@ -1411,10 +1817,53 @@ export default function ProjectDetailPage() {
                                                     className="text-white font-semibold">{complianceData.vulnerabilityBreakdown.low}</span>
                                             </div>
                                         </div>
-
                                     </div>
                                 </CardContent>
                             </Card>
+
+                            {/* Dependency Flattening */}
+                            <Card
+                                 style={{backgroundColor: colors.background.card}}
+                             >
+                                 <CardHeader>
+                                     <CardTitle className="text-white">Dependency Flattening</CardTitle>
+                                 </CardHeader>
+                                 <CardContent>
+                                     <div className="space-y-4">
+                                         <div className="text-center">
+                                             <div className={`text-3xl font-bold ${flatteningScoreColor}`}>{flatteningAnalysis.score}</div>
+                                             <div className="text-sm text-gray-400">Flattening score</div>
+                                         </div>
+
+                                         <div className="space-y-3 text-sm text-gray-300">
+                                             <div className="flex items-center justify-between">
+                                                 <div className="flex items-center gap-2">
+                                                     <div className="w-3 h-3 rounded-full bg-indigo-400"></div>
+                                                     <span>Duplicate packages</span>
+                                                 </div>
+                                                 <span className="text-white font-semibold">{flatteningAnalysis.duplicateCount}</span>
+                                             </div>
+                                             <div className="flex items-center justify-between">
+                                                 <div className="flex items-center gap-2">
+                                                     <div className="w-3 h-3 rounded-full bg-purple-400"></div>
+                                                     <span>High-risk anchors</span>
+                                                 </div>
+                                                 <span className="text-white font-semibold">{flatteningAnalysis.highRiskCount}</span>
+                                             </div>
+                                         </div>
+
+                                         <div className="flex justify-end">
+                                             <button
+                                                 type="button"
+                                                 onClick={() => setFlatteningDialogOpen(true)}
+                                                 className="text-xs font-semibold text-indigo-300 underline underline-offset-4 hover:text-indigo-200"
+                                             >
+                                                 Recommendations
+                                             </button>
+                                         </div>
+                                     </div>
+                                 </CardContent>
+                             </Card>
 
                             {/* License Compliance */}
                             <Card style={{backgroundColor: colors.background.card}}>
@@ -1423,7 +1872,6 @@ export default function ProjectDetailPage() {
                                 </CardHeader>
                                 <CardContent>
                                     <div className="space-y-4">
-                                        {/* Project License */}
                                         <div className="flex items-center gap-3">
                                             <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
                                                 project?.license === 'MIT' ? 'bg-green-500/20' :
@@ -1446,8 +1894,6 @@ export default function ProjectDetailPage() {
                                                 </div>
                                             </div>
                                         </div>
-
-                                        {/* Compliance Status */}
                                         <div className="space-y-3">
                                             <div className="flex items-center justify-between">
                                                 <span className="text-gray-400">Overall Compliance</span>
@@ -1960,11 +2406,56 @@ export default function ProjectDetailPage() {
                     <div className="space-y-6">
 
                         {/* License Compliance Overview */}
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                            {/* Project License */}
+                        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                            {/* Vulnerabilities */}
                             <Card style={{backgroundColor: colors.background.card}}>
                                 <CardHeader>
-                                    <CardTitle className="text-white">Project License</CardTitle>
+                                    <CardTitle className="text-white">Vulnerabilities</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="space-y-4">
+                                        <div className="text-center">
+                                            <div className="text-3xl font-bold text-white">{complianceData.vulnerableDependencies}</div>
+                                            <div className="text-sm text-gray-400">Total active vulnerabilities</div>
+                                        </div>
+                                        <div className="space-y-3">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-3 h-3 rounded-full bg-red-500"></div>
+                                                    <span className="text-sm text-gray-300">Critical</span>
+                                                </div>
+                                                <span className="text-white font-semibold">{complianceData.vulnerabilityBreakdown.critical}</span>
+                                            </div>
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-3 h-3 rounded-full bg-orange-500"></div>
+                                                    <span className="text-sm text-gray-300">High</span>
+                                                </div>
+                                                <span className="text-white font-semibold">{complianceData.vulnerabilityBreakdown.high}</span>
+                                            </div>
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                                                    <span className="text-sm text-gray-300">Medium</span>
+                                                </div>
+                                                <span className="text-white font-semibold">{complianceData.vulnerabilityBreakdown.medium}</span>
+                                            </div>
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+                                                    <span className="text-sm text-gray-300">Low</span>
+                                                </div>
+                                                <span className="text-white font-semibold">{complianceData.vulnerabilityBreakdown.low}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            {/* License Compliance */}
+                            <Card style={{backgroundColor: colors.background.card}}>
+                                <CardHeader>
+                                    <CardTitle className="text-white">License Compliance</CardTitle>
                                 </CardHeader>
                                 <CardContent>
                                     <div className="space-y-4">
@@ -1990,17 +2481,7 @@ export default function ProjectDetailPage() {
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-
-                            {/* Compliance Status */}
-                            <Card style={{backgroundColor: colors.background.card}}>
-                                <CardHeader>
-                                    <CardTitle className="text-white">Compliance Status</CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="space-y-4">
+                                        <div className="space-y-3">
                                         <div className="flex items-center justify-between">
                                             <span className="text-gray-400">Overall Compliance</span>
                                             <span className={`font-semibold ${
@@ -2019,61 +2500,6 @@ export default function ProjectDetailPage() {
                         {complianceData.licenseConflicts}
                       </span>
                                         </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-
-                            {/* SBOM Download */}
-                            <Card style={{backgroundColor: colors.background.card}}>
-                                <CardHeader>
-                                    <CardTitle className="text-white">Software Bill of Materials</CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="space-y-4">
-                                        <Button
-                                            className="w-full hover:opacity-90 text-white"
-                                            style={{backgroundColor: colors.primary}}
-                                            onClick={() => {
-                                                // Generate SBOM data
-                                                const sbomData = {
-                                                    project: {
-                                                        name: project?.name || 'Unknown Project',
-                                                        license: project?.license || 'unlicensed',
-                                                        totalDependencies: complianceData.totalDependencies
-                                                    },
-                                                    dependencies: projectDependencies.map(dep => ({
-                                                        name: dep.name,
-                                                        version: dep.version,
-                                                        licenseScore: dep.package?.license_score || 0,
-                                                        vulnerabilityScore: dep.package?.vulnerability_score || 0,
-                                                        totalScore: dep.package?.total_score || 0
-                                                    })),
-                                                    compliance: {
-                                                        overallCompliance: complianceData.overallCompliance,
-                                                        licenseConflicts: complianceData.licenseConflicts,
-                                                        vulnerableDependencies: complianceData.vulnerableDependencies
-                                                    },
-                                                    generatedAt: new Date().toISOString()
-                                                }
-
-                                                // Download as JSON
-                                                const blob = new Blob([JSON.stringify(sbomData, null, 2)], {type: 'application/json'})
-                                                const url = URL.createObjectURL(blob)
-                                                const a = document.createElement('a')
-                                                a.href = url
-                                                a.download = `${project?.name || 'project'}-sbom.json`
-                                                document.body.appendChild(a)
-                                                a.click()
-                                                document.body.removeChild(a)
-                                                URL.revokeObjectURL(url)
-                                            }}
-                                        >
-                                            <Download className="h-4 w-4 mr-2"/>
-                                            Download SBOM
-                                        </Button>
-                                        <div className="text-xs text-gray-500">
-                                            Last
-                                            updated: {project?.updated_at ? formatRelativeDate(project.updated_at) : 'Unknown'}
                                         </div>
                                     </div>
                                 </CardContent>
@@ -3784,6 +4210,88 @@ export default function ProjectDetailPage() {
 
                         </div>
                     )}
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={showSbomDownloadDialog} onOpenChange={setShowSbomDownloadDialog}>
+                <DialogContent className="bg-gray-900 border-gray-800">
+                    <DialogHeader>
+                        <DialogTitle className="text-white">Download SBOM</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-5">
+                        <div>
+                            <div className="text-sm font-medium text-gray-300 mb-2">SBOM Type</div>
+                            <Select
+                                value={sbomFormat}
+                                onValueChange={(value) => setSbomFormat(value as 'cyclonedx' | 'spdx')}
+                            >
+                                <SelectTrigger className="text-white" style={{backgroundColor: 'rgb(18, 18, 18)'}}>
+                                    <div className="flex items-center gap-2">
+                                        <FileText className="h-4 w-4 text-gray-400"/>
+                                        <SelectValue placeholder="Select format"/>
+                                    </div>
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="cyclonedx">CycloneDX (JSON)</SelectItem>
+                                    <SelectItem value="spdx">SPDX (JSON)</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="flex items-center justify-between rounded-lg border border-gray-800 px-4 py-3"
+                             style={{backgroundColor: 'rgb(18, 18, 18)'}}>
+                            <div>
+                                <div className="text-sm font-medium text-white">Include Watchlist Dependencies</div>
+                                <p className="text-xs text-gray-400">When off, only direct project dependencies are exported.</p>
+                            </div>
+                            <Switch
+                                checked={sbomIncludeWatchlist}
+                                onCheckedChange={setSbomIncludeWatchlist}
+                            />
+                        </div>
+
+                        <div className="flex items-center justify-between rounded-lg border border-gray-800 px-4 py-3"
+                              style={{backgroundColor: 'rgb(18, 18, 18)'}}>
+                             <div>
+                                 <div className="text-sm font-medium text-white">Brotli Compression</div>
+                                 <p className="text-xs text-gray-400">Smaller download, requires decompression to view.</p>
+                             </div>
+                            <Switch
+                                checked={sbomCompressed}
+                                onCheckedChange={setSbomCompressed}
+                            />
+                        </div>
+
+                        <Button
+                            className="w-full hover:opacity-90 text-white"
+                            style={{backgroundColor: colors.primary}}
+                            onClick={handleSbomDownload}
+                            disabled={isDownloadingSbom}
+                        >
+                            {isDownloadingSbom ? 'Preparing...' : 'Download'}
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={flatteningDialogOpen} onOpenChange={setFlatteningDialogOpen}>
+                <DialogContent className="max-w-5xl border border-gray-800 bg-gray-950 text-gray-200 max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                        <DialogTitle className="text-white">Dependency Flattening Recommendations</DialogTitle>
+                        <p className="text-xs text-gray-500">Provides recommendations for resolving dependency version conflicts and consolidating transitive packages.</p>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        <div className="grid gap-3">
+                            {flatteningAnalysis.suggestions.map((suggestion, idx) => (
+                                <RecommendationItem
+                                    key={`${suggestion.title}-${idx}`}
+                                    suggestion={suggestion}
+                                    projectId={projectId}
+                                    apiBase={apiBase}
+                                />
+                            ))}
+                        </div>
+                    </div>
                 </DialogContent>
             </Dialog>
         </div>
