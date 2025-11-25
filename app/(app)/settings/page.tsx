@@ -13,6 +13,7 @@ import {useIngestGithubFromClerk} from "@/lib/useIngestGithubFromClerk";
 import {useEnsureBackendUser} from "@/lib/useEnsureBackendUser";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
+const JIRA_APP_URL = process.env.NEXT_PUBLIC_JIRA_APP_URL ?? ""
 
 export default function SettingsPage() {
     // always go through our Next.js proxy (adds Clerk JWT)
@@ -348,8 +349,8 @@ export default function SettingsPage() {
                                 variant="secondary"
                                 className="ml-3 h-8 rounded-lg border border-[#2A2A2A] bg-[#1a1a1a] text-white hover:bg-[#222]"
                                 onClick={() => {
-                                    window.location.href =
-                                        "https://developer.atlassian.com/console/install/71b61dcb-1eeb-4af0-93ae-abbe03946c28?product=jira"
+                                    if (!JIRA_APP_URL) return
+                                    window.location.href = JIRA_APP_URL
                                 }}
                             >
                                 {jiraProject ? "Disconnect" : "Connect"}

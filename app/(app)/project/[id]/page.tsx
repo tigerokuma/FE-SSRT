@@ -214,9 +214,9 @@ const DUMMY_DEPENDENCIES: ProjectDependency[] = [
         tags: ['ui', 'framework'],
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-        package_id: 'pkg-react',
+        package_id: 'react',
         package: {
-            id: 'pkg-react',
+            id: 'react',
             name: 'react',
             status: 'done',
             license: 'MIT',
@@ -238,9 +238,9 @@ const DUMMY_DEPENDENCIES: ProjectDependency[] = [
         tags: ['utility'],
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-        package_id: 'pkg-lodash',
+        package_id: 'lodash',
         package: {
-            id: 'pkg-lodash',
+            id: 'lodash',
             name: 'lodash',
             status: 'done',
             license: 'MIT',
@@ -1261,19 +1261,22 @@ export default function ProjectDetailPage() {
 
             // Add suggestions for low similarity packages (high-risk anchors)
             if (flatteningAnalysisData.lowSimilarityPackages && flatteningAnalysisData.lowSimilarityPackages.length > 0) {
-                const lowSimilarityNames = flatteningAnalysisData.lowSimilarityPackages
-                    .slice(0, 3)
-                    .map((pkg: any) => pkg.packageName || pkg.packageId)
-                    .filter(Boolean);
-                
-                if (lowSimilarityNames.length > 0) {
-                    suggestions.push({
-                        title: "Review high-risk anchor packages",
-                        description: `Packages like ${lowSimilarityNames.join(", ")} have low similarity with the rest of your dependency tree. Consider reviewing or isolating these packages.`,
-                        impact: "high",
-                        dependencies: lowSimilarityNames,
-                    });
-                }
+                // Create individual suggestions for each anchor package
+                flatteningAnalysisData.lowSimilarityPackages.slice(0, 5).forEach((pkg: any) => {
+                    const anchorName = pkg.packageName || pkg.packageId;
+                    const dependents = pkg.dependents || [];
+                    
+                    if (anchorName) {
+                        suggestions.push({
+                            title: `High-risk anchor: ${anchorName}`,
+                            description: dependents.length > 0
+                                ? `Package ${anchorName} is an anchor for ${dependents.length} package${dependents.length > 1 ? 's' : ''}: ${dependents.slice(0, 5).join(', ')}${dependents.length > 5 ? ` and ${dependents.length - 5} more` : ''}. It has low similarity with the rest of your dependency tree (${pkg.sharedDependencyCount || 0} shared dependencies).`
+                                : `Package ${anchorName} has low similarity with the rest of your dependency tree (${pkg.sharedDependencyCount || 0} shared dependencies, ${pkg.dependencyCount || 0} total). Consider reviewing or isolating this package.`,
+                            impact: "high" as const,
+                            dependencies: dependents.length > 0 ? [anchorName, ...dependents] : [anchorName],
+                        });
+                    }
+                });
             }
 
             // Fallback if no suggestions - add dummy recommendation for demo

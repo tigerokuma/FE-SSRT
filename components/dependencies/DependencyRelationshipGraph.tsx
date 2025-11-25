@@ -21,6 +21,7 @@ const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), {
 type GraphNode = {
   id: string
   label: string
+  version?: string
   level: "root" | "direct" | "transitive"
   riskScore?: number
   color: string
@@ -43,13 +44,15 @@ type GraphLink = {
 type DependencyRelationshipGraphProps = {
   packageId: string
   packageName?: string
+  version?: string
 }
 
 type DirectDependency = {
   id: string
   label: string
+  version?: string
   riskScore: number
-  children: Array<{ id: string; label: string; riskScore: number }>
+  children: Array<{ id: string; label: string; version?: string; riskScore: number }>
 }
 
 const DIRECT_DEPENDENCIES: DirectDependency[] = [
@@ -169,13 +172,17 @@ const getRiskCategory = (score: number): "low" | "medium" | "high" => {
 export default function DependencyRelationshipGraph({
   packageId,
   packageName,
+  version,
 }: DependencyRelationshipGraphProps) {
   const [expandedNodes, setExpandedNodes] = useState<string[]>([])
+  const [nestedDependencies, setNestedDependencies] = useState<Map<string, DirectDependency[]>>(new Map())
   const [searchMode, setSearchMode] = useState<"direct" | "all">("all")
   const [riskFilter, setRiskFilter] = useState<"all" | "low" | "medium" | "high">("all")
   const [searchQuery, setSearchQuery] = useState("")
   const [filteredDirectDependencies, setFilteredDirectDependencies] = useState<DirectDependency[]>(DIRECT_DEPENDENCIES)
   const [isFetching, setIsFetching] = useState(false)
+  const [currentCenterPackageId, setCurrentCenterPackageId] = useState<string>(packageId)
+  const [currentCenterPackageName, setCurrentCenterPackageName] = useState<string>(packageName || "")
 
   const apiBase = "/api/backend"
 
@@ -233,9 +240,14 @@ export default function DependencyRelationshipGraph({
           scope: searchMode,
           risk: riskFilter,
         })
+        
+        // For main component, use the dependency version
+        if (version) {
+          params.append('version', version)
+        }
 
         const response = await fetch(
-          `${apiBase}/sbom/dependency-graph/${packageId}?${params.toString()}`,
+          `${apiBase}/sbom/dependency-graph/${currentCenterPackageId}?${params.toString()}`,
           { signal: controller.signal }
         )
 
@@ -250,6 +262,7 @@ export default function DependencyRelationshipGraph({
                   ? dep.children
                       .map((child) => ({
                         ...child,
+                        version: child.version,
                         riskScore:
                           typeof child.riskScore === "number" ? child.riskScore : 0,
                       }))
@@ -285,14 +298,14 @@ export default function DependencyRelationshipGraph({
       ignore = true
       controller.abort()
     }
-  }, [apiBase, localFiltered, riskFilter, searchMode, searchQuery])
+  }, [apiBase, localFiltered, riskFilter, searchMode, searchQuery, currentCenterPackageId, version])
 
   const graphData = useMemo(() => {
-    const centerId = `root-${packageId}`
+    const centerId = `root-${currentCenterPackageId}`
     const nodes: GraphNode[] = [
       {
         id: centerId,
-        label: packageName ?? packageId,
+        label: currentCenterPackageName || currentCenterPackageId,
         level: "root",
         color: "#38bdf8",
         size: 18,
@@ -318,6 +331,7 @@ export default function DependencyRelationshipGraph({
       nodes.push({
         id: nodeId,
         label: dep.label,
+        version: dep.version,
         level: "direct",
         riskScore: dep.riskScore,
         slug: dep.id,
@@ -327,6 +341,7 @@ export default function DependencyRelationshipGraph({
         fy: y,
       })
 
+      // Ensure all primary (direct) nodes connect to the root/primary node
       links.push({
         source: centerId,
         target: nodeId,
@@ -358,6 +373,7 @@ export default function DependencyRelationshipGraph({
           nodes.push({
             id: childId,
             label: child.label,
+            version: child.version,
             level: "transitive",
             riskScore: child.riskScore,
             slug: child.id,
@@ -367,17 +383,57 @@ export default function DependencyRelationshipGraph({
             fy: childY,
           })
 
+          // Every node connects to the node before it (its parent)
           links.push({
             source: nodeId,
             target: childId,
             kind: "transitive",
           })
+
+          // If this transitive node is expanded, show its children
+          if (expandedSet.has(childId)) {
+            const nestedDeps = nestedDependencies.get(childId) || []
+            const nestedRadius = 100
+            const nestedSpread = Math.PI / 3
+
+            nestedDeps.slice(0, 4).forEach((nestedChild, nestedIndex) => {
+              const nestedChildId = `nested-${nestedChild.id}-${childId}`
+              const nestedCenteredIndex = nestedIndex - (nestedDeps.length - 1) / 2
+              const nestedProportionalOffset = (nestedCenteredIndex / Math.max(nestedDeps.length - 1, 1)) * nestedSpread
+              const nestedHash =
+                nestedChildId.split("").reduce((sum, char) => sum + char.charCodeAt(0), 0) % 100
+              const nestedJitter = ((nestedHash / 100) - 0.5) * (Math.PI / 30)
+              const nestedAngle = childAngle + nestedProportionalOffset + nestedJitter
+              const nestedX = childX + Math.cos(nestedAngle) * nestedRadius
+              const nestedY = childY + Math.sin(nestedAngle) * nestedRadius
+
+              nodes.push({
+                id: nestedChildId,
+                label: nestedChild.label,
+                version: nestedChild.version,
+                level: "transitive",
+                riskScore: nestedChild.riskScore,
+                slug: nestedChild.id,
+                color: getRiskLevelColor(nestedChild.riskScore),
+                size: 5 + nestedChild.riskScore / 25,
+                fx: nestedX,
+                fy: nestedY,
+              })
+
+              // Every nested node connects to the node before it (its parent)
+              links.push({
+                source: childId,
+                target: nestedChildId,
+                kind: "transitive",
+              })
+            })
+          }
         })
       }
     })
 
     return { nodes, links }
-  }, [expandedNodes, packageId, packageName])
+  }, [expandedNodes, nestedDependencies, currentCenterPackageId, currentCenterPackageName, filteredDirectDependencies])
 
   const toggleNodeExpansion = (nodeId: string) => {
     setExpandedNodes((prev) => {
@@ -387,6 +443,76 @@ export default function DependencyRelationshipGraph({
       }
       return [...prev, nodeId]
     })
+  }
+
+  const handleNodeClick = async (node: GraphNode) => {
+    // Clicking the root does nothing
+    if (node.level === "root") return
+
+    if (node.level === "direct") {
+      // Toggle expansion for direct dependencies so their children appear inline
+      toggleNodeExpansion(node.id)
+      return
+    }
+
+    if (node.level === "transitive" && node.slug) {
+      // For transitive dependencies, fetch their dependencies and expand
+      const nodeId = node.id
+      const isExpanded = expandedNodes.includes(nodeId)
+      
+      if (!isExpanded) {
+        // Fetch dependencies for this transitive node
+        try {
+          const params = new URLSearchParams({
+            query: searchQuery,
+            scope: searchMode,
+            risk: riskFilter,
+          })
+          
+          // For transitive dependencies, use the package version (node.version) instead of the main dependency version
+          const transitiveVersion = node.version || undefined
+          if (transitiveVersion) {
+            params.append('version', transitiveVersion)
+          }
+          
+          const response = await fetch(
+            `${apiBase}/sbom/dependency-graph/${node.slug}?${params.toString()}`
+          )
+          if (response.ok) {
+            const payload = await response.json()
+            if (Array.isArray(payload?.directDependencies)) {
+              const sanitized: DirectDependency[] = payload.directDependencies.map(
+                (dep: DirectDependency) => ({
+                  ...dep,
+                  riskScore: typeof dep.riskScore === "number" ? dep.riskScore : 0,
+                  children: Array.isArray(dep.children)
+                    ? dep.children
+                        .map((child) => ({
+                          ...child,
+                          version: child.version,
+                          riskScore: typeof child.riskScore === "number" ? child.riskScore : 0,
+                        }))
+                        .sort((a, b) => b.riskScore - a.riskScore)
+                        .slice(0, 6)
+                    : [],
+                })
+              )
+              setNestedDependencies((prev) => {
+                const newMap = new Map(prev)
+                newMap.set(nodeId, sanitized)
+                return newMap
+              })
+            }
+          }
+        } catch (error) {
+          console.warn("Failed to fetch nested dependencies:", error)
+        }
+      }
+      
+      // Toggle expansion
+      toggleNodeExpansion(nodeId)
+      return
+    }
   }
 
   return (
@@ -490,17 +616,33 @@ export default function DependencyRelationshipGraph({
               const paddingX = 16 / globalScale
               const paddingY = 10 / globalScale
               const text = node.label
+              const versionText = node.version ? `@${node.version}` : ""
 
+              // Measure both texts
               ctx.font = `${Math.max(12 / globalScale, 9)}px Inter, sans-serif`
               const textMetrics = ctx.measureText(text)
               const textWidth = textMetrics.width
+              
+              let versionWidth = 0
+              if (versionText) {
+                ctx.font = `${Math.max(10 / globalScale, 8)}px Inter, sans-serif`
+                const versionMetrics = ctx.measureText(versionText)
+                versionWidth = versionMetrics.width
+              }
+
+              const totalTextWidth = Math.max(textWidth, versionWidth)
               const textHeight = Math.max(
                 ctx.measureText("M").actualBoundingBoxAscent + ctx.measureText("M").actualBoundingBoxDescent,
                 12 / globalScale
               )
+              const versionHeight = versionText ? Math.max(
+                ctx.measureText("M").actualBoundingBoxAscent + ctx.measureText("M").actualBoundingBoxDescent,
+                10 / globalScale
+              ) : 0
+              const totalHeight = textHeight + (versionText ? versionHeight + 2 / globalScale : 0)
 
-              const rectWidth = Math.max(textWidth + paddingX * 2, node.width ?? 80)
-              const rectHeight = Math.max(textHeight + paddingY * 2, node.height ?? 28)
+              const rectWidth = Math.max(totalTextWidth + paddingX * 2, node.width ?? 80)
+              const rectHeight = Math.max(totalHeight + paddingY * 2, node.height ?? 28)
               node.width = rectWidth
               node.height = rectHeight
 
@@ -515,10 +657,23 @@ export default function DependencyRelationshipGraph({
               ctx.fillStyle = node.color
               ctx.fill()
 
+              // Draw main label
               ctx.fillStyle = "#0f172a"
               ctx.textAlign = "center"
-              ctx.textBaseline = "middle"
-              ctx.fillText(text, node.x ?? 0, node.y ?? 0)
+              ctx.font = `${Math.max(12 / globalScale, 9)}px Inter, sans-serif`
+              ctx.textBaseline = versionText ? "bottom" : "middle"
+              const labelY = versionText 
+                ? (node.y ?? 0) - (versionHeight / 2 + 1 / globalScale)
+                : (node.y ?? 0)
+              ctx.fillText(text, node.x ?? 0, labelY)
+
+              // Draw version if available
+              if (versionText) {
+                ctx.fillStyle = "rgba(15, 23, 42, 0.7)"
+                ctx.font = `${Math.max(10 / globalScale, 8)}px Inter, sans-serif`
+                ctx.textBaseline = "top"
+                ctx.fillText(versionText, node.x ?? 0, (node.y ?? 0) + (textHeight / 2 + 1 / globalScale))
+              }
             }}
             nodePointerAreaPaint={(nodeObject: any, color, ctx) => {
               const node = nodeObject as GraphNode
@@ -532,8 +687,9 @@ export default function DependencyRelationshipGraph({
             }}
             onNodeClick={(nodeObject: any) => {
               const node = nodeObject as GraphNode
-              if (node.level === "direct") {
-                toggleNodeExpansion(node.id)
+              // Don't navigate if clicking the center node
+              if (node.level !== "root") {
+                handleNodeClick(node)
               }
             }}
             onNodeRightClick={(nodeObject: any, event) => {

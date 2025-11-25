@@ -640,7 +640,7 @@ export default function DependencyDetailsPage() {
               </div>
 
               {/* Direct Dependency Graph */}
-              <DependencyRelationshipGraph packageId={packageId} />
+              <DependencyRelationshipGraph packageId={packageId} version={version} />
             </div>
           </div>
         )}
