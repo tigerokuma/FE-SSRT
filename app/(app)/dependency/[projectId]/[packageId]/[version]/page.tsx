@@ -24,6 +24,7 @@ import {
 import { Slider } from "@/components/ui/slider"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import DependencyRelationshipGraph from "@/components/dependencies/DependencyRelationshipGraph"
 
 export default function DependencyDetailsPage() {
   const params = useParams()
@@ -586,6 +587,7 @@ export default function DependencyDetailsPage() {
         
         return {
           id: commit.id || commit.sha,
+          sha:commit.sha,
           contributor: {
             name: commit.author || 'Unknown',
             avatar: `https://avatars.githubusercontent.com/${commit.sha}?s=400&v=4` // Use commit SHA for avatar fallback
@@ -737,6 +739,24 @@ export default function DependencyDetailsPage() {
       setIsGeneratingSummary(false)
     }
   }
+
+  const repoId = useMemo(() => {
+    const repoUrl = packageData?.repo_url
+    if (!repoUrl) return undefined
+
+    try {
+      const u = new URL(repoUrl)
+      // "/clerk/javascript" -> "clerk/javascript"
+      return u.pathname.replace(/^\/|\/$/g, '')
+    } catch {
+      // Fallback if URL constructor ever fails
+      const idx = repoUrl.indexOf('github.com/')
+      if (idx === -1) return undefined
+      return repoUrl
+        .slice(idx + 'github.com/'.length)
+        .replace(/\/$/, '')
+    }
+  }, [packageData?.repo_url])
 
   // Remove loading state - show tabs immediately like projects screen
 
@@ -1321,6 +1341,8 @@ export default function DependencyDetailsPage() {
                   </div>
                 </div>
               </div>
+              {/* Direct Dependency Graph */}
+              <DependencyRelationshipGraph packageId={packageId} version={version} />
             </div>
           </div>
         )}
@@ -1491,7 +1513,7 @@ export default function DependencyDetailsPage() {
                 </div>
               )}
               
-              <CommitTimeline commits={commits} isLoading={commitsLoading} />
+              <CommitTimeline commits={commits} isLoading={commitsLoading} repoId={repoId}/>
             </div>
           </div>
         )}

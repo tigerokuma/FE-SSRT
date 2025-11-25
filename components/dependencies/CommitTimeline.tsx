@@ -106,9 +106,10 @@ function getDateFromTimestampString(timestamp: string): Date {
 interface CommitItemProps {
   commit: CommitData
   isLast?: boolean
+  repoId?: string
 }
 
-function CommitItem({ commit, isLast = false }: CommitItemProps) {
+function CommitItem({ commit, isLast = false, repoId }: CommitItemProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [isVisible, setIsVisible] = useState(false)
   // Adjust threshold since anomaly score is now just a number
@@ -341,7 +342,8 @@ function CommitItem({ commit, isLast = false }: CommitItemProps) {
               <CommitBehaviorGraph 
                 height={400} 
                 showCard={false}
-                commitId={commit.id}
+                repoId={repoId}
+                commitSha={commit.sha}
               />
             </div>
           </div>
@@ -354,9 +356,10 @@ function CommitItem({ commit, isLast = false }: CommitItemProps) {
 interface CommitTimelineProps {
   commits?: CommitData[]
   isLoading?: boolean
+  repoId?: string
 }
 
-export default function CommitTimeline({ commits = [], isLoading = false }: CommitTimelineProps) {
+export default function CommitTimeline({ commits = [], isLoading = false, repoId }: CommitTimelineProps) {
   const [isVisible, setIsVisible] = useState(false)
   const commitGroups = groupCommitsByDate(commits)
   const sortedDates = Object.keys(commitGroups).sort((a, b) => {
@@ -423,6 +426,7 @@ export default function CommitTimeline({ commits = [], isLoading = false }: Comm
                 <CommitItem 
                   commit={commit} 
                   isLast={commitIndex === commitGroups[date].length - 1}
+                  repoId={repoId}
                 />
               </div>
             ))}
