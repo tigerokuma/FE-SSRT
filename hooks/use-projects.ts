@@ -42,8 +42,13 @@ export function useProjects() {
       setLoading(true)
       setError(null)
 
-      const response = await AuthService.fetchWithAuth(
-        `${apiBase}/projects/user/${backendUserId}`
+      // Use plain fetch - the /api/backend proxy automatically adds Clerk JWT token
+      const response = await fetch(
+        `${apiBase}/projects/user/${backendUserId}`,
+        {
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+        }
       )
 
       if (!response.ok) {

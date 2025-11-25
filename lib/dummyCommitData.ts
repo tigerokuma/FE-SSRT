@@ -7,9 +7,17 @@ export interface CommitData {
   filesChanged: number
   timestamp: string
   anomalyScore: number // 0-30
+  scoreBreakdown?: Array<{
+    factor: string
+    points: number
+    reason: string
+  }>
   contributorProfile: {
     avgLinesChanged: { added: number, deleted: number }
+    stddevLinesChanged?: { added: number, deleted: number }
     avgFilesChanged: number
+    stddevFilesChanged?: number
+    totalCommits?: number
     typicalTimes: string // e.g., "Weekdays, 9 AM - 5 PM PST"
     heatmapData: number[][] // 7x24 grid
     thisCommitTime: string
@@ -19,7 +27,7 @@ export interface CommitData {
 export const dummyCommits: CommitData[] = [
   {
     id: 'commit-1',
-    contributor: { name: 'Sophie Bell', avatar: '/avatars/sophie.jpg' },
+    contributor: { name: 'Sophie Bell', avatar: 'https://avatars.githubusercontent.com/u/169111517?s=400&v=4' },
     message: 'feat: Implement new caching mechanism for faster data retrieval',
     linesAdded: 1283,
     linesDeleted: 45,
@@ -36,7 +44,7 @@ export const dummyCommits: CommitData[] = [
   },
   {
     id: 'commit-2',
-    contributor: { name: 'Dan Star', avatar: '/avatars/dan.jpg' },
+    contributor: { name: 'Dan Star', avatar: 'https://avatars.githubusercontent.com/u/169111517?s=400&v=4' },
     message: 'fix security: Address critical vulnerability in string parsing logic (CVE-2024-12345)',
     linesAdded: 588,
     linesDeleted: 2100,
@@ -53,7 +61,7 @@ export const dummyCommits: CommitData[] = [
   },
   {
     id: 'commit-3',
-    contributor: { name: 'Alex Chen', avatar: '/avatars/alex.jpg' },
+    contributor: { name: 'Alex Chen', avatar: 'https://avatars.githubusercontent.com/u/169111517?s=400&v=4' },
     message: 'refactor: Optimize database queries and improve performance',
     linesAdded: 320,
     linesDeleted: 180,
@@ -70,7 +78,7 @@ export const dummyCommits: CommitData[] = [
   },
   {
     id: 'commit-4',
-    contributor: { name: 'Maria Rodriguez', avatar: '/avatars/maria.jpg' },
+    contributor: { name: 'Maria Rodriguez', avatar: 'https://avatars.githubusercontent.com/u/169111517?s=400&v=4' },
     message: 'feat: Add new authentication middleware with enhanced security',
     linesAdded: 450,
     linesDeleted: 25,
@@ -87,7 +95,7 @@ export const dummyCommits: CommitData[] = [
   },
   {
     id: 'commit-5',
-    contributor: { name: 'James Wilson', avatar: '/avatars/james.jpg' },
+    contributor: { name: 'James Wilson', avatar: 'https://avatars.githubusercontent.com/u/169111517?s=400&v=4' },
     message: 'fix: Resolve memory leak in background processing service',
     linesAdded: 95,
     linesDeleted: 340,
@@ -104,7 +112,7 @@ export const dummyCommits: CommitData[] = [
   },
   {
     id: 'commit-6',
-    contributor: { name: 'Sarah Kim', avatar: '/avatars/sarah.jpg' },
+    contributor: { name: 'Sarah Kim', avatar: 'https://avatars.githubusercontent.com/u/169111517?s=400&v=4' },
     message: 'docs: Update API documentation and add usage examples',
     linesAdded: 220,
     linesDeleted: 15,
@@ -121,7 +129,7 @@ export const dummyCommits: CommitData[] = [
   },
   {
     id: 'commit-7',
-    contributor: { name: 'Mike Johnson', avatar: '/avatars/mike.jpg' },
+    contributor: { name: 'Mike Johnson', avatar: 'https://avatars.githubusercontent.com/u/169111517?s=400&v=4' },
     message: 'feat: Implement advanced analytics dashboard with real-time updates',
     linesAdded: 1850,
     linesDeleted: 120,
@@ -148,13 +156,13 @@ function generateHeatmapData(activeDays: number[]): number[][] {
       if (activeDays[day] === 1) {
         // Weekdays: higher activity during 9 AM - 5 PM
         if (hour >= 9 && hour <= 17) {
-          dayRow.push(Math.random() * 0.8 + 0.2) // 0.2 to 1.0
+          dayRow.push(Math.floor(Math.random() * 8) + 2) // 2 to 10 commits
         } else {
-          dayRow.push(Math.random() * 0.3) // 0 to 0.3
+          dayRow.push(Math.floor(Math.random() * 3)) // 0 to 3 commits
         }
       } else {
         // Weekends: lower activity
-        dayRow.push(Math.random() * 0.2) // 0 to 0.2
+        dayRow.push(Math.floor(Math.random() * 2)) // 0 to 2 commits
       }
     }
     heatmap.push(dayRow)

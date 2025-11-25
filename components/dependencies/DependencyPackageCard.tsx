@@ -35,6 +35,7 @@ interface DependencyPackageCardProps {
   searchQuery: string
   projectLicense?: string | null
   isLoading?: boolean
+  projectId?: string
 }
 
 export function DependencyPackageCard({
@@ -42,6 +43,7 @@ export function DependencyPackageCard({
   searchQuery,
   projectLicense,
   isLoading = false,
+  projectId,
 }: DependencyPackageCardProps) {
   const router = useRouter()
   const packageData = dependency.package
@@ -89,8 +91,8 @@ export function DependencyPackageCard({
   }
 
   const handleCardClick = () => {
-    if (packageData?.id) {
-      router.push(`/dependency/${packageData.id}/${dependency.version}`)
+    if (packageData?.id && projectId) {
+      router.push(`/dependency/${projectId}/${packageData.id}/${dependency.version}`)
     }
   }
 

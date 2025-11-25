@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ChevronDown, ChevronUp, AlertTriangle, User, Clock, FileText, GitCommit } from "lucide-react"
@@ -16,32 +16,52 @@ interface CommitCardProps {
 
 export default function CommitCard({ commit, isLast = false }: CommitCardProps) {
   const [isExpanded, setIsExpanded] = useState(false)
+  const [isVisible, setIsVisible] = useState(false)
   
   const isAnomaly = commit.anomalyScore >= 20
   const anomalyColor = isAnomaly ? '#f59e0b' : colors.text.secondary
 
+  useEffect(() => {
+    const timer = setTimeout(() => setIsVisible(true), 100)
+    return () => clearTimeout(timer)
+  }, [])
+
   return (
-    <div className="relative">
+    <div 
+      className={`relative transform transition-all duration-500 ease-out ${
+        isVisible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'
+      }`}
+      style={{ transitionDelay: `${Math.random() * 200}ms` }}
+    >
       <Card 
-        className={`transition-all duration-200 ${
+        className={`transition-all duration-300 hover:shadow-lg hover:scale-[1.01] cursor-pointer group ${
           isExpanded ? 'mb-6' : 'mb-4'
         }`}
         style={{ 
           backgroundColor: isExpanded ? colors.background.card : colors.background.card,
           borderColor: isAnomaly ? '#f59e0b' : colors.border.default,
-          borderWidth: isAnomaly ? '2px' : '1px'
+          borderWidth: isAnomaly ? '2px' : '1px',
+          boxShadow: isAnomaly ? `0 0 20px ${anomalyColor}40` : 'none'
         }}
+        onClick={() => setIsExpanded(!isExpanded)}
       >
         <CardContent className="p-4">
           {/* Collapsed content */}
           <div className="flex items-start justify-between">
             <div className="flex items-start gap-4 flex-1">
               {/* Avatar */}
-              <div 
-                className="w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold"
-                style={{ backgroundColor: colors.primary }}
-              >
-                {commit.contributor.name.split(' ').map(n => n[0]).join('')}
+              <div className="relative">
+                <div 
+                  className="w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold transition-transform duration-200 group-hover:scale-110"
+                  style={{ backgroundColor: colors.primary }}
+                >
+                  {commit.contributor.name.split(' ').map(n => n[0]).join('')}
+                </div>
+                {isAnomaly && (
+                  <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full animate-pulse border-2 border-white flex items-center justify-center">
+                    <AlertTriangle className="h-2 w-2 text-white" />
+                  </div>
+                )}
               </div>
               
               {/* Commit info */}
@@ -98,27 +118,32 @@ export default function CommitCard({ commit, isLast = false }: CommitCardProps) 
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setIsExpanded(!isExpanded)}
-                className="flex items-center gap-1"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setIsExpanded(!isExpanded)
+                }}
+                className="flex items-center gap-1 transition-all duration-200 hover:bg-blue-500/10 hover:text-blue-400"
               >
-                {isExpanded ? (
-                  <>
-                    <ChevronUp className="h-4 w-4" />
-                    Hide Details
-                  </>
-                ) : (
-                  <>
-                    <ChevronDown className="h-4 w-4" />
-                    Show Details
-                  </>
-                )}
+                <div className="flex items-center gap-1">
+                  {isExpanded ? (
+                    <>
+                      <ChevronUp className="h-4 w-4 transition-transform duration-200" />
+                      <span className="transition-opacity duration-200">Hide Details</span>
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="h-4 w-4 transition-transform duration-200" />
+                      <span className="transition-opacity duration-200">Show Details</span>
+                    </>
+                  )}
+                </div>
               </Button>
             </div>
           </div>
           
           {/* Expanded content */}
           {isExpanded && (
-            <div className="mt-6 space-y-6">
+            <div className="mt-6 space-y-6 animate-in slide-in-from-top-2 fade-in duration-300">
               {/* Contributor Profile Summary */}
               <div>
                 <h4 className="text-lg font-semibold mb-4" style={{ color: colors.text.primary }}>

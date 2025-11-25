@@ -239,8 +239,8 @@ export default function CreateProjectPage() {
                 duration: 5000,
             })
 
-            // Navigate back to projects page
-            router.push('/')
+            // Navigate to dashboard
+            router.push('/project')
         } catch (error) {
             console.error("Error creating project:", error)
             toast({
