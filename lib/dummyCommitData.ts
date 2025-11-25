@@ -1,5 +1,6 @@
 export interface CommitData {
   id: string
+  sha?: string | undefined
   contributor: { name: string, avatar?: string }
   message: string
   linesAdded: number
