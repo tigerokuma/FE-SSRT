@@ -87,9 +87,12 @@ interface HealthScoreChartProps {
   scorecardData?: ScorecardData | ScorecardData[]
   layout?: 'default' | 'side-by-side'
   onViewFullAssessment?: (scorecardData: ScorecardData) => void
+  tooltipType?: 'health' | 'commits'
+  repoUrl?: string
+  isLoading?: boolean
 }
 
-const CustomTooltip = ({ active, payload, label }: any) => {
+const CustomTooltip = ({ active, payload, label, tooltipType = 'health' }: any) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload
     
@@ -106,7 +109,10 @@ const CustomTooltip = ({ active, payload, label }: any) => {
           {format(parseISO(data.date), 'MMM dd, yyyy')}
         </div>
         <div className={`text-lg font-semibold ${getScoreColor(data.score)}`}>
-          {data.score} Health Score
+          {tooltipType === 'commits' 
+            ? `${data.score} commits in ${format(parseISO(data.date), 'MMMM')}`
+            : `${data.score} Health Score`
+          }
         </div>
         {data.commitSha && (
           <div className="text-xs text-gray-400 mt-1">
@@ -120,7 +126,10 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 }
 
 const CustomXAxisTick = ({ x, y, payload }: any) => {
-  const date = new Date(payload.value)
+  // Handle both timestamp numbers and date strings
+  const date = typeof payload.value === 'number' 
+    ? new Date(payload.value) 
+    : new Date(payload.value)
   return (
     <g transform={`translate(${x},${y})`}>
       <text
@@ -162,7 +171,10 @@ export function HealthScoreChart({
   selectedDate,
   scorecardData,
   layout = 'default',
-  onViewFullAssessment
+  onViewFullAssessment,
+  tooltipType = 'health',
+  repoUrl,
+  isLoading = false
 }: HealthScoreChartProps) {
   // Helper functions for scorecard colors
   const getScorecardScoreColor = (score: number) => {
@@ -186,6 +198,28 @@ export function HealthScoreChart({
     if (score >= 7.5) return "#10b981" // Green
     if (score >= 4) return "#f97316" // Orange
     return "#ef4444" // Red
+  }
+
+  // Construct Scorecard viewer URL from repository URL
+  const getScorecardViewerUrl = (repoUrl?: string) => {
+    if (!repoUrl) return null
+    
+    try {
+      // Parse GitHub URL to extract owner/repo
+      const url = new URL(repoUrl)
+      if (url.hostname === 'github.com') {
+        const pathParts = url.pathname.split('/').filter(Boolean)
+        if (pathParts.length >= 2) {
+          const owner = pathParts[0]
+          const repo = pathParts[1]
+          return `https://scorecard.dev/viewer/?uri=github.com/${owner}/${repo}`
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to parse repository URL:', error)
+    }
+    
+    return null
   }
 
   // Sort data by date to ensure proper ordering
@@ -244,6 +278,60 @@ export function HealthScoreChart({
     }
   }
 
+  // Loading skeleton component
+  const LoadingSkeleton = () => (
+    <div className="w-full">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Scorecard Preview Skeleton - Left 1/3 */}
+        <div className="lg:col-span-1">
+          <div className="space-y-4">
+            {/* Title with Logo Skeleton */}
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-gray-600 rounded animate-pulse"></div>
+              <div className="h-6 w-48 bg-gray-600 rounded animate-pulse"></div>
+            </div>
+            
+            {/* Date Info Skeleton */}
+            <div className="h-4 w-64 bg-gray-600 rounded animate-pulse"></div>
+            
+            {/* Spacing */}
+            <div className="h-4"></div>
+            
+            {/* Overall Score Skeleton */}
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="h-12 w-16 bg-gray-600 rounded animate-pulse mb-2"></div>
+                <div className="h-4 w-20 bg-gray-600 rounded animate-pulse"></div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-32 h-3 bg-gray-600 rounded-full animate-pulse"></div>
+                <div className="w-4 h-4 bg-gray-600 rounded animate-pulse"></div>
+              </div>
+            </div>
+
+            {/* Total Checks Skeleton */}
+            <div className="flex items-center justify-between">
+              <div className="h-4 w-24 bg-gray-600 rounded animate-pulse"></div>
+              <div className="h-4 w-8 bg-gray-600 rounded animate-pulse"></div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Graph Skeleton - Right 2/3 */}
+        <div className="lg:col-span-2">
+          <div style={{ height: '300px', width: '100%' }} className="bg-gray-800/30 rounded-lg">
+            {/* Simple chart area skeleton without center circle */}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+
+  // Show loading skeleton if loading
+  if (isLoading) {
+    return <LoadingSkeleton />
+  }
+
   if (layout === 'side-by-side') {
     return (
       <div className={`w-full ${className}`}>
@@ -278,7 +366,7 @@ export function HealthScoreChart({
                 {/* Overall Score */}
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-3xl font-bold text-white">
+                    <div className="text-3xl font-bold text-white transition-all duration-200 hover:scale-105 cursor-pointer">
                       {selectedScorecardData.score}
                     </div>
                     <div className="text-sm text-gray-400">out of 10</div>
@@ -292,9 +380,16 @@ export function HealthScoreChart({
                     </div>
                     <button 
                       onClick={() => {
-                        onViewFullAssessment?.(selectedScorecardData)
+                        const scorecardUrl = getScorecardViewerUrl(repoUrl)
+                        if (scorecardUrl) {
+                          window.open(scorecardUrl, '_blank', 'noopener,noreferrer')
+                        } else {
+                          // Fallback to the existing modal if no repo URL
+                          onViewFullAssessment?.(selectedScorecardData)
+                        }
                       }}
                       className="text-gray-400 hover:text-white transition-colors"
+                      title={repoUrl ? "Open in Scorecard Viewer" : "View Full Assessment"}
                     >
                       <ChevronRight className="w-4 h-4" />
                     </button>
@@ -370,7 +465,7 @@ export function HealthScoreChart({
                     tickMargin={10}
                   />
                   
-                  <Tooltip content={<CustomTooltip />} />
+                  <Tooltip content={(props) => <CustomTooltip {...props} tooltipType={tooltipType} />} />
                   
                   <Area
                     type="monotone"
@@ -455,7 +550,7 @@ export function HealthScoreChart({
               tickMargin={10}
             />
             
-            <Tooltip content={<CustomTooltip />} />
+            <Tooltip content={(props) => <CustomTooltip {...props} tooltipType={tooltipType} />} />
             
             <Area
               type="monotone"

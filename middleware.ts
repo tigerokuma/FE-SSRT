@@ -7,6 +7,7 @@ const isPublicRoute = createRouteMatcher([
   '/',                 // marketing home (public)
   "/api/backend(.*)",
   '/favicon(.*)',
+  '/api/backend(.*)',  // Backend API routes - let Next.js rewrite proxy to backend (port 3000)
 ])
 
 export default clerkMiddleware(async (auth, req) => {

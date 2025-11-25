@@ -153,6 +153,8 @@ const getLicenseDisplayName = (license: string) => {
 }
 
 interface Project {
+    github_app_installation_id?: string | null
+    github_actions_enabled?: boolean
     id: string
     name: string
     description?: string
@@ -167,6 +169,7 @@ interface Project {
     vulnerability_notifications?: { alerts: boolean; slack: boolean; discord: boolean }
     license_notifications?: { alerts: boolean; slack: boolean; discord: boolean }
     health_notifications?: { alerts: boolean; slack: boolean; discord: boolean }
+    anomalies_notifications?: { alerts: boolean; slack: boolean; discord: boolean }
     monitoredBranch?: {
         id: string
         repository_url: string
@@ -273,6 +276,11 @@ export default function ProjectDetailPage() {
         discord: boolean
     }>({alerts: true, slack: false, discord: false})
     const [healthNotifications, setHealthNotifications] = useState<{
+        alerts: boolean;
+        slack: boolean;
+        discord: boolean
+    }>({alerts: true, slack: false, discord: false})
+    const [anomaliesNotifications, setAnomaliesNotifications] = useState<{
         alerts: boolean;
         slack: boolean;
         discord: boolean
@@ -498,6 +506,7 @@ export default function ProjectDetailPage() {
             })
             setLicenseNotifications(projectData.license_notifications ?? {alerts: true, slack: false, discord: false})
             setHealthNotifications(projectData.health_notifications ?? {alerts: true, slack: false, discord: false})
+            setAnomaliesNotifications(projectData.anomalies_notifications ?? {alerts: true, slack: false, discord: false})
 
             // Fetch team members for this project
             const teamResponse = await fetch(`${apiBase}/projects/${projectId}/users`)
@@ -604,15 +613,17 @@ export default function ProjectDetailPage() {
     }
 
     // Function to get display text for dropdown button
-    const getNotificationDisplayText = (notificationType: 'vulnerability' | 'license' | 'health') => {
+    const getNotificationDisplayText = (notificationType: 'vulnerability' | 'license' | 'health' | 'anomaly') => {
         let notifications: { alerts: boolean; slack: boolean; discord: boolean }
 
         if (notificationType === 'vulnerability') {
             notifications = vulnerabilityNotifications
         } else if (notificationType === 'license') {
             notifications = licenseNotifications
-        } else {
+        } else if (notificationType === 'health') {
             notifications = healthNotifications
+        } else {
+            notifications = anomaliesNotifications
         }
 
         const channels = []
@@ -644,7 +655,7 @@ export default function ProjectDetailPage() {
     }
 
     // Function to save notification settings
-    const handleNotificationChange = async (notificationType: 'vulnerability' | 'license' | 'health', channel: 'alerts' | 'slack' | 'discord', value: boolean) => {
+    const handleNotificationChange = async (notificationType: 'vulnerability' | 'license' | 'health' | 'anomaly', channel: 'alerts' | 'slack' | 'discord', value: boolean) => {
         setIsSavingNotifications(true)
         try {
             const updateData: any = {}
@@ -662,6 +673,10 @@ export default function ProjectDetailPage() {
                 newNotifications = {...healthNotifications, [channel]: value}
                 updateData.health_notifications = newNotifications
                 setHealthNotifications(newNotifications)
+            } else if (notificationType === 'anomaly') {
+                newNotifications = {...anomaliesNotifications, [channel]: value}
+                updateData.anomalies_notifications = newNotifications
+                setAnomaliesNotifications(newNotifications)
             }
 
             const response = await fetch(`${apiBase}/projects/${projectId}`, {
@@ -678,7 +693,8 @@ export default function ProjectDetailPage() {
                     ...prev,
                     vulnerability_notifications: notificationType === 'vulnerability' ? newNotifications : prev.vulnerability_notifications,
                     license_notifications: notificationType === 'license' ? newNotifications : prev.license_notifications,
-                    health_notifications: notificationType === 'health' ? newNotifications : prev.health_notifications
+                    health_notifications: notificationType === 'health' ? newNotifications : prev.health_notifications,
+                    anomalies_notifications: notificationType === 'anomaly' ? newNotifications : prev.anomalies_notifications,
                 } : null)
 
                 toast({
@@ -1608,6 +1624,7 @@ export default function ProjectDetailPage() {
                                             dependency.package?.status === 'queued' ||
                                             dependency.package?.status === 'fast'
                                         }
+                                        projectId={projectId}
                                     />
                                 ))
                             )}
@@ -1648,26 +1665,27 @@ export default function ProjectDetailPage() {
                             </div>
 
                             {/* B) Filters row (button + chips) */}
-                            <div className="flex items-center gap-4">
-                                <Button
-                                    variant="outline"
-                                    className="border-gray-600 text-gray-300 hover:bg-gray-700"
-                                    onClick={() => {
-                                        // seed popup with current selections
-                                        setTmpWatchStatus(watchState.status);
-                                        setTmpWatchLicenseFilter(watchState.licenseFilter);
-                                        setTmpWatchProcessing(watchState.processing);
-                                        setTmpWatchRiskMin(watchState.riskMin);
-                                        setTmpWatchRiskMax(watchState.riskMax);
-                                        setShowWatchFilterPopup(true);
-                                    }}
-                                >
-                                    <Search className="h-4 w-4 mr-2"/>
-                                    Add Filters
-                                </Button>
+                            <div className="flex items-center justify-between gap-4">
+                                <div className="flex items-center gap-4 flex-1">
+                                    <Button
+                                        variant="outline"
+                                        className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                                        onClick={() => {
+                                            // seed popup with current selections
+                                            setTmpWatchStatus(watchState.status);
+                                            setTmpWatchLicenseFilter(watchState.licenseFilter);
+                                            setTmpWatchProcessing(watchState.processing);
+                                            setTmpWatchRiskMin(watchState.riskMin);
+                                            setTmpWatchRiskMax(watchState.riskMax);
+                                            setShowWatchFilterPopup(true);
+                                        }}
+                                    >
+                                        <Search className="h-4 w-4 mr-2"/>
+                                        Add Filters
+                                    </Button>
 
-                                {/* Chips — show what’s active */}
-                                <div className="flex flex-wrap gap-2">
+                                    {/* Chips — show what's active */}
+                                    <div className="flex flex-wrap gap-2">
                                     {/* Status chips */}
                                     {watchState.status.length > 0 &&
                                         watchState.status.map((s) => (
@@ -1754,7 +1772,44 @@ export default function ProjectDetailPage() {
                                             </button>
                                         </div>
                                     )}
+                                    </div>
                                 </div>
+
+                                {/* GitHub Actions Integration - Right side */}
+                                {!project?.github_app_installation_id ? (
+                                    <Button
+                                        variant="outline"
+                                        size="default"
+                                        className="border-blue-500 text-blue-400 hover:bg-blue-500/20 font-medium"
+                                        onClick={async () => {
+                                            try {
+                                                const response = await fetch(`${apiBase}/projects/${projectId}/github-app/installation-url`);
+                                                if (response.ok) {
+                                                    const data = await response.json();
+                                                    window.open(data.installationUrl, '_blank');
+                                                }
+                                            } catch (error) {
+                                                console.error('Error getting installation URL:', error);
+                                            }
+                                        }}
+                                    >
+                                        <img src="/Github_icon.png" alt="GitHub" className="w-5 h-5 mr-2"/>
+                                        Integrate GitHub
+                                    </Button>
+                                ) : (
+                                    <button
+                                        onClick={() => {
+                                            setCurrentTab("settings");
+                                            setCurrentSettingsTab("integrations");
+                                        }}
+                                        className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-600 bg-gray-800/50 hover:bg-gray-700/50 transition-colors cursor-pointer"
+                                    >
+                                        <img src="/Github_icon.png" alt="GitHub" className="w-5 h-5"/>
+                                        <span className="text-sm font-medium text-gray-300">
+                                            Integrated
+                                        </span>
+                                    </button>
+                                )}
                             </div>
                         </div>
 
@@ -2082,7 +2137,15 @@ export default function ProjectDetailPage() {
                                 setCurrentTab("settings");
                                 setCurrentSettingsTab("alerts");
                             }}
-                            onNavigate={handleAlertNavigate}   // NEW
+                            onNavigate={handleAlertNavigate}
+                            projectId={projectId}
+                            apiBase={apiBase}
+                            notificationSettings={{
+                                vulnerability: vulnerabilityNotifications,
+                                license: licenseNotifications,
+                                health: healthNotifications,
+                                anomaly: anomaliesNotifications,
+                            }}
                         />
                     </div>
                 )}
@@ -2392,13 +2455,57 @@ export default function ProjectDetailPage() {
                                                         </div>
                                                         <div>
                                                             <div className="text-white font-medium">GitHub Actions</div>
-                                                            <div className="text-xs text-gray-400">CI/CD workflows</div>
+                                                            <div className="text-xs text-gray-400">
+                                                                {project?.github_app_installation_id 
+                                                                    ? 'Automatic PR comments active' 
+                                                                    : 'Automatic PR comments'}
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                    <Button variant="outline" size="sm"
-                                                            className="border-gray-600 text-gray-300 hover:bg-gray-700">
-                                                        Connect
-                                                    </Button>
+                                                    {project?.github_app_installation_id ? (
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-xs text-green-400 bg-green-400/10 px-2 py-1 rounded">
+                                                                Active
+                                                            </span>
+                                                            <Button 
+                                                                variant="outline" 
+                                                                size="sm"
+                                                                className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                                                                onClick={async () => {
+                                                                    try {
+                                                                        const response = await fetch(`${apiBase}/projects/${projectId}/github-app/installation-url`);
+                                                                        if (response.ok) {
+                                                                            const data = await response.json();
+                                                                            window.open(data.installationUrl, '_blank');
+                                                                        }
+                                                                    } catch (error) {
+                                                                        console.error('Error getting installation URL:', error);
+                                                                    }
+                                                                }}
+                                                            >
+                                                                Reconnect
+                                                            </Button>
+                                                        </div>
+                                                    ) : (
+                                                        <Button 
+                                                            variant="outline" 
+                                                            size="sm"
+                                                            className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                                                            onClick={async () => {
+                                                                try {
+                                                                    const response = await fetch(`${apiBase}/projects/${projectId}/github-app/installation-url`);
+                                                                    if (response.ok) {
+                                                                        const data = await response.json();
+                                                                        window.open(data.installationUrl, '_blank');
+                                                                    }
+                                                                } catch (error) {
+                                                                    console.error('Error getting installation URL:', error);
+                                                                }
+                                                            }}
+                                                        >
+                                                            Connect
+                                                        </Button>
+                                                    )}
                                                 </div>
                                             </CardContent>
                                         </Card>
@@ -2588,6 +2695,66 @@ export default function ProjectDetailPage() {
                                                                 type="checkbox"
                                                                 checked={healthNotifications.discord}
                                                                 onChange={(e) => handleNotificationChange('health', 'discord', e.target.checked)}
+                                                                disabled={isSavingNotifications}
+                                                                className="rounded"
+                                                            />
+                                                            <span>Discord</span>
+                                                        </label>
+                                                    </div>
+                                                </DialogContent>
+                                            </Dialog>
+                                        </div>
+
+                                        {/* Anomaly Alerts Row */}
+                                        <div className="flex items-center justify-between p-4 rounded-lg border"
+                                             style={{
+                                                 backgroundColor: colors.background.card,
+                                                 borderColor: 'rgb(38, 38, 38)'
+                                             }}>
+                                            <div>
+                                                <div className="text-white font-medium">Anomaly Alerts</div>
+                                                <div className="text-sm text-gray-400">Get notified about anomalous commits
+                                                </div>
+                                            </div>
+                                            <Dialog>
+                                                <DialogTrigger asChild>
+                                                    <Button variant="outline" className="w-56 justify-between text-left"
+                                                            style={{backgroundColor: 'rgb(18, 18, 18)'}}>
+                                                        <span
+                                                            className="truncate">{getNotificationDisplayText('anomaly')}</span>
+                                                        <ChevronDown className="h-4 w-4 flex-shrink-0 ml-2"/>
+                                                    </Button>
+                                                </DialogTrigger>
+                                                <DialogContent className="sm:max-w-md">
+                                                    <DialogHeader>
+                                                        <DialogTitle>Select notification channels</DialogTitle>
+                                                    </DialogHeader>
+                                                    <div className="space-y-4 py-4">
+                                                        <label className="flex items-center gap-3 cursor-pointer">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={anomaliesNotifications.alerts}
+                                                                onChange={(e) => handleNotificationChange('anomaly', 'alerts', e.target.checked)}
+                                                                disabled={isSavingNotifications}
+                                                                className="rounded"
+                                                            />
+                                                            <span>Alerts Tab</span>
+                                                        </label>
+                                                        <label className="flex items-center gap-3 cursor-pointer">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={anomaliesNotifications.slack}
+                                                                onChange={(e) => handleNotificationChange('anomaly', 'slack', e.target.checked)}
+                                                                disabled={isSavingNotifications}
+                                                                className="rounded"
+                                                            />
+                                                            <span>Slack</span>
+                                                        </label>
+                                                        <label className="flex items-center gap-3 cursor-pointer">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={anomaliesNotifications.discord}
+                                                                onChange={(e) => handleNotificationChange('anomaly', 'discord', e.target.checked)}
                                                                 disabled={isSavingNotifications}
                                                                 className="rounded"
                                                             />

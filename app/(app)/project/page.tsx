@@ -57,7 +57,11 @@ export default function Home() {
   const fetchProjects = async () => {
     if (!backendUserId) return
     try {
-      const response = await AuthService.fetchWithAuth(`${apiBase}/projects/user/${backendUserId}`)
+      // Use plain fetch - the /api/backend proxy automatically adds Clerk JWT token
+      const response = await fetch(`${apiBase}/projects/user/${backendUserId}`, {
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+      })
       if (!response.ok) throw new Error('Failed to fetch projects')
       const data = await response.json()
 
@@ -67,7 +71,10 @@ export default function Home() {
         const progressResults = await Promise.all(
           creatingProjects.map(async (p: Project) => {
             try {
-              const r = await AuthService.fetchWithAuth(`${apiBase}/projects/${p.id}/status`)
+              const r = await fetch(`${apiBase}/projects/${p.id}/status`, {
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+              })
               if (r.ok) {
                 const s = await r.json()
                 return { projectId: p.id, statusData: s }
@@ -286,7 +293,10 @@ export default function Home() {
           // Poll each creating project individually
           const statusPromises = creatingProjects.map(async (project) => {
             try {
-              const response = await AuthService.fetchWithAuth(`${apiBase}/projects/${project.id}/status`)
+              const response = await fetch(`${apiBase}/projects/${project.id}/status`, {
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+              })
               if (response.ok) {
                 const statusData = await response.json()
                 console.log(`📊 PROJECT ${project.id} STATUS:`, statusData)

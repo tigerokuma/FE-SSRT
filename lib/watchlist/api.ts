@@ -25,7 +25,9 @@ const API_BASE_URL = '/api/backend'
 export const searchPackages = async (query: string): Promise<SearchApiResponse> => {
   try {
     console.log('Searching for:', query)
-    const response = await fetch(`${API_BASE_URL}/packages/search?name=${encodeURIComponent(query)}`)
+    const response = await fetch(`${API_BASE_URL}/packages/search?name=${encodeURIComponent(query)}`, {
+      credentials: 'include',
+    })
     
     if (!response.ok) {
       throw new Error(`Search failed: ${response.statusText}`)
