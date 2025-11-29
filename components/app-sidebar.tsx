@@ -5,7 +5,7 @@ import Image from "next/image"
 import {useEffect, useMemo, useState} from "react"
 import {usePathname} from "next/navigation"
 import {useUser} from "@clerk/nextjs"
-import {Bell, Home, Settings} from "lucide-react"
+import {Home, Settings} from "lucide-react"
 
 import {
     Sidebar,
@@ -125,7 +125,6 @@ export default function AppSidebar() {
     const mainNavItems = useMemo(
         () => [
             {title: "Dashboard", href: "/project", icon: Home},
-            {title: "Alert Center", href: "/alerts", icon: Bell},
         ],
         []
     )
