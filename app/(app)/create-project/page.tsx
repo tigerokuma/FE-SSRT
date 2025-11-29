@@ -7,7 +7,7 @@ import {Input} from "@/components/ui/input"
 import {Card, CardContent} from "@/components/ui/card"
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from "@/components/ui/select"
 import {Switch} from "@/components/ui/switch"
-import {Github, ArrowLeft, FileText, Terminal, Upload, X, Package, Globe, Lock} from "lucide-react"
+import {Github, ArrowLeft, Package, Globe, Lock} from "lucide-react"
 import {useToast} from "@/hooks/use-toast"
 import {colors} from "@/lib/design-system"
 import {useEnsureBackendUser} from "@/lib/useEnsureBackendUser";
@@ -233,6 +233,9 @@ export default function CreateProjectPage() {
             const newProject = await response.json()
             console.log("Project created successfully:", newProject)
 
+            // Trigger sidebar update
+            window.dispatchEvent(new CustomEvent('projects:invalidate'))
+
             toast({
                 title: "Project Created!",
                 description: "Your project is now being set up in the background.",
@@ -267,7 +270,7 @@ export default function CreateProjectPage() {
 
     return (
         <div className="min-h-screen" style={{backgroundColor: colors.background.main}}>
-            <div className="container mx-auto px-6 py-8">
+            <div className="container mx-auto px-6 py-8 max-w-7xl" style={{ marginLeft: 'auto', marginRight: 'auto' }}>
                 {/* Header */}
                 <div className="mb-8">
                     <h1 className="text-3xl font-bold text-white">Create Project</h1>
@@ -276,9 +279,9 @@ export default function CreateProjectPage() {
                     </p>
                 </div>
 
-                {/* Two Column Layout */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    {/* Left Half: Git Repositories */}
+                {/* Single Column Layout */}
+                <div className="grid grid-cols-1 gap-8">
+                    {/* Git Repositories */}
                     <div className="space-y-6" style={{backgroundColor: colors.background.card}}>
                         <div className="p-6">
                             <div className="flex items-center gap-3 mb-6">
@@ -304,7 +307,7 @@ export default function CreateProjectPage() {
                             </div>
 
                             {/* Repository List */}
-                            <div className="space-y-3 max-h-[420px] overflow-y-auto pr-1">
+                            <div className="space-y-3">
                                 {isLoading ? (
                                     // Loading skeletons
                                     Array.from({length: 5}).map((_, index) => (
@@ -397,220 +400,6 @@ export default function CreateProjectPage() {
                                     ))
                                 )}
                             </div>
-                        </div>
-                    </div>
-
-                    {/* Right Half: CLI and Package.json */}
-                    <div className="space-y-6">
-                        {/* Top Quarter: CLI */}
-                        <div className="p-6 rounded-lg" style={{backgroundColor: colors.background.card}}>
-                            <div className="flex items-center gap-3 mb-4">
-                                <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-                                     style={{backgroundColor: colors.primaryBubble}}>
-                                    <Terminal className="h-4 w-4 text-white"/>
-                                </div>
-                                <div>
-                                    <h3 className="text-lg font-semibold text-white">Create with CLI</h3>
-                                    <p className="text-gray-400 text-sm">Run commands from your terminal</p>
-                                </div>
-                            </div>
-
-                            {/* CLI Commands */}
-                            <div className="space-y-3">
-                                <div className="bg-gray-800 rounded-lg p-3 relative group"
-                                     style={{backgroundColor: 'rgb(26 26 26)'}}>
-                                    <code className="text-gray-300 text-sm">npm i -g deply-cli</code>
-                                    <button
-                                        onClick={() => handleCopy('npm i -g deply-cli', 'npm-install')}
-                                        className="absolute opacity-0 group-hover:opacity-100 transition-opacity"
-                                        style={{top: '15px', right: '15px'}}
-                                    >
-                                        {copiedStates['npm-install'] ? (
-                                            <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor"
-                                                 viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                                                      d="M5 13l4 4L19 7"/>
-                                            </svg>
-                                        ) : (
-                                            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor"
-                                                 viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                                                      d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
-                                            </svg>
-                                        )}
-                                    </button>
-                                </div>
-                                <div className="bg-gray-800 rounded-lg p-3 relative group"
-                                     style={{backgroundColor: 'rgb(26 26 26)'}}>
-                                    <code className="text-gray-300 text-sm">deply init</code>
-                                    <button
-                                        onClick={() => handleCopy('deply init', 'deply-init')}
-                                        className="absolute opacity-0 group-hover:opacity-100 transition-opacity"
-                                        style={{top: '15px', right: '15px'}}
-                                    >
-                                        {copiedStates['deply-init'] ? (
-                                            <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor"
-                                                 viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                                                      d="M5 13l4 4L19 7"/>
-                                            </svg>
-                                        ) : (
-                                            <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor"
-                                                 viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                                                      d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
-                                            </svg>
-                                        )}
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Bottom Quarter: Dependencies File Upload */}
-                        <div className="p-6 rounded-lg flex flex-col"
-                             style={{backgroundColor: colors.background.card, height: '400px'}}>
-                            <div className="flex items-center justify-between mb-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-                                         style={{backgroundColor: colors.primaryBubble}}>
-                                        <FileText className="h-4 w-4 text-white"/>
-                                    </div>
-                                    <div>
-                                        <h3 className="text-lg font-semibold text-white">Drop Dependencies File</h3>
-                                        <p className="text-gray-400 text-sm">Upload package.json or other dependency
-                                            files</p>
-                                    </div>
-                                </div>
-                                {isFileDropped && (
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={handleClearFile}
-                                        className="text-gray-400 hover:text-white"
-                                    >
-                                        <X className="h-4 w-4"/>
-                                    </Button>
-                                )}
-                            </div>
-
-                            {!isFileDropped ? (
-                                /* File Upload Dropzone */
-                                <div
-                                    className="border-2 border-dashed border-gray-600 rounded-lg p-6 hover:border-gray-500 transition-colors flex-1 flex flex-col items-center justify-center"
-                                    onDragOver={handleDragOver}
-                                    onDrop={handleDrop}
-                                >
-                                    <input
-                                        type="file"
-                                        accept=".json"
-                                        onChange={handleFileInputChange}
-                                        className="hidden"
-                                        id="package-json-upload"
-                                    />
-                                    <label htmlFor="package-json-upload"
-                                           className="cursor-pointer flex flex-col items-center justify-center h-full w-full">
-                                        {isProcessingFile ? (
-                                            <>
-                                                <div
-                                                    className="animate-spin rounded-full h-12 w-12 border-2 border-gray-400 border-t-transparent mb-4"></div>
-                                                <div className="text-lg text-gray-400 mb-2">Processing file...</div>
-                                                <div className="text-sm text-gray-500">Please wait</div>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Upload className="h-12 w-12 text-gray-400 mb-4"/>
-                                                <div className="text-lg text-gray-400 mb-2">Click to upload
-                                                    package.json
-                                                </div>
-                                                <div className="text-sm text-gray-500">or drag and drop</div>
-                                            </>
-                                        )}
-                                    </label>
-                                </div>
-                            ) : (
-                                /* Project Configuration Form */
-                                <div className="flex-1 flex flex-col space-y-6">
-                                    {/* Project Name */}
-                                    <div className="flex items-center gap-4">
-                                        <h3 className="text-lg font-semibold text-white">Project Name</h3>
-                                        <Input
-                                            placeholder="Enter project name"
-                                            value={projectName}
-                                            onChange={(e) => setProjectName(e.target.value)}
-                                            className="border-gray-700 text-white placeholder-gray-400 flex-1"
-                                            style={{backgroundColor: 'rgb(26, 26, 26)'}}
-                                        />
-                                    </div>
-
-                                    {/* License Selection */}
-                                    <div>
-                                        <div className="flex items-center justify-between mb-4">
-                                            <h3 className="text-lg font-semibold text-white">License</h3>
-                                            <Switch
-                                                checked={showLicense}
-                                                onCheckedChange={setShowLicense}
-                                                className="data-[state=checked]:bg-[rgb(84,0,250)]"
-                                            />
-                                        </div>
-                                        {showLicense && (
-                                            <Select value={selectedLicense} onValueChange={setSelectedLicense}>
-                                                <SelectTrigger className="border-gray-700 text-white"
-                                                               style={{backgroundColor: 'rgb(26, 26, 26)'}}>
-                                                    <SelectValue placeholder="Select license"/>
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {licenses.map((license) => (
-                                                        <SelectItem key={license.value} value={license.value}>
-                                                            {license.label}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        )}
-                                    </div>
-
-                                    {/* Package Info */}
-                                    {packageData && (
-                                        <div className="my-2" style={{marginTop: '15px'}}>
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-                                                     style={{backgroundColor: colors.primaryBubble}}>
-                                                    <Package className="h-4 w-4 text-white"/>
-                                                </div>
-                                                <div>
-                                                    <h3 className="text-lg font-semibold text-white">Dependencies</h3>
-                                                    <p className="text-gray-400 text-sm">
-                                                        {packageData.dependencyCount || 0} packages detected
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                </div>
-                            )}
-
-                            {/* Create Project Button - Outside the form section */}
-                            {isFileDropped && (
-                                <div className="pt-4">
-                                    <Button
-                                        onClick={handleCreateProjectFromFile}
-                                        disabled={isCreating || !projectName.trim()}
-                                        className="w-full text-white py-6"
-                                        style={{backgroundColor: colors.primary}}
-                                    >
-                                        {isCreating ? (
-                                            <>
-                                                <div
-                                                    className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
-                                                Creating Project...
-                                            </>
-                                        ) : (
-                                            'Create Project'
-                                        )}
-                                    </Button>
-                                </div>
-                            )}
                         </div>
                     </div>
                 </div>

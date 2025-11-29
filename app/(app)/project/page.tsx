@@ -625,67 +625,16 @@ export default function Home() {
               </div>
         ) : filteredProjects.length === 0 ? (
           <div className="py-16">
-            {/* Three ways to create a project */}
+            {/* One way to create a project */}
             <div className="max-w-4xl mx-auto">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                {/* Option 1: Connect GitHub Repository */}
+              <div className="grid grid-cols-1 gap-6 mb-8">
+                {/* Option: Connect GitHub Repository */}
                 <div className="text-center p-6 rounded-lg" style={{ backgroundColor: colors.background.card }}>
                   <div className="w-12 h-12 rounded-lg flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: colors.primaryBubble }}>
                     <Github className="h-6 w-6 text-white" />
                   </div>
                   <h3 className="text-lg font-semibold text-white mb-2">Connect GitHub Repo</h3>
                   <p className="text-gray-400 text-sm">Link to one of your repositories for automatic updates</p>
-                </div>
-
-                {/* Option 2: Upload package.json */}
-                <div className="text-center p-6 rounded-lg" style={{ backgroundColor: colors.background.card }}>
-                  <div className="w-12 h-12 rounded-lg flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: colors.primaryBubble }}>
-                    <FileText className="h-6 w-6 text-white" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-white mb-2">Upload dependencies file</h3>
-                  <p className="text-gray-400 text-sm">Get security score without sharing your codebase</p>
-                </div>
-
-                {/* Option 3: Use CLI */}
-                <div className="text-center p-6 rounded-lg" style={{ backgroundColor: colors.background.card }}>
-                  <div className="w-12 h-12 rounded-lg flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: colors.primaryBubble }}>
-                    <Terminal className="h-6 w-6 text-white" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-white mb-2">Use the CLI</h3>
-                  <div className="bg-gray-900 rounded-lg p-3 mb-2 relative group" style={{ padding: '0.2rem', backgroundColor: 'rgb(26 26 26)' }}>
-                    <code className="text-gray-300 text-sm">npm i -g deply-cli</code>
-                    <button 
-                      onClick={() => handleCopy('npm i -g deply-cli', 'npm-install')}
-                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      {copiedStates['npm-install'] ? (
-                        <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                      ) : (
-                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
-                      )}
-                    </button>
-                  </div>
-                  <div className="bg-gray-900 rounded-lg p-3 relative group" style={{ padding: '0.2rem', backgroundColor: 'rgb(26 26 26)' }}>
-                    <code className="text-gray-300 text-sm">deply init</code>
-                    <button 
-                      onClick={() => handleCopy('deply init', 'deply-init')}
-                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      {copiedStates['deply-init'] ? (
-                        <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                      ) : (
-                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
-                      )}
-                    </button>
-                  </div>
                 </div>
               </div>
             </div>

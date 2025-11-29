@@ -49,7 +49,6 @@ export default function NewProjectPage() {
   const [branches, setBranches] = useState<GitHubBranch[]>([])
   const [selectedBranch, setSelectedBranch] = useState<string>('')
   const [projectName, setProjectName] = useState<string>('')
-  const [selectedFramework, setSelectedFramework] = useState<string>('other')
   const [selectedLicense, setSelectedLicense] = useState<string>('MIT')
   const [collaborationEnabled, setCollaborationEnabled] = useState<boolean>(false)
   const [isCreating, setIsCreating] = useState<boolean>(false)
@@ -58,8 +57,6 @@ export default function NewProjectPage() {
   const [isLoadingBranches, setIsLoadingBranches] = useState<boolean>(false)
   const [detectedLicense, setDetectedLicense] = useState<GitHubLicense | null>(null)
   const [isLoadingLicense, setIsLoadingLicense] = useState<boolean>(false)
-  const [detectedLanguage, setDetectedLanguage] = useState<string | null>(null)
-  const [isLoadingLanguage, setIsLoadingLanguage] = useState<boolean>(false)
   const [hasPackageJson, setHasPackageJson] = useState<boolean | null>(null)
   const [isCheckingPackageJson, setIsCheckingPackageJson] = useState<boolean>(false)
   const [packageCount, setPackageCount] = useState<number | null>(null)
@@ -67,17 +64,13 @@ export default function NewProjectPage() {
   const { toast } = useToast()
 
   useEffect(() => {
-    if (!isEnsured || !backendUserId) return;
     const repoParam = searchParams.get('repo')
     if (repoParam) {
       try {
         const repoData = JSON.parse(decodeURIComponent(repoParam))
         setRepository(repoData)
         setProjectName(repoData.name)
-        fetchBranches(repoData.full_name)
-        fetchLicense(repoData.full_name)
-        fetchLanguage(repoData.full_name)
-        // Don't check package.json yet - wait for branch selection
+        // Don't fetch data yet - wait for backend user to be ready
       } catch (error) {
         console.error('Error parsing repository data:', error)
         router.push('/create-project')
@@ -85,33 +78,38 @@ export default function NewProjectPage() {
     } else {
       router.push('/create-project')
     }
-  }, [searchParams, router, isEnsured, backendUserId])
+  }, [searchParams, router])
 
-  // Handle framework selection when language and package.json data are available
+  // Fetch branches and license once backend user is ready
   useEffect(() => {
-    if (detectedLanguage && hasPackageJson !== null) {
-      if (detectedLanguage === 'JavaScript' || detectedLanguage === 'TypeScript') {
-        if (hasPackageJson) {
-          console.log('Setting framework to nodejs - package.json confirmed')
-          setSelectedFramework('nodejs')
-        } else {
-          console.log('Setting framework to other - no package.json')
-          setSelectedFramework('other')
-        }
-      }
+    if (repository && isEnsured && backendUserId) {
+      fetchBranches(repository.full_name)
+      fetchLicense(repository.full_name)
     }
-  }, [detectedLanguage, hasPackageJson])
+  }, [repository, isEnsured, backendUserId])
 
-  // Trigger package.json detection when branch is selected
+
+  // Trigger package.json detection when branch is selected and backend user is ready
   useEffect(() => {
-    if (repository && selectedBranch && selectedBranch !== '') {
+    if (repository && selectedBranch && selectedBranch !== '' && isEnsured && backendUserId) {
       console.log('Branch selected, checking package.json for:', repository.full_name, 'on branch:', selectedBranch)
       checkPackageJson(repository.full_name)
       fetchPackageCount(repository.full_name)
     }
-  }, [selectedBranch, repository])
+  }, [repository, selectedBranch, isEnsured, backendUserId])
 
   const fetchBranches = async (repoFullName: string) => {
+    if (!backendUserId) {
+      console.warn('Cannot fetch branches: backendUserId not available')
+      // Set default branches
+      setBranches([
+        { name: 'main', protected: false },
+        { name: 'master', protected: false },
+        { name: 'develop', protected: false }
+      ])
+      return
+    }
+
     setIsLoadingBranches(true)
     try {
       console.log('Fetching branches for:', repoFullName)
@@ -126,19 +124,20 @@ export default function NewProjectPage() {
         console.log('Branches data received:', branchesData)
         setBranches(branchesData)
         // Set the first branch as default if available
-        if (branchesData.length > 0) {
+        if (branchesData.length > 0 && !selectedBranch) {
           setSelectedBranch(branchesData[0].name)
         }
       } else {
         console.error('Failed to fetch branches:', response.status, response.statusText)
-        const errorText = await response.text()
-        console.error('Error response:', errorText)
         // Fallback to default branches if API fails
         setBranches([
           { name: 'main', protected: false },
           { name: 'master', protected: false },
           { name: 'develop', protected: false }
         ])
+        if (!selectedBranch) {
+          setSelectedBranch('main')
+        }
       }
     } catch (error) {
       console.error('Error fetching branches:', error)
@@ -148,12 +147,20 @@ export default function NewProjectPage() {
         { name: 'master', protected: false },
         { name: 'develop', protected: false }
       ])
+      if (!selectedBranch) {
+        setSelectedBranch('main')
+      }
     } finally {
       setIsLoadingBranches(false)
     }
   }
 
   const fetchLicense = async (repoFullName: string) => {
+    if (!backendUserId) {
+      console.warn('Cannot fetch license: backendUserId not available')
+      return
+    }
+
     setIsLoadingLicense(true)
     try {
       console.log('Fetching license for:', repoFullName)
@@ -178,68 +185,22 @@ export default function NewProjectPage() {
         }
       } else {
         console.error('Failed to fetch license:', response.status, response.statusText)
-        const errorText = await response.text()
-        console.error('Error response:', errorText)
+        // Silently fail - license is optional
       }
     } catch (error) {
       console.error('Error fetching license:', error)
+      // Silently fail - license is optional
     } finally {
       setIsLoadingLicense(false)
     }
   }
 
-  const fetchLanguage = async (repoFullName: string) => {
-    setIsLoadingLanguage(true)
-    try {
-      console.log('Fetching language for:', repoFullName)
-      const repositoryUrl = `https://github.com/${repoFullName}`
-      const response = await fetch(
-  `${apiBase}/github/language?repositoryUrl=${encodeURIComponent(repositoryUrl)}&userId=${backendUserId}`
-      );
-      console.log('Language API response status:', response.status)
-
-      if (response.ok) {
-        const languageData = await response.json()
-        console.log('Language data received:', languageData)
-        setDetectedLanguage(languageData.language)
-
-        // Auto-select the detected language if it matches our frameworks
-        if (languageData.language) {
-          const languageMapping: { [key: string]: string } = {
-            'JavaScript': 'nodejs',
-            'TypeScript': 'nodejs',
-            'Python': 'python',
-            'Java': 'java',
-            'Rust': 'rust',
-            'Go': 'go',
-            'Ruby': 'ruby'
-          }
-
-          const mappedFramework = languageMapping[languageData.language]
-          if (mappedFramework) {
-            // For Node.js, we'll validate with package.json check
-            if (mappedFramework === 'nodejs') {
-              // Don't set yet, wait for package.json check
-              console.log('JavaScript/TypeScript detected, waiting for package.json validation...')
-            } else {
-              console.log(`Setting framework to ${mappedFramework} - non-JS/TS language detected`)
-              setSelectedFramework(mappedFramework)
-            }
-          }
-        }
-      } else {
-        console.error('Failed to fetch language:', response.status, response.statusText)
-        const errorText = await response.text()
-        console.error('Error response:', errorText)
-      }
-    } catch (error) {
-      console.error('Error fetching language:', error)
-    } finally {
-      setIsLoadingLanguage(false)
-    }
-  }
-
   const checkPackageJson = async (repoFullName: string) => {
+    if (!backendUserId || !selectedBranch) {
+      console.warn('Cannot check package.json: backendUserId or selectedBranch not available')
+      return
+    }
+
     setIsCheckingPackageJson(true)
     try {
       console.log('Checking for package.json in:', repoFullName, 'on branch:', selectedBranch)
@@ -253,16 +214,6 @@ export default function NewProjectPage() {
         const packageJsonData = await response.json()
         console.log('Package.json data received:', packageJsonData)
         setHasPackageJson(packageJsonData.exists)
-
-        // If we detected JavaScript/TypeScript and package.json exists, set to nodejs
-        if (packageJsonData.exists && detectedLanguage && (detectedLanguage === 'JavaScript' || detectedLanguage === 'TypeScript')) {
-          console.log('Setting framework to nodejs - package.json found')
-          setSelectedFramework('nodejs')
-        } else if (detectedLanguage && (detectedLanguage === 'JavaScript' || detectedLanguage === 'TypeScript') && !packageJsonData.exists) {
-          // If JS/TS detected but no package.json, set to other
-          console.log('Setting framework to other - no package.json found')
-          setSelectedFramework('other')
-        }
       } else {
         console.error('Failed to check package.json:', response.status, response.statusText)
         setHasPackageJson(false)
@@ -276,6 +227,12 @@ export default function NewProjectPage() {
   }
 
   const fetchPackageCount = async (repoFullName: string) => {
+    if (!backendUserId || !selectedBranch) {
+      console.warn('Cannot fetch package count: backendUserId or selectedBranch not available')
+      setPackageCount(null)
+      return
+    }
+
     setIsLoadingPackages(true)
     try {
       console.log('Fetching package count for:', repoFullName, 'on branch:', selectedBranch)
@@ -288,28 +245,18 @@ export default function NewProjectPage() {
       if (response.ok) {
         const packageData = await response.json()
         console.log('Package count data received:', packageData)
-        setPackageCount(packageData.count)
+        setPackageCount(packageData.count || 0)
       } else {
         console.error('Failed to fetch package count:', response.status, response.statusText)
-        setPackageCount(null)
+        setPackageCount(0)
       }
     } catch (error) {
       console.error('Error fetching package count:', error)
-      setPackageCount(null)
+      setPackageCount(0)
     } finally {
       setIsLoadingPackages(false)
     }
   }
-
-  const frameworks = [
-    { value: 'other', label: 'Other', icon: '/Deply_Logo.png' },
-    { value: 'nodejs', label: 'Node.js', icon: '/Node_logo.png' },
-    { value: 'python', label: 'Python', icon: '/Python_logo.png' },
-    { value: 'java', label: 'Java', icon: '/Java_logo.png' },
-    { value: 'rust', label: 'Rust', icon: '/Rust_logo.png' },
-    { value: 'go', label: 'Go', icon: '/Go_logo.png' },
-    { value: 'ruby', label: 'Ruby', icon: '/Ruby_logo.png' }
-  ]
 
   const licenses = [
     { value: 'MIT', label: 'MIT License' },
@@ -335,7 +282,7 @@ export default function NewProjectPage() {
           repositoryUrl: repository.html_url,
           branch: selectedBranch,
           type: 'repo', // Repository type
-          language: selectedFramework, // Map framework to language
+          language: 'nodejs', // Always use nodejs
           license: showLicense ? selectedLicense : null, // Pass license if toggle is on, null if off
           userId: backendUserId
         })
@@ -347,6 +294,9 @@ export default function NewProjectPage() {
 
       const newProject = await response.json()
       console.log("Project created successfully:", newProject)
+
+      // Trigger sidebar update
+      window.dispatchEvent(new CustomEvent('projects:invalidate'))
 
       toast({
         title: "Project Created!",
@@ -509,33 +459,6 @@ export default function NewProjectPage() {
                       </div>
                     )}
                   </div>
-                  {/* Framework Selection */}
-                  <div>
-                    <div className="mb-4">
-                      <h3 className="text-lg font-semibold text-white">Language</h3>
-                    </div>
-                    <Select value={selectedFramework} onValueChange={setSelectedFramework} disabled={isLoadingLanguage || isCheckingPackageJson}>
-                      <SelectTrigger className="border-gray-700 text-white" style={{ backgroundColor: 'rgb(26, 26, 26)' }}>
-                        <div className="flex items-center gap-2">
-                          {(isLoadingLanguage || isCheckingPackageJson) && (
-                            <div className="animate-spin rounded-full h-4 w-4 border-2 border-gray-400 border-t-transparent"></div>
-                          )}
-                          <SelectValue placeholder={isLoadingLanguage ? "Detecting language..." : isCheckingPackageJson ? "Validating..." : "Select framework"} />
-                        </div>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {frameworks.map((framework) => (
-                          <SelectItem key={framework.value} value={framework.value}>
-                            <div className="flex items-center gap-2">
-                              <img src={framework.icon} alt={framework.label} className="w-4 h-4" />
-                              {framework.label}
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
                   {/* Packages Detected */}
                   <div>
                     <div className="flex items-center justify-between">
