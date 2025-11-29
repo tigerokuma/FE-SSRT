@@ -22,13 +22,6 @@ export default function NavPrimary() {
            <BrandWord variant="shield"  animated={true} className="text-xl leading-none md:text-2xl text-white" />
         </Link>
 
-        {/* Center links (hide on small) */}
-        <div className="hidden items-center gap-8 md:flex">
-          <a className="text-sm font-medium text-gray-300 hover:text-white transition-colors duration-200" href="#product">Product</a>
-          <a className="text-sm font-medium text-gray-300 hover:text-white transition-colors duration-200" href="#docs">Docs</a>
-          <a className="text-sm font-medium text-gray-300 hover:text-white transition-colors duration-200" href="#pricing">Pricing</a>
-          <a className="text-sm font-medium text-gray-300 hover:text-white transition-colors duration-200" href="#blog">Blog</a>
-        </div>
 
         {/* CTAs */}
         <div className="flex items-center gap-2">

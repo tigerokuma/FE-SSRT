@@ -3,7 +3,6 @@ import NavPrimary from "@/components/landing/NavPrimary";
 import Hero from "@/components/landing/Hero";
 import TrustRow from "@/components/landing/TrustRow";
 import ValueProps from "@/components/landing/ValueProps";
-import PricingTeaser from "@/components/landing/PricingTeaser";
 import Footer from "@/components/landing/Footer";
 
 export default function LandingPage() {
@@ -14,7 +13,6 @@ export default function LandingPage() {
         <Hero />
         <TrustRow />
         <ValueProps />
-        <PricingTeaser />
         <Footer />
       </div>
     </main>
