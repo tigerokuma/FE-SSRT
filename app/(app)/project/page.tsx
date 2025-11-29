@@ -29,6 +29,7 @@ interface Project {
   progress?: number
   totalDependencies?: number
   completedDependencies?: number
+  activeAlerts?: number
 }
 
 export default function Home() {
@@ -93,6 +94,43 @@ export default function Home() {
           })
         }
       }
+
+      // Fetch alert counts for ready projects
+      const readyProjects = data.filter((p: Project) => p.status === 'ready')
+      if (readyProjects.length > 0) {
+        const alertCounts = await Promise.all(
+          readyProjects.map(async (p: Project) => {
+            try {
+              const response = await fetch(`${apiBase}/projects/${p.id}/alerts`, {
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+              })
+              if (response.ok) {
+                const alertsData = await response.json()
+                const allAlerts = [
+                  ...(alertsData.projectAlerts || []),
+                  ...(alertsData.packageAlerts || []),
+                ]
+                // Count only unresolved alerts (status !== 'resolved')
+                const activeCount = allAlerts.filter((alert: any) => alert.status !== 'resolved').length
+                return { projectId: p.id, activeAlerts: activeCount }
+              }
+            } catch (err) {
+              console.error(`Error fetching alerts for project ${p.id}:`, err)
+            }
+            return { projectId: p.id, activeAlerts: 0 }
+          })
+        )
+        
+        // Update projects with alert counts
+        alertCounts.forEach(({ projectId, activeAlerts }) => {
+          const project = data.find((p: Project) => p.id === projectId)
+          if (project) {
+            project.activeAlerts = activeAlerts
+          }
+        })
+      }
+
       setProjects(data)
       return data
     } catch (err) {
@@ -672,7 +710,7 @@ export default function Home() {
               
               // Use actual health score for ready projects, mock data for others
               const projectScore = isReady && project.health_score ? project.health_score : (isCreating ? 0 : Math.floor(Math.random() * 40) + 60)
-              const activeAlerts = 0 // Always show 0 notifications on home screen
+              const activeAlerts = project.activeAlerts ?? 0
               
               // Debug progress data for creating projects
               if (isCreating) {
