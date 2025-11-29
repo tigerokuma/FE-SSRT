@@ -2406,56 +2406,11 @@ export default function ProjectDetailPage() {
                     <div className="space-y-6">
 
                         {/* License Compliance Overview */}
-                        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                            {/* Vulnerabilities */}
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            {/* Project License */}
                             <Card style={{backgroundColor: colors.background.card}}>
                                 <CardHeader>
-                                    <CardTitle className="text-white">Vulnerabilities</CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="space-y-4">
-                                        <div className="text-center">
-                                            <div className="text-3xl font-bold text-white">{complianceData.vulnerableDependencies}</div>
-                                            <div className="text-sm text-gray-400">Total active vulnerabilities</div>
-                                        </div>
-                                        <div className="space-y-3">
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                                                    <span className="text-sm text-gray-300">Critical</span>
-                                                </div>
-                                                <span className="text-white font-semibold">{complianceData.vulnerabilityBreakdown.critical}</span>
-                                            </div>
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-3 h-3 rounded-full bg-orange-500"></div>
-                                                    <span className="text-sm text-gray-300">High</span>
-                                                </div>
-                                                <span className="text-white font-semibold">{complianceData.vulnerabilityBreakdown.high}</span>
-                                            </div>
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-                                                    <span className="text-sm text-gray-300">Medium</span>
-                                                </div>
-                                                <span className="text-white font-semibold">{complianceData.vulnerabilityBreakdown.medium}</span>
-                                            </div>
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                                                    <span className="text-sm text-gray-300">Low</span>
-                                                </div>
-                                                <span className="text-white font-semibold">{complianceData.vulnerabilityBreakdown.low}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-
-                            {/* License Compliance */}
-                            <Card style={{backgroundColor: colors.background.card}}>
-                                <CardHeader>
-                                    <CardTitle className="text-white">License Compliance</CardTitle>
+                                    <CardTitle className="text-white">Project License</CardTitle>
                                 </CardHeader>
                                 <CardContent>
                                     <div className="space-y-4">
@@ -2481,7 +2436,17 @@ export default function ProjectDetailPage() {
                                                 </div>
                                             </div>
                                         </div>
-                                        <div className="space-y-3">
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            {/* Compliance Status */}
+                            <Card style={{backgroundColor: colors.background.card}}>
+                                <CardHeader>
+                                    <CardTitle className="text-white">Compliance Status</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="space-y-4">
                                         <div className="flex items-center justify-between">
                                             <span className="text-gray-400">Overall Compliance</span>
                                             <span className={`font-semibold ${
@@ -2500,6 +2465,61 @@ export default function ProjectDetailPage() {
                         {complianceData.licenseConflicts}
                       </span>
                                         </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            {/* SBOM Download */}
+                            <Card style={{backgroundColor: colors.background.card}}>
+                                <CardHeader>
+                                    <CardTitle className="text-white">Software Bill of Materials</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="space-y-4">
+                                        <Button
+                                            className="w-full hover:opacity-90 text-white"
+                                            style={{backgroundColor: colors.primary}}
+                                            onClick={() => {
+                                                // Generate SBOM data
+                                                const sbomData = {
+                                                    project: {
+                                                        name: project?.name || 'Unknown Project',
+                                                        license: project?.license || 'unlicensed',
+                                                        totalDependencies: complianceData.totalDependencies
+                                                    },
+                                                    dependencies: projectDependencies.map(dep => ({
+                                                        name: dep.name,
+                                                        version: dep.version,
+                                                        licenseScore: dep.package?.license_score || 0,
+                                                        vulnerabilityScore: dep.package?.vulnerability_score || 0,
+                                                        totalScore: dep.package?.total_score || 0
+                                                    })),
+                                                    compliance: {
+                                                        overallCompliance: complianceData.overallCompliance,
+                                                        licenseConflicts: complianceData.licenseConflicts,
+                                                        vulnerableDependencies: complianceData.vulnerableDependencies
+                                                    },
+                                                    generatedAt: new Date().toISOString()
+                                                }
+
+                                                // Download as JSON
+                                                const blob = new Blob([JSON.stringify(sbomData, null, 2)], {type: 'application/json'})
+                                                const url = URL.createObjectURL(blob)
+                                                const a = document.createElement('a')
+                                                a.href = url
+                                                a.download = `${project?.name || 'project'}-sbom.json`
+                                                document.body.appendChild(a)
+                                                a.click()
+                                                document.body.removeChild(a)
+                                                URL.revokeObjectURL(url)
+                                            }}
+                                        >
+                                            <Download className="h-4 w-4 mr-2"/>
+                                            Download SBOM
+                                        </Button>
+                                        <div className="text-xs text-gray-500">
+                                            Last
+                                            updated: {project?.updated_at ? formatRelativeDate(project.updated_at) : 'Unknown'}
                                         </div>
                                     </div>
                                 </CardContent>
