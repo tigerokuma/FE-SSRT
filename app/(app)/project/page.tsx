@@ -5,11 +5,10 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Plus, Search, Star, Shield, AlertCircle, Clock, User, Github, GitBranch, Package, Bell, Code, Globe, Database, Terminal, FileText } from "lucide-react"
+import { Plus, Search, Star, Shield, AlertCircle, Clock, User, Github, GitBranch, Bell, Code, Globe, Database, Terminal, FileText } from "lucide-react"
 // import { CreateProjectDialog } from "@/components/CreateProjectDialog"
 import { AuthService } from "@/lib/auth"
 import { colors } from "@/lib/design-system"
-import { WatchlistSearchDialog } from "@/components/watchlist/WatchlistSearchDialog"
 import {useSyncUser} from "@/lib/useSyncUser";
 import {useIngestGithubFromClerk} from "@/lib/useIngestGithubFromClerk";
 import {useEnsureBackendUser} from "@/lib/useEnsureBackendUser";
@@ -421,17 +420,6 @@ export default function Home() {
             </div>
             
           <div className="flex gap-3">
-            <WatchlistSearchDialog
-              trigger={
-                <Button 
-                  variant="outline"
-                  className="text-white border-gray-600 hover:bg-gray-800"
-                >
-                  <Package className="h-4 w-4 mr-2" />
-                  Search Package
-                </Button>
-              }
-            />
             <Button 
               className="text-white"
               style={{ backgroundColor: colors.primary }}
