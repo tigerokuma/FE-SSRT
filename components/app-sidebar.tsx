@@ -27,6 +27,7 @@ import {Button} from "@/components/ui/button"
 import {cn} from "@/lib/utils"
 import {colors} from "@/lib/design-system"
 import {useEnsureBackendUser} from "@/lib/useEnsureBackendUser";
+import BrandWord from "@/components/landing/BrandWord";
 
 // ---------- Types ----------
 type Project = {
@@ -158,8 +159,14 @@ export default function AppSidebar() {
                             className="flex items-center gap-2 rounded-md px-2 py-1 hover:bg-gray-100 dark:hover:bg-neutral-800"
                             aria-label="Go to Projects"
                         >
-                            <Image src="/deply-mark.svg" alt="Deply" width={24} height={24}/>
-                            <span className="text-base leading-6 font-normal">Deply</span>
+                            <Image 
+                                src="/deply-mark.svg" 
+                                alt="Deply" 
+                                width={24} 
+                                height={24}
+                                className="h-6 w-6 object-contain flex-shrink-0"
+                            />
+                            <BrandWord variant="shield" className="text-base leading-6" />
                         </Link>
                     )}
                     {!isMobile && (
@@ -172,7 +179,7 @@ export default function AppSidebar() {
                                 alt="Deply"
                                 width={24}
                                 height={24}
-                                className={cn(!isCollapsed && "hidden")}
+                                className={cn("h-6 w-6 object-contain flex-shrink-0", !isCollapsed && "hidden")}
                             />
                         </SidebarTrigger>
                     )}
