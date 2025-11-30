@@ -92,7 +92,7 @@ export function ProjectTopBar({
     return () => window.removeEventListener('resize', updateIndicator) // Cleanup
   }, [currentTab]) // Recalculate when currentTab changes
   return (
-    <div className="w-full border-b" style={{ backgroundColor: colors.background.card, borderColor: 'hsl(var(--border))', borderBottomWidth: '1px' }}>
+    <div className="fixed top-0 z-50 w-full border-b" style={{ backgroundColor: colors.background.card, borderColor: 'hsl(var(--border))', borderBottomWidth: '1px' }}>
       <div className="px-6 py-3 w-full max-w-none">
         {/* First line - Project info */}
         <div className="flex items-center gap-3 mb-2">

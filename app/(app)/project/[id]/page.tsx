@@ -1486,7 +1486,7 @@ export default function ProjectDetailPage() {
                     }}
                 />
 
-                <div className="container mx-auto px-4 py-8 max-w-7xl">
+                <div className="container mx-auto px-4 py-8 max-w-7xl" style={{ paddingTop: '110px' }}>
                     {/* Tab Content - Overview skeleton */}
                     <div className="space-y-6">
                         {/* Project Health Overview */}
@@ -1634,7 +1634,7 @@ export default function ProjectDetailPage() {
                 onTabChange={setCurrentTab}
             />
 
-            <div className="container mx-auto px-4 py-8 max-w-7xl">
+            <div className="container mx-auto px-4 py-8 max-w-7xl" style={{ paddingTop: '110px' }}>
                 {/* Tab Content */}
                 {currentTab === "overview" && (
                     <div className="space-y-6">
