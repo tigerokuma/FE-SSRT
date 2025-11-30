@@ -7,8 +7,6 @@ import Image from "next/image"
 import {useUser, SignOutButton, useClerk} from "@clerk/nextjs"
 
 import {Button} from "@/components/ui/button"
-import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card"
-import {BackgroundGradient} from "@/components/background-gradient"
 import {useIngestGithubFromClerk} from "@/lib/useIngestGithubFromClerk";
 import {useEnsureBackendUser} from "@/lib/useEnsureBackendUser";
 
@@ -20,11 +18,12 @@ export default function SettingsPage() {
     const apiBase = "/api/backend";
     const {user, isLoaded} = useUser()
 
-    const {openUserProfile} = useClerk();
+    const {openUserProfile, signOut} = useClerk();
 
     const {backendUserId} = useEnsureBackendUser(apiBase)
     useIngestGithubFromClerk(backendUserId, apiBase)
 
+    const [currentSettingsTab, setCurrentSettingsTab] = useState("basic")
     const [firstName, setFirstName] = useState("")
     const [lastName, setLastName] = useState("")
     const [savingBasic, setSavingBasic] = useState(false)
@@ -191,316 +190,339 @@ export default function SettingsPage() {
     }
 
     return (
-        <div className="relative min-h-screen text-white">
-            {/* Background gradient behind everything */}
-            <BackgroundGradient/>
+        <div className="min-h-screen">
+            <div className="container mx-auto px-4 py-8 max-w-7xl">
+                {/* Header */}
+                <div className="mb-6">
+                    <h2 className="text-2xl font-bold text-white">Settings</h2>
+                </div>
 
-            {/* Header */}
-            <div className="px-6 md:px-8 lg:px-10 mt-6 mb-6 flex items-center justify-between">
-                <h2 className="text-2xl md:text-[32px] font-semibold leading-10">User Profile</h2>
-                {/* Link icon removed */}
-                <div/>
-            </div>
-
-            {/* Content */}
-            <div className="px-6 md:px-8 lg:px-10 w-full space-y-6 pb-10 bg-transparent">
-                {/* Basic Information */}
-                <Card className="w-full bg-[#121212]/95 text-white border border-[#2A2A2A]">
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-[28px] md:text-[32px] leading-10 font-semibold">Basic
-                            Information</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                        <div className="flex flex-col gap-3 md:flex-row">
-                            <div className="flex-1 space-y-1">
-                                <label className="text-xs font-medium text-gray-300">First name</label>
-                                <div
-                                    className="flex h-11 items-center rounded-lg border border-[#2A2A2A] bg-[#0e0e0e] px-3">
-                                    <input
-                                        className="h-full w-full bg-transparent text-base outline-none placeholder:text-gray-500"
-                                        placeholder="First name"
-                                        value={firstName}
-                                        onChange={(e) => setFirstName(e.target.value)}
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="flex-1 space-y-1">
-                                <label className="text-xs font-medium text-gray-300">Last name</label>
-                                <div
-                                    className="flex h-11 items-center rounded-lg border border-[#2A2A2A] bg-[#0e0e0e] px-3">
-                                    <input
-                                        className="h-full w-full bg-transparent text-base outline-none placeholder:text-gray-500"
-                                        placeholder="Last name"
-                                        value={lastName}
-                                        onChange={(e) => setLastName(e.target.value)}
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="flex flex-col gap-3 md:flex-row">
-                            <div className="flex-1 space-y-1 opacity-80">
-                                <label className="text-xs font-medium text-gray-400">Email</label>
-                                <div
-                                    className="flex h-11 items-center rounded-lg border border-[#2A2A2A] bg-[#151515] px-3">
-                                    <input className="h-full w-full bg-transparent text-base outline-none" value={email}
-                                           readOnly/>
-                                </div>
-                            </div>
-
-                            <div className="flex-1 space-y-1">
-                                <label className="text-xs font-medium text-gray-300">Phone</label>
-                                <div
-                                    className="flex h-11 items-center rounded-lg border border-[#2A2A2A] bg-[#0e0e0e] px-3">
-                                    <input
-                                        className="h-full w-full bg-transparent text-base outline-none placeholder:text-gray-500"
-                                        placeholder="(optional)"
-                                        value={phone}
-                                        readOnly
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="mt-2 flex justify-end">
-                            <Button
-                                variant="secondary"
-                                className="h-11 w-[100px] rounded-lg border border-[#2A2A2A] bg-[#1a1a1a] text-white hover:bg-[#222]"
-                                onClick={saveBasicInfo}
-                                disabled={savingBasic}
-                            >
-                                {savingBasic ? "Saving…" : "Save"}
-                            </Button>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* Connections */}
-                <Card className="w-full bg-[#121212]/95 text-white border border-[#2A2A2A]">
-                    <CardHeader className="pb-2">
-                        <CardTitle
-                            className="text-[28px] md:text-[32px] leading-10 font-semibold">Connection</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                        {/* GitHub */}
-                        <div
-                            className="flex items-center gap-3 rounded-lg border border-[#2A2A2A] px-3 py-3 bg-[#0f0f0f]">
-                            <div
-                                className="flex h-6 w-6 items-center justify-center rounded-full border border-[#2A2A2A] bg-white">
-                                <Image src="/Github_icon.png" alt="GitHub" width={16} height={16}/>
-                            </div>
-                            <div className="text-base">GitHub</div>
-                            <div className="flex-1"/>
-                            <StatusPill connected={githubConnected}/>
-                            {githubConnected ? (
-                                <Button
-                                    variant="secondary"
-                                    className="ml-3 h-8 rounded-lg border border-[#2A2A2A] bg-[#1a1a1a] text-white hover:bg-[#222]"
-                                    onClick={() => openUserProfile()}
-                                >
-                                    Manage
-                                </Button>
-                            ) : (
-                                <Button
-                                    variant="secondary"
-                                    className="ml-3 h-8 rounded-lg border border-[#2A2A2A] bg-[#1a1a1a] text-white hover:bg-[#222]"
+                {/* Settings Layout */}
+                <div className="flex h-full overflow-hidden">
+                    {/* Settings Sidebar */}
+                    <div className="w-64 border-r border-gray-800 p-6 overflow-y-auto">
+                        <div className="space-y-1">
+                            {[
+                                {id: 'basic', label: 'Basic Information'},
+                                {id: 'connections', label: 'Connections'},
+                                {id: 'email', label: 'Email Preferences'},
+                                {id: 'logout', label: 'Log Out'}
+                            ].map((item) => (
+                                <button
+                                    key={item.id}
                                     onClick={async () => {
-                                        if (!user) return;
-
-                                        const scopes = ['read:user', 'user:email', 'repo', 'read:org'];
-                                        const redirectUrl = `${window.location.origin}/sso-callback`;
-
-                                        // Create the external account (this makes a *pending* link first)
-                                        const created = await user.createExternalAccount({
-                                            strategy: 'oauth_github',
-                                            redirectUrl,
-                                            additionalScopes: scopes,
-                                            // If your Clerk version doesn’t support additionalScopes, use:
-                                            // additionalParams: { scope: scopes.join(' ') },
-                                        });
-
-                                        // IMPORTANT: redirect to GitHub to complete the flow
-                                        const verification = (created as any)?.verification;
-                                        const nextUrl: string | undefined =
-                                            verification?.externalVerificationRedirectURL || verification?.externalVerificationRedirectUrl;
-
-                                        if (nextUrl) {
-                                            window.location.href = nextUrl; // takes user to GitHub consent screen
+                                        if (item.id === 'logout') {
+                                            // Immediately log out
+                                            await signOut({ redirectUrl: '/' });
+                                        } else {
+                                            setCurrentSettingsTab(item.id);
+                                        }
+                                    }}
+                                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+                                        item.id === 'logout'
+                                            ? currentSettingsTab === item.id
+                                                ? 'text-red-400'
+                                                : 'text-red-500 hover:text-red-400'
+                                            : currentSettingsTab === item.id
+                                                ? 'text-white'
+                                                : 'text-gray-300 hover:text-white'
+                                    }`}
+                                    style={currentSettingsTab === item.id ? {backgroundColor: 'rgb(18, 18, 18)'} : {}}
+                                    onMouseEnter={(e) => {
+                                        if (currentSettingsTab !== item.id) {
+                                            e.currentTarget.style.backgroundColor = 'rgb(18, 18, 18)';
+                                        }
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        if (currentSettingsTab !== item.id) {
+                                            e.currentTarget.style.backgroundColor = '';
                                         }
                                     }}
                                 >
-                                    Connect
-                                </Button>
-                            )}
+                                    {item.label}
+                                </button>
+                            ))}
                         </div>
+                    </div>
 
-                        {/* Jira */}
-                        <div
-                            className="flex items-center gap-3 rounded-lg border border-[#2A2A2A] px-3 py-3 bg-[#0f0f0f]">
-                            <div
-                                className="flex h-6 w-6 items-center justify-center rounded-full border border-[#2A2A2A] bg-blue-500/20">
-                                <Image src="/jira_icon.png" alt="Jira" width={16} height={16}/>
-                            </div>
-                            <div className="text-base">Jira</div>
-                            <div className="flex-1"/>
-                            <StatusPill connected={!!jiraProject}/>
-                            <Button
-                                variant="secondary"
-                                className="ml-3 h-8 rounded-lg border border-[#2A2A2A] bg-[#1a1a1a] text-white hover:bg-[#222]"
-                                onClick={() => {
-                                    if (!JIRA_APP_URL) return
-                                    window.location.href = JIRA_APP_URL
-                                }}
-                            >
-                                {jiraProject ? "Disconnect" : "Connect"}
-                            </Button>
-                        </div>
+                    {/* Settings Content */}
+                    <div className="flex-1 p-6 overflow-y-auto">
+                        {currentSettingsTab === 'basic' && (
+                            <div className="space-y-8">
+                                <div>
+                                    <h2 className="text-2xl font-bold text-white">Basic Information</h2>
+                                </div>
 
-                        {/* Slack */}
-                        <div
-                            className="flex items-center gap-3 rounded-lg border border-[#2A2A2A] px-3 py-3 bg-[#0f0f0f]">
-                            <div
-                                className="flex h-6 w-6 items-center justify-center rounded-full border border-[#2A2A2A] bg-purple-500/20">
-                                <Image src="/Slack_icon.png" alt="Slack" width={16} height={16}/>
-                            </div>
-                            <div className="text-base">Slack</div>
-                            <div className="flex-1"/>
-                            <StatusPill connected={!!slackChannel}/>
-                            <Button
-                                variant="secondary"
-                                className="ml-3 h-8 rounded-lg border border-[#2A2A2A] bg-[#1a1a1a] text-white hover:bg-[#222]"
-                                onClick={() => {
-                                    if (!userId) return
-                                    window.location.href = `${apiBase}/slack/start-oauth/${userId}`
-                                }}
-                            >
-                                {slackChannel ? "Disconnect" : "Connect"}
-                            </Button>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* Subscription */}
-                <Card className="w-full bg-[#121212]/95 text-white border border-[#2A2A2A]">
-                    <CardHeader className="pb-2">
-                        <CardTitle
-                            className="text-[28px] md:text-[32px] leading-10 font-semibold">Subscription</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                        <div
-                            className="flex items-center gap-3 rounded-lg px-3 py-3 bg-[#0f0f0f] border border-[#2A2A2A]">
-                            <div
-                                className="h-6 rounded-[10px] border border-[#364152] bg-[rgba(90,98,187,0.15)] px-2 flex items-center">
-                                <span className="text-sm text-[#96A0FF]">Team</span>
-                            </div>
-                            <div className="text-base text-gray-200">Billed monthly · 10 seats</div>
-                            <div className="flex-1"/>
-                            <Button
-                                variant="secondary"
-                                className="h-8 rounded-lg border border-[#2A2A2A] bg-[#1a1a1a] text-white hover:bg-[#222]"
-                                onClick={() => {
-                                    // TODO: billing portal
-                                }}
-                            >
-                                Manage billing
-                            </Button>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* Email Preferences */}
-                <Card className="w-full bg-[#121212]/95 text-white border border-[#2A2A2A]">
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-xl font-semibold">Email Preferences</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div>
-                            <div className="text-sm">
-                                Primary email: <span className="font-mono text-gray-200">{email}</span>
-                            </div>
-                            {!emailConfirmed ? (
-                                <Button
-                                    variant="secondary"
-                                    className="mt-2 h-10 rounded-lg border border-[#2A2A2A] bg-[#1a1a1a] text-white hover:bg-[#222]"
-                                    onClick={sendEmailConfirmation}
-                                    disabled={sendingConfirm}
-                                >
-                                    {sendingConfirm ? "Sending…" : "Send Confirmation Email"}
-                                </Button>
-                            ) : (
-                                <div className="mt-2 text-sm text-green-400">Email confirmed</div>
-                            )}
-                        </div>
-
-                        {emailConfirmed && (
-                            <>
-                                {nextEmailTime && (
-                                    <div className="text-sm text-gray-300">
-                                        Next email time: {new Date(nextEmailTime).toLocaleString()}
-                                    </div>
-                                )}
-
-                                <div className="max-w-md space-y-3">
-                                    <div className="space-y-1">
-                                        <label className="block text-sm text-gray-300">
-                                            {nextEmailTime ? "Update Next Email Time" : "First Email Time"}
-                                        </label>
+                                <div className="space-y-6">
+                                    <div>
+                                        <label className="block text-sm font-medium text-white mb-2">First name</label>
                                         <input
-                                            type="datetime-local"
-                                            value={firstEmailTime}
-                                            onChange={(e) => setFirstEmailTime(e.target.value)}
-                                            className="w-full rounded border border-[#2A2A2A] bg-[#0e0e0e] px-2 py-2 text-white outline-none"
+                                            type="text"
+                                            placeholder="First name"
+                                            value={firstName}
+                                            onChange={(e) => setFirstName(e.target.value)}
+                                            className="w-full px-3 py-2 rounded-md border text-white placeholder-gray-400"
+                                            style={{backgroundColor: 'rgb(18, 18, 18)'}}
                                         />
                                     </div>
 
                                     <div>
-                                        <label className="block text-sm mb-1 text-gray-300">Repeats</label>
-                                        <div className="flex items-center gap-2">
-                                            <input
-                                                type="number"
-                                                min={1}
-                                                value={waitUnit}
-                                                onChange={(e) => setWaitUnit(Number(e.target.value))}
-                                                className="w-20 rounded border border-[#2A2A2A] bg-[#0e0e0e] px-2 py-2 text-white outline-none"
-                                            />
-                                            <select
-                                                className="rounded border border-[#2A2A2A] bg-[#0e0e0e] px-2 py-2 text-white outline-none"
-                                                value={waitValue.value}
-                                                onChange={(e) => {
-                                                    const v = waitValues.find((w) => w.value === e.target.value)
-                                                    if (v) setWaitValue(v)
-                                                }}
-                                            >
-                                                {waitValues.map((w) => (
-                                                    <option key={w.value} value={w.value}>
-                                                        {w.label}
-                                                    </option>
-                                                ))}
-                                            </select>
+                                        <label className="block text-sm font-medium text-white mb-2">Last name</label>
+                                        <input
+                                            type="text"
+                                            placeholder="Last name"
+                                            value={lastName}
+                                            onChange={(e) => setLastName(e.target.value)}
+                                            className="w-full px-3 py-2 rounded-md border text-white placeholder-gray-400"
+                                            style={{backgroundColor: 'rgb(18, 18, 18)'}}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-white mb-2">Email</label>
+                                        <div className="flex items-center gap-3 p-3 border rounded-md" style={{backgroundColor: 'rgb(18, 18, 18)'}}>
+                                            <span className="text-white text-sm">{email}</span>
+                                        </div>
+                                        <p className="text-xs text-gray-500 mt-1">Email cannot be changed</p>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-white mb-2">Phone</label>
+                                        <div className="flex items-center gap-3 p-3 border rounded-md" style={{backgroundColor: 'rgb(18, 18, 18)'}}>
+                                            <span className="text-gray-400 text-sm">{phone || '(optional)'}</span>
                                         </div>
                                     </div>
 
-                                    <Button
-                                        className="mt-1 h-10 rounded-lg bg-green-600 text-white hover:bg-green-500"
-                                        onClick={saveSchedule}
-                                        disabled={savingSchedule}
-                                    >
-                                        {nextEmailTime ? "Update Time" : "Add Time"}
-                                    </Button>
+                                    <div className="pt-4">
+                                        <Button
+                                            variant="secondary"
+                                            className="h-10 rounded-lg border border-gray-600 text-gray-300 hover:bg-gray-700"
+                                            onClick={saveBasicInfo}
+                                            disabled={savingBasic}
+                                        >
+                                            {savingBasic ? "Saving..." : "Save Changes"}
+                                        </Button>
+                                    </div>
                                 </div>
-                            </>
+                            </div>
                         )}
-                    </CardContent>
-                </Card>
 
-                {/* Sign out */}
-                <SignOutButton redirectUrl="/">
-                    <Button
-                        className="h-14 w-full rounded-lg border border-[#7F1D1D] bg-[#EF4444] text-white hover:bg-[#DC2626]">
-                        Log Out
-                    </Button>
-                </SignOutButton>
+                        {currentSettingsTab === 'connections' && (
+                            <div className="space-y-6">
+                                <div>
+                                    <h2 className="text-2xl font-bold text-white">Connections</h2>
+                                    <p className="text-gray-400 mt-1">Connect your favorite tools to streamline your workflow</p>
+                                </div>
+
+                                <div className="space-y-4">
+                                    {/* GitHub */}
+                                    <div className="flex items-center justify-between p-4 border rounded-md" style={{backgroundColor: 'rgb(18, 18, 18)'}}>
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center">
+                                                <Image src="/Github_icon.png" alt="GitHub" width={20} height={20}/>
+                                            </div>
+                                            <div>
+                                                <div className="text-white font-medium">GitHub</div>
+                                                <div className="text-xs text-gray-400">Code repository</div>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <StatusPill connected={githubConnected}/>
+                                            {githubConnected ? (
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                                                    onClick={() => openUserProfile()}
+                                                >
+                                                    Manage
+                                                </Button>
+                                            ) : (
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                                                    onClick={async () => {
+                                                        if (!user) return;
+                                                        const scopes = ['read:user', 'user:email', 'repo', 'read:org'];
+                                                        const redirectUrl = `${window.location.origin}/sso-callback`;
+                                                        const created = await user.createExternalAccount({
+                                                            strategy: 'oauth_github',
+                                                            redirectUrl,
+                                                            additionalScopes: scopes,
+                                                        });
+                                                        const verification = (created as any)?.verification;
+                                                        const nextUrl: string | undefined =
+                                                            verification?.externalVerificationRedirectURL || verification?.externalVerificationRedirectUrl;
+                                                        if (nextUrl) {
+                                                            window.location.href = nextUrl;
+                                                        }
+                                                    }}
+                                                >
+                                                    Connect
+                                                </Button>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Jira */}
+                                    <div className="flex items-center justify-between p-4 border rounded-md" style={{backgroundColor: 'rgb(18, 18, 18)'}}>
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                                                <Image src="/jira_icon.png" alt="Jira" width={20} height={20}/>
+                                            </div>
+                                            <div>
+                                                <div className="text-white font-medium">Jira</div>
+                                                <div className="text-xs text-gray-400">Project management</div>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <StatusPill connected={!!jiraProject}/>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                                                onClick={() => {
+                                                    if (!JIRA_APP_URL) return
+                                                    window.location.href = JIRA_APP_URL
+                                                }}
+                                            >
+                                                {jiraProject ? "Disconnect" : "Connect"}
+                                            </Button>
+                                        </div>
+                                    </div>
+
+                                    {/* Slack */}
+                                    <div className="flex items-center justify-between p-4 border rounded-md" style={{backgroundColor: 'rgb(18, 18, 18)'}}>
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
+                                                <Image src="/Slack_icon.png" alt="Slack" width={20} height={20}/>
+                                            </div>
+                                            <div>
+                                                <div className="text-white font-medium">Slack</div>
+                                                <div className="text-xs text-gray-400">Team communication</div>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <StatusPill connected={!!slackChannel}/>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                                                onClick={() => {
+                                                    if (!userId) return
+                                                    window.location.href = `${apiBase}/slack/start-oauth/${userId}`
+                                                }}
+                                            >
+                                                {slackChannel ? "Disconnect" : "Connect"}
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {currentSettingsTab === 'email' && (
+                            <div className="space-y-6">
+                                <div>
+                                    <h2 className="text-2xl font-bold text-white">Email Preferences</h2>
+                                </div>
+
+                                <div className="space-y-6">
+                                    <div>
+                                        <label className="block text-sm font-medium text-white mb-2">Primary email</label>
+                                        <div className="flex items-center gap-3 p-3 border rounded-md" style={{backgroundColor: 'rgb(18, 18, 18)'}}>
+                                            <span className="text-white text-sm font-mono">{email}</span>
+                                        </div>
+                                        {!emailConfirmed ? (
+                                            <div className="mt-2">
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                                                    onClick={sendEmailConfirmation}
+                                                    disabled={sendingConfirm}
+                                                >
+                                                    {sendingConfirm ? "Sending..." : "Send Confirmation Email"}
+                                                </Button>
+                                            </div>
+                                        ) : (
+                                            <p className="text-xs text-green-400 mt-2">Email confirmed</p>
+                                        )}
+                                    </div>
+
+                                    {emailConfirmed && (
+                                        <>
+                                            {nextEmailTime && (
+                                                <div>
+                                                    <label className="block text-sm font-medium text-white mb-2">Next email time</label>
+                                                    <div className="flex items-center gap-3 p-3 border rounded-md" style={{backgroundColor: 'rgb(18, 18, 18)'}}>
+                                                        <span className="text-gray-300 text-sm">{new Date(nextEmailTime).toLocaleString()}</span>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            <div className="space-y-4">
+                                                <div>
+                                                    <label className="block text-sm font-medium text-white mb-2">
+                                                        {nextEmailTime ? "Update Next Email Time" : "First Email Time"}
+                                                    </label>
+                                                    <input
+                                                        type="datetime-local"
+                                                        value={firstEmailTime}
+                                                        onChange={(e) => setFirstEmailTime(e.target.value)}
+                                                        className="w-full px-3 py-2 rounded-md border text-white"
+                                                        style={{backgroundColor: 'rgb(18, 18, 18)'}}
+                                                    />
+                                                </div>
+
+                                                <div>
+                                                    <label className="block text-sm font-medium text-white mb-2">Repeats</label>
+                                                    <div className="flex items-center gap-2">
+                                                        <input
+                                                            type="number"
+                                                            min={1}
+                                                            value={waitUnit}
+                                                            onChange={(e) => setWaitUnit(Number(e.target.value))}
+                                                            className="w-20 px-3 py-2 rounded-md border text-white"
+                                                            style={{backgroundColor: 'rgb(18, 18, 18)'}}
+                                                        />
+                                                        <select
+                                                            className="flex-1 px-3 py-2 rounded-md border text-white"
+                                                            style={{backgroundColor: 'rgb(18, 18, 18)'}}
+                                                            value={waitValue.value}
+                                                            onChange={(e) => {
+                                                                const v = waitValues.find((w) => w.value === e.target.value)
+                                                                if (v) setWaitValue(v)
+                                                            }}
+                                                        >
+                                                            {waitValues.map((w) => (
+                                                                <option key={w.value} value={w.value}>
+                                                                    {w.label}
+                                                                </option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                </div>
+
+                                                <div className="pt-4">
+                                                    <Button
+                                                        className="h-10 rounded-lg bg-green-600 text-white hover:bg-green-500"
+                                                        onClick={saveSchedule}
+                                                        disabled={savingSchedule}
+                                                    >
+                                                        {savingSchedule ? "Saving..." : (nextEmailTime ? "Update Time" : "Add Time")}
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                    </div>
+                </div>
             </div>
         </div>
     )
