@@ -93,75 +93,67 @@ export function ProjectTopBar({
   }, [currentTab]) // Recalculate when currentTab changes
   return (
     <div className="w-full border-b" style={{ backgroundColor: colors.background.card, borderColor: 'hsl(var(--border))', borderBottomWidth: '1px' }}>
-      <div className="flex items-center justify-between px-6 py-4 w-full max-w-none">
-        {/* Left side - Project info and Tabs */}
-        <div className="flex items-center gap-6">
-          {/* Project info */}
-          <div className="flex items-center gap-3">
-            {/* Project icon */}
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center">
-              {projectLanguage ? (
-                getProjectIcon(projectLanguage)
-              ) : projectIcon ? (
-                <img src={projectIcon} alt={projectName} className="w-6 h-6 rounded" />
-              ) : projectName ? (
-                <div className="w-6 h-6 bg-white/20 rounded flex items-center justify-center">
-                  <span className="text-white text-xs font-bold">
-                    {projectName.charAt(0).toUpperCase()}
-                  </span>
-                </div>
-              ) : (
-                <div className="w-6 h-6 bg-gray-600 rounded animate-pulse"></div>
-              )}
-            </div>
-            
-            {/* Project name */}
-            {projectName ? (
-              <h1 className="text-xl font-semibold text-white">{projectName}</h1>
+      <div className="px-6 py-3 w-full max-w-none">
+        {/* First line - Project info */}
+        <div className="flex items-center gap-3 mb-2">
+          {/* Project icon */}
+          <div className="w-6 h-6 rounded-lg flex items-center justify-center">
+            {projectLanguage ? (
+              getProjectIcon(projectLanguage)
+            ) : projectIcon ? (
+              <img src={projectIcon} alt={projectName} className="w-full h-full object-contain" />
+            ) : projectName ? (
+              <div className="w-full h-full bg-white/20 rounded flex items-center justify-center">
+                <span className="text-white text-xs font-bold">
+                  {projectName.charAt(0).toUpperCase()}
+                </span>
+              </div>
             ) : (
-              <div className="h-6 bg-gray-600 rounded w-24 animate-pulse"></div>
+              <div className="w-full h-full bg-gray-600 rounded animate-pulse"></div>
             )}
           </div>
-
-          {/* Tabs */}
-          <div className="flex items-center gap-1 flex-1">
-            {tabs.map((tab) => {
-              return (
-                <Button
-                  key={tab.id}
-                  ref={(el) => { 
-                    if (el) tabRefs.current[tab.id] = el 
-                  }}
-                  onClick={() => onTabChange(tab.id)}
-                  variant="ghost"
-                  size="sm"
-                  className={cn(
-                    "px-4 py-2 text-sm font-medium transition-colors relative",
-                    "text-gray-400 hover:text-white hover:bg-transparent",
-                    "border-b-2 border-transparent",
-                    currentTab === tab.id && "text-white"
-                  )}
-                >
-                  {tab.label}
-                </Button>
-              )
-            })}
-          </div>
+          
+          {/* Project name */}
+          {projectName ? (
+            <h1 className="text-xl font-semibold text-white">{projectName}</h1>
+          ) : (
+            <div className="h-7 w-32 bg-gray-600 rounded animate-pulse"></div>
+          )}
         </div>
 
-        {/* Right side - could add project actions here in the future */}
-        <div className="flex items-center gap-2">
-          {/* Placeholder for future actions */}
+        {/* Second line - Tabs */}
+        <div className="flex items-center gap-1">
+          {tabs.map((tab) => {
+            return (
+              <Button
+                key={tab.id}
+                ref={(el) => { 
+                  if (el) tabRefs.current[tab.id] = el 
+                }}
+                onClick={() => onTabChange(tab.id)}
+                variant="ghost"
+                size="sm"
+                className={cn(
+                  "px-4 py-2 text-sm font-medium transition-colors relative",
+                  "text-gray-400 hover:text-white hover:bg-transparent",
+                  "border-b-2 border-transparent",
+                  currentTab === tab.id && "text-white"
+                )}
+              >
+                {tab.label}
+              </Button>
+            )
+          })}
         </div>
       </div>
       
       {/* Active tab indicator bar */}
-      <div className="relative">
-        <div className="absolute bottom-0 left-0 right-0 h-0.5"></div> {/* Base line */}
+      <div className="relative px-6">
+        <div className="absolute bottom-0 left-6 right-6 h-0.5"></div> {/* Base line */}
         <div 
           className="absolute bottom-0 h-0.5 transition-all duration-200"
           style={{
-            left: indicatorStyle.left,
+            left: indicatorStyle.left, // Match tabs container padding (px-6 = 24px)
             width: indicatorStyle.width,
             backgroundColor: colors.primary,
           }}

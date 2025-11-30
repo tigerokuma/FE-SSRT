@@ -259,11 +259,16 @@ export default function NewProjectPage() {
   }
 
   const licenses = [
+    { value: 'none', label: 'No License' },
     { value: 'MIT', label: 'MIT License' },
     { value: 'Apache-2.0', label: 'Apache 2.0' },
     { value: 'GPL-3.0', label: 'GPL 3.0' },
     { value: 'BSD-3-Clause', label: 'BSD 3-Clause' },
-    { value: 'ISC', label: 'ISC License' }
+    { value: 'ISC', label: 'ISC License' },
+    { value: 'LGPL-3.0', label: 'LGPL 3.0' },
+    { value: 'MPL-2.0', label: 'Mozilla Public License 2.0' },
+    { value: 'Unlicense', label: 'The Unlicense' },
+    { value: 'CC0-1.0', label: 'CC0 1.0 Universal' }
   ]
 
   const handleCreateProject = async () => {
@@ -283,7 +288,7 @@ export default function NewProjectPage() {
           branch: selectedBranch,
           type: 'repo', // Repository type
           language: 'nodejs', // Always use nodejs
-          license: showLicense ? selectedLicense : null, // Pass license if toggle is on, null if off
+          license: showLicense ? (selectedLicense === 'none' ? null : selectedLicense) : null, // Pass license if toggle is on, null if off or 'none' selected
           userId: backendUserId
         })
       })
