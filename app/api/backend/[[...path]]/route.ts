@@ -5,7 +5,7 @@ import {auth} from "@clerk/nextjs/server";
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const BACKEND = (process.env.BACKEND_API_BASE || "http://localhost:3000" || "https://be-ssrt-2.onrender.com").replace(/\/$/, "");
+const BACKEND = (process.env.BACKEND_API_BASE ?? "http://localhost:3000").replace(/\/$/, "");
 
 function buildHeaders(req: NextRequest, bearer?: string) {
     const h = new Headers(req.headers);
