@@ -47,14 +47,15 @@ export default function SettingsPage() {
     const phone = useMemo(() => user?.primaryPhoneNumber?.phoneNumber ?? "", [user])
 
     const userId = user?.id
-    const {data: slackData} = useSWR(userId ? `${apiBase}/slack/slack-channel/${userId}` : null, fetcher, {
+    const {data: slackData} = useSWR(userId ? `${apiBase}/slack/user-info/${userId}` : null, fetcher, {
         revalidateOnFocus: false,
     })
     const {data: jiraData} = useSWR(userId ? `${apiBase}/jira/user-info/${userId}` : null, fetcher, {
         revalidateOnFocus: false,
     })
 
-    const slackChannel = slackData?.name ?? ""
+    const slackChannel = slackData?.slack_channel ?? ""
+    const slackToken = slackData?.slack_token ?? ""
     const jiraProject = jiraData?.project_key ?? ""
 
     const githubConnected = useMemo(() => {
@@ -77,6 +78,15 @@ export default function SettingsPage() {
         const hasProjectKey = !!jiraProject && jiraProject.trim() !== '';
         return hasConnection && hasProjectKey;
     }, [jiraData, jiraProject]);
+
+    // Slack is considered connected only if:
+    // 1. Connection info exists (slackData with slack_token)
+    // 2. slack_channel is set
+    const slackConnected = useMemo(() => {
+        const hasConnection = !!slackToken;
+        const hasChannel = !!slackChannel && slackChannel.trim() !== '';
+        return hasConnection && hasChannel;
+    }, [slackToken, slackChannel]);
 
     const [emailConfirmed, setEmailConfirmed] = useState(false)
     const [sendingConfirm, setSendingConfirm] = useState(false)
@@ -434,17 +444,23 @@ export default function SettingsPage() {
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-3">
-                                            <StatusPill connected={!!slackChannel}/>
+                                            <StatusPill connected={slackConnected}/>
                                             <Button
                                                 variant="outline"
                                                 size="sm"
                                                 className="border-gray-600 text-gray-300 hover:bg-gray-700"
-                                                onClick={() => {
-                                                    if (!userId) return
-                                                    window.location.href = `${apiBase}/slack/start-oauth/${userId}`
+                                                onClick={async () => {
+                                                    if (!backendUserId) {
+                                                        alert('Please wait for your account to be set up.');
+                                                        return;
+                                                    }
+            
+                                                    // Use backend's direct OAuth flow (similar to Jira)
+                                                    // Redirect to backend OAuth endpoint which will handle Slack OAuth
+                                                    window.location.href = `${apiBase}/slack/connect`;
                                                 }}
                                             >
-                                                {slackChannel ? "Disconnect" : "Connect"}
+                                                {slackConnected ? "Disconnect" : "Connect"}
                                             </Button>
                                         </div>
                                     </div>
