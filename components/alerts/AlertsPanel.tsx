@@ -51,6 +51,7 @@ export function AlertsPanel({
     const [showResolvedAlerts, setShowResolvedAlerts] = useState(false);
     const [projectAlerts, setProjectAlerts] = useState<any[]>([]);
     const [loadingAlerts, setLoadingAlerts] = useState(true);
+    const [jiraConnected, setJiraConnected] = useState(false);
 
     // per-card search + type filters
     const [depSearch, setDepSearch] = useState("");
@@ -84,6 +85,25 @@ export function AlertsPanel({
 
         if (projectId) {
             fetchAlerts();
+        }
+    }, [projectId, apiBase]);
+
+    // Fetch Jira connection status
+    useEffect(() => {
+        const fetchJiraStatus = async () => {
+            try {
+                const response = await fetch(`${apiBase}/jira/projects/${projectId}/status`);
+                if (response.ok) {
+                    const data = await response.json();
+                    setJiraConnected(data.connected || false);
+                }
+            } catch (error) {
+                console.error('Error fetching Jira status:', error);
+            }
+        };
+
+        if (projectId) {
+            fetchJiraStatus();
         }
     }, [projectId, apiBase]);
 
@@ -489,16 +509,28 @@ export function AlertsPanel({
                             console.error('Error resolving alert:', err);
                         }
                     }}
-                    onSendToJira={async (alertId: string) => {
-                        const alert = projectAlerts.find(a => a.id === alertId);
-                        if (!alert) return;
+                    onSendToJira={jiraConnected ? async (alertId: string) => {
                         try {
-                            console.log('Send to Jira:', alert);
-                            window.alert('Jira integration coming soon!');
+                            const response = await fetch(
+                                `${apiBase}/jira/projects/${projectId}/alerts/${alertId}/create-issue`,
+                                {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                }
+                            );
+                            
+                            if (!response.ok) {
+                                const error = await response.json();
+                                throw new Error(error.message || 'Failed to create Jira issue');
+                            }
+                            
+                            const result = await response.json();
+                            window.alert(`Jira issue created successfully! Issue key: ${result.key || 'N/A'}`);
                         } catch (err) {
                             console.error('Error sending to Jira:', err);
+                            window.alert(err instanceof Error ? err.message : 'Failed to create Jira issue');
                         }
-                    }}
+                    } : undefined}
                     showResolved={showResolvedAlerts}
                     pageSize={4}
                     style={{height: "calc(100vh - 200px)"}}
@@ -546,16 +578,28 @@ export function AlertsPanel({
                             console.error('Error resolving alert:', err);
                         }
                     }}
-                    onSendToJira={async (alertId: string) => {
-                        const alert = projectAlerts.find(a => a.id === alertId);
-                        if (!alert) return;
+                    onSendToJira={jiraConnected ? async (alertId: string) => {
                         try {
-                            console.log('Send to Jira:', alert);
-                            window.alert('Jira integration coming soon!');
+                            const response = await fetch(
+                                `${apiBase}/jira/projects/${projectId}/alerts/${alertId}/create-issue`,
+                                {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                }
+                            );
+                            
+                            if (!response.ok) {
+                                const error = await response.json();
+                                throw new Error(error.message || 'Failed to create Jira issue');
+                            }
+                            
+                            const result = await response.json();
+                            window.alert(`Jira issue created successfully! Issue key: ${result.key || 'N/A'}`);
                         } catch (err) {
                             console.error('Error sending to Jira:', err);
+                            window.alert(err instanceof Error ? err.message : 'Failed to create Jira issue');
                         }
-                    }}
+                    } : undefined}
                     showResolved={showResolvedAlerts}
                     pageSize={4}
                     style={{height: "calc(100vh - 200px)"}}
