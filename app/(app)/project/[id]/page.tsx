@@ -1204,8 +1204,12 @@ export default function ProjectDetailPage() {
             const recommendations = flatteningAnalysisData.recommendations;
             const conflicts = flatteningAnalysisData.duplicateCount || 0;
             
-            // Generate suggestions from upgrade recommendations
-            if (recommendations && !recommendations.error && recommendations.combo) {
+            // Use formatted recommendations if available (preferred)
+            if (recommendations?.formatted && Array.isArray(recommendations.formatted) && recommendations.formatted.length > 0) {
+                suggestions.push(...recommendations.formatted);
+            }
+            // Fallback to combo format for backward compatibility
+            else if (recommendations && !recommendations.error && recommendations.combo) {
                 const upgrades = recommendations.combo;
                 
                 if (upgrades.length > 0) {
@@ -1260,19 +1264,6 @@ export default function ProjectDetailPage() {
                         dependencies: [],
                     });
                 }
-                
-                // Add a dummy recommendation for demonstration if no real recommendations exist
-                if (suggestions.length === 0) {
-                    suggestions.push({
-                        title: "Upgrade react to latest version",
-                        description: "Upgrading to version 18.2.0 will help optimize your dependency tree and reduce conflicts.",
-                        impact: "medium" as const,
-                        dependencies: ["react@18.2.0"],
-                        packageName: "react",
-                        oldVersion: "17.0.2",
-                        newVersion: "18.2.0",
-                    });
-                }
             }
 
             // Add suggestions for low similarity packages (high-risk anchors)
@@ -1295,18 +1286,6 @@ export default function ProjectDetailPage() {
                 });
             }
 
-            // Fallback if no suggestions - add dummy recommendation for demo
-            if (suggestions.length === 0) {
-                suggestions.push({
-                    title: "Upgrade react to latest version",
-                    description: "Upgrading to version 18.2.0 will help optimize your dependency tree and reduce conflicts.",
-                    impact: "medium" as const,
-                    dependencies: ["react@18.2.0"],
-                    packageName: "react",
-                    oldVersion: "17.0.2",
-                    newVersion: "18.2.0",
-                });
-            }
 
             return {
                 score: flatteningAnalysisData.score || 50,
@@ -1315,6 +1294,7 @@ export default function ProjectDetailPage() {
                 transitiveTagCount: 0, // Not provided by backend currently
                 total: deps.length,
                 suggestions: suggestions.slice(0, 5),
+                dependencyStats: flatteningAnalysisData.dependencyStats, // Include dependency stats from backend
             };
         }
 
@@ -1399,18 +1379,6 @@ export default function ProjectDetailPage() {
             });
         }
 
-        if (!suggestions.length) {
-            // Add dummy recommendation for demonstration
-            suggestions.push({
-                title: "Upgrade react to latest version",
-                description: "Upgrading to version 18.2.0 will help optimize your dependency tree and reduce conflicts.",
-                impact: "medium" as const,
-                dependencies: ["react@18.2.0"],
-                packageName: "react",
-                oldVersion: "17.0.2",
-                newVersion: "18.2.0",
-            });
-        }
 
         return {
             score,
@@ -4308,6 +4276,7 @@ export default function ProjectDetailPage() {
                                     suggestion={suggestion}
                                     projectId={projectId}
                                     apiBase={apiBase}
+                                    allRecommendations={flatteningAnalysis.suggestions.filter(s => s.packageName && s.oldVersion && s.newVersion)}
                                 />
                             ))}
                         </div>
