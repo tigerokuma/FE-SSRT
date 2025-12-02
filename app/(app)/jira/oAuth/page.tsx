@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { useUser } from "@clerk/nextjs";
 import { Card, CardHeader } from "@/components/ui/card";
 import { PageHeader } from "@/components/page-header";
+import { useEnsureBackendUser } from "@/lib/useEnsureBackendUser";
 
 type User = {
   id: string;
@@ -17,11 +19,11 @@ export default function JiraOAuthPage() {
   const apiBase = "/api/backend";
 
   const searchParams = useSearchParams();
+  const { user: clerkUser, isLoaded: clerkLoaded } = useUser();
+  const { backendUserId, isEnsured } = useEnsureBackendUser(apiBase);
   const [user, setUser] = useState<User | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-
-  const user_id = 'user-123';
 
   useEffect(() => {
     const code = String(searchParams.get("code"));
@@ -31,11 +33,37 @@ export default function JiraOAuthPage() {
       return;
     }
 
+    // If user is not loaded or not signed in, show message to sign in
+    if (!clerkLoaded) {
+      return; // Still loading
+    }
+
+    if (!clerkUser) {
+      setError("Please sign in to connect your Jira account. You will be redirected to sign in.");
+      setLoading(false);
+      // Optionally redirect to sign in with return URL
+      setTimeout(() => {
+        window.location.href = `/sign-in?redirect_url=${encodeURIComponent(window.location.href)}`;
+      }, 2000);
+      return;
+    }
+
+    // Wait for backend user sync
+    if (!isEnsured || !backendUserId) {
+      return;
+    }
+
     async function fetchUser() {
+      if (!backendUserId) {
+        setError("User ID not available.");
+        setLoading(false);
+        return;
+      }
+
       try {
         const encodedCode = encodeURIComponent(code);
 
-        const res = await fetch(`${apiBase}/jira/oAuth/${encodeURIComponent(user_id)}?code=${encodedCode}`);
+        const res = await fetch(`${apiBase}/jira/oAuth/${encodeURIComponent(backendUserId)}?code=${encodedCode}`);
         if (!res.ok) {
           // If status 410 or others, handle appropriately
           const text = await res.text();
@@ -52,14 +80,14 @@ export default function JiraOAuthPage() {
           setError("User not found or invalid response.");
         }
       } catch (err) {
-        setError("Network or server error.",);
+        setError("Network or server error.");
       } finally {
         setLoading(false);
       }
     }
 
     fetchUser();
-  }, [searchParams]);
+  }, [searchParams, clerkLoaded, clerkUser, isEnsured, backendUserId, apiBase]);
 
   if (loading) return <p>Loading...</p>;
 

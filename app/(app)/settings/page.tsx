@@ -5,18 +5,20 @@ import {useEffect, useMemo, useState} from "react"
 import useSWR from "swr"
 import Image from "next/image"
 import {useUser, SignOutButton, useClerk} from "@clerk/nextjs"
+import {useSearchParams, useRouter} from "next/navigation"
 
 import {Button} from "@/components/ui/button"
 import {useIngestGithubFromClerk} from "@/lib/useIngestGithubFromClerk";
 import {useEnsureBackendUser} from "@/lib/useEnsureBackendUser";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
-const JIRA_APP_URL = process.env.NEXT_PUBLIC_JIRA_APP_URL ?? ""
 
 export default function SettingsPage() {
     // always go through our Next.js proxy (adds Clerk JWT)
     const apiBase = "/api/backend";
     const {user, isLoaded} = useUser()
+    const searchParams = useSearchParams()
+    const router = useRouter()
 
     const {openUserProfile, signOut} = useClerk();
 
@@ -24,6 +26,19 @@ export default function SettingsPage() {
     useIngestGithubFromClerk(backendUserId, apiBase)
 
     const [currentSettingsTab, setCurrentSettingsTab] = useState("basic")
+    // Handle Jira OAuth callback redirect
+    useEffect(() => {
+        const jiraConnected = searchParams.get('jira_connected')
+        if (jiraConnected === 'true') {
+            // Remove query param and refresh Jira data
+            router.replace('/settings', { scroll: false })
+            // Trigger SWR revalidation for Jira data
+            setTimeout(() => {
+                window.location.reload()
+            }, 500)
+        }
+    }, [searchParams, router])
+
     const [firstName, setFirstName] = useState("")
     const [lastName, setLastName] = useState("")
     const [savingBasic, setSavingBasic] = useState(false)
@@ -32,14 +47,15 @@ export default function SettingsPage() {
     const phone = useMemo(() => user?.primaryPhoneNumber?.phoneNumber ?? "", [user])
 
     const userId = user?.id
-    const {data: slackData} = useSWR(userId ? `${apiBase}/slack/slack-channel/${userId}` : null, fetcher, {
+    const {data: slackData} = useSWR(userId ? `${apiBase}/slack/user-info/${userId}` : null, fetcher, {
         revalidateOnFocus: false,
     })
     const {data: jiraData} = useSWR(userId ? `${apiBase}/jira/user-info/${userId}` : null, fetcher, {
         revalidateOnFocus: false,
     })
 
-    const slackChannel = slackData?.name ?? ""
+    const slackChannel = slackData?.slack_channel ?? ""
+    const slackToken = slackData?.slack_token ?? ""
     const jiraProject = jiraData?.project_key ?? ""
 
     const githubConnected = useMemo(() => {
@@ -53,6 +69,24 @@ export default function SettingsPage() {
             return isGithub && isVerified;
         });
     }, [user?.externalAccounts]);
+
+    // Jira is considered connected only if:
+    // 1. Connection info exists (jiraData with webtrigger_url)
+    // 2. project_key is set
+    const jiraConnected = useMemo(() => {
+        const hasConnection = !!jiraData?.webtrigger_url;
+        const hasProjectKey = !!jiraProject && jiraProject.trim() !== '';
+        return hasConnection && hasProjectKey;
+    }, [jiraData, jiraProject]);
+
+    // Slack is considered connected only if:
+    // 1. Connection info exists (slackData with slack_token)
+    // 2. slack_channel is set
+    const slackConnected = useMemo(() => {
+        const hasConnection = !!slackToken;
+        const hasChannel = !!slackChannel && slackChannel.trim() !== '';
+        return hasConnection && hasChannel;
+    }, [slackToken, slackChannel]);
 
     const [emailConfirmed, setEmailConfirmed] = useState(false)
     const [sendingConfirm, setSendingConfirm] = useState(false)
@@ -377,17 +411,23 @@ export default function SettingsPage() {
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-3">
-                                            <StatusPill connected={!!jiraProject}/>
+                                        <StatusPill connected={jiraConnected}/>
                                             <Button
                                                 variant="outline"
                                                 size="sm"
                                                 className="border-gray-600 text-gray-300 hover:bg-gray-700"
-                                                onClick={() => {
-                                                    if (!JIRA_APP_URL) return
-                                                    window.location.href = JIRA_APP_URL
+                                                onClick={async () => {
+                                                    if (!backendUserId) {
+                                                        alert('Please wait for your account to be set up.');
+                                                        return;
+                                                    }
+            
+                                                    // Use backend's direct OAuth flow (similar to Slack)
+                                                    // Redirect to backend OAuth endpoint which will handle Jira OAuth
+                                                    window.location.href = `${apiBase}/jira/connect`;
                                                 }}
                                             >
-                                                {jiraProject ? "Disconnect" : "Connect"}
+                                                {jiraConnected ? "Disconnect" : "Connect"}
                                             </Button>
                                         </div>
                                     </div>
@@ -404,17 +444,23 @@ export default function SettingsPage() {
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-3">
-                                            <StatusPill connected={!!slackChannel}/>
+                                            <StatusPill connected={slackConnected}/>
                                             <Button
                                                 variant="outline"
                                                 size="sm"
                                                 className="border-gray-600 text-gray-300 hover:bg-gray-700"
-                                                onClick={() => {
-                                                    if (!userId) return
-                                                    window.location.href = `${apiBase}/slack/start-oauth/${userId}`
+                                                onClick={async () => {
+                                                    if (!backendUserId) {
+                                                        alert('Please wait for your account to be set up.');
+                                                        return;
+                                                    }
+            
+                                                    // Use backend's direct OAuth flow (similar to Jira)
+                                                    // Redirect to backend OAuth endpoint which will handle Slack OAuth
+                                                    window.location.href = `${apiBase}/slack/connect`;
                                                 }}
                                             >
-                                                {slackChannel ? "Disconnect" : "Connect"}
+                                                {slackConnected ? "Disconnect" : "Connect"}
                                             </Button>
                                         </div>
                                     </div>
@@ -524,6 +570,7 @@ export default function SettingsPage() {
                     </div>
                 </div>
             </div>
+
         </div>
     )
 }
