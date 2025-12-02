@@ -878,7 +878,7 @@ export default function ProjectDetailPage() {
         setIsDownloadingSbom(true)
 
         try {
-            const response = await fetch(`${apiBase}/sbom/sbom/create-custom`, {
+            const response = await fetch(`${apiBase}/sbom/create-custom`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({
@@ -2447,40 +2447,7 @@ export default function ProjectDetailPage() {
                                         <Button
                                             className="w-full hover:opacity-90 text-white"
                                             style={{backgroundColor: colors.primary}}
-                                            onClick={() => {
-                                                // Generate SBOM data
-                                                const sbomData = {
-                                                    project: {
-                                                        name: project?.name || 'Unknown Project',
-                                                        license: project?.license || 'unlicensed',
-                                                        totalDependencies: complianceData.totalDependencies
-                                                    },
-                                                    dependencies: projectDependencies.map(dep => ({
-                                                        name: dep.name,
-                                                        version: dep.version,
-                                                        licenseScore: dep.package?.license_score || 0,
-                                                        vulnerabilityScore: dep.package?.vulnerability_score || 0,
-                                                        totalScore: dep.package?.total_score || 0
-                                                    })),
-                                                    compliance: {
-                                                        overallCompliance: complianceData.overallCompliance,
-                                                        licenseConflicts: complianceData.licenseConflicts,
-                                                        vulnerableDependencies: complianceData.vulnerableDependencies
-                                                    },
-                                                    generatedAt: new Date().toISOString()
-                                                }
-
-                                                // Download as JSON
-                                                const blob = new Blob([JSON.stringify(sbomData, null, 2)], {type: 'application/json'})
-                                                const url = URL.createObjectURL(blob)
-                                                const a = document.createElement('a')
-                                                a.href = url
-                                                a.download = `${project?.name || 'project'}-sbom.json`
-                                                document.body.appendChild(a)
-                                                a.click()
-                                                document.body.removeChild(a)
-                                                URL.revokeObjectURL(url)
-                                            }}
+                                            onClick={() => setShowSbomDownloadDialog(true)}
                                         >
                                             <Download className="h-4 w-4 mr-2"/>
                                             Download SBOM
