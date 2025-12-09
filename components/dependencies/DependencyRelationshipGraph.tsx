@@ -165,13 +165,13 @@ const DIRECT_DEPENDENCIES: DirectDependency[] = [
 
 const getRiskLevelColor = (score: number) => {
   if (score >= 75) return "#f97316" // high risk
-  if (score >= 60) return "#fbbf24" // medium risk
+  if (score >= 50) return "#fbbf24" // medium risk
   return "#34d399" // low risk
 }
 
 const getRiskCategory = (score: number): "low" | "medium" | "high" => {
   if (score >= 75) return "high"
-  if (score >= 60) return "medium"
+  if (score >= 50) return "medium"
   return "low"
 }
 
@@ -198,9 +198,11 @@ export default function DependencyRelationshipGraph({
   const [isNoDepsMessageClosed, setIsNoDepsMessageClosed] = useState<boolean>(false)
   const [contextMenuNode, setContextMenuNode] = useState<GraphNode | null>(null)
   const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number; y: number } | null>(null)
+  const [noDependenciesMessage, setNoDependenciesMessage] = useState<{ visible: boolean; nodeName: string }>({ visible: false, nodeName: '' })
   const graphRef = useRef<any>(null)
   const searchTriggerRef = useRef<HTMLDivElement>(null)
   const contextMenuRef = useRef<HTMLDivElement>(null)
+  const messageTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   
 
   const apiBase = "/api/backend"
@@ -390,6 +392,59 @@ export default function DependencyRelationshipGraph({
     }
   }, [apiBase, localFiltered, riskFilter, searchMode, searchQuery, currentCenterPackageId, version])
 
+  // Helper function to check if a position collides with existing nodes
+  const checkCollision = (
+    x: number,
+    y: number,
+    existingNodes: GraphNode[],
+    minDistance: number = 100
+  ): boolean => {
+    for (const node of existingNodes) {
+      if (node.fx !== undefined && node.fy !== undefined) {
+        const dx = x - node.fx
+        const dy = y - node.fy
+        const distance = Math.sqrt(dx * dx + dy * dy)
+        if (distance < minDistance) {
+          return true // Collision detected
+        }
+      }
+    }
+    return false // No collision
+  }
+
+  // Helper function to find a non-colliding position
+  const findNonCollidingPosition = (
+    startX: number,
+    startY: number,
+    existingNodes: GraphNode[],
+    minDistance: number = 100,
+    maxAttempts: number = 20
+  ): { x: number; y: number } => {
+    // Try the original position first
+    if (!checkCollision(startX, startY, existingNodes, minDistance)) {
+      return { x: startX, y: startY }
+    }
+
+    // Try positions in a spiral pattern
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      const angle = (attempt * 0.5) % (Math.PI * 2)
+      const radius = minDistance * (1 + attempt * 0.2)
+      
+      for (let spiral = 0; spiral < 8; spiral++) {
+        const spiralAngle = angle + (spiral * Math.PI / 4)
+        const x = startX + Math.cos(spiralAngle) * radius
+        const y = startY + Math.sin(spiralAngle) * radius
+        
+        if (!checkCollision(x, y, existingNodes, minDistance)) {
+          return { x, y }
+        }
+      }
+    }
+
+    // If all attempts fail, return a position far away
+    return { x: startX + minDistance * 2, y: startY + minDistance * 2 }
+  }
+
   const graphData = useMemo(() => {
     const centerId = `root-${currentCenterPackageId}`
     // Keep label as just the name - version will be displayed separately by the renderer
@@ -457,9 +512,12 @@ export default function DependencyRelationshipGraph({
             .slice(0, 6)
 
           const baseAngle = Math.atan2(y, x)
-          const spread = Math.PI / 2.2
+          // Increase spread angle based on number of children to prevent overlap
+          const spread = Math.min(Math.PI * 1.5, (Math.PI * 2) / Math.max(sortedChildren.length, 1))
           const denom = Math.max(sortedChildren.length - 1, 1)
-          const childRadius = 150
+          // Increase child radius to give more space
+          const childRadius = 180
+          const minDistance = 120 // Minimum distance between nodes
 
           sortedChildren.forEach((child, childIndex) => {
             // Sanitize child ID to ensure it's unique and valid
@@ -470,13 +528,22 @@ export default function DependencyRelationshipGraph({
             if (!nodeIdSet.has(childId)) {
               const centeredIndex = childIndex - (sortedChildren.length - 1) / 2
               const proportionalOffset = (centeredIndex / denom) * spread
+              // Reduce jitter to prevent overlap
               const hash =
                 childId.split("").reduce((sum, char) => sum + char.charCodeAt(0), 0) %
                 100
-              const jitter = ((hash / 100) - 0.5) * (Math.PI / 24)
+              const jitter = ((hash / 100) - 0.5) * (Math.PI / 36) // Reduced jitter
               const childAngle = baseAngle + proportionalOffset + jitter
-              const childX = x + Math.cos(childAngle) * childRadius
-              const childY = y + Math.sin(childAngle) * childRadius
+              const initialX = x + Math.cos(childAngle) * childRadius
+              const initialY = y + Math.sin(childAngle) * childRadius
+
+              // Check for collision and find a non-colliding position
+              const { x: childX, y: childY } = findNonCollidingPosition(
+                initialX,
+                initialY,
+                nodes,
+                minDistance
+              )
 
               nodes.push({
                 id: childId,
@@ -506,8 +573,15 @@ export default function DependencyRelationshipGraph({
             // If this transitive node is expanded, show its children
             if (expandedSet.has(childId)) {
               const nestedDeps = nestedDependencies.get(childId) || []
-              const nestedRadius = 100
-              const nestedSpread = Math.PI / 3
+              // Use child's position (childX, childY) instead of parent's position
+              const childNode = nodes.find(n => n.id === childId)
+              const childX = childNode?.fx || x
+              const childY = childNode?.fy || y
+              const childAngle = Math.atan2(childY, childX)
+              // Increase nested radius and adjust spread
+              const nestedRadius = 130
+              const nestedSpread = Math.min(Math.PI * 1.2, (Math.PI * 2) / Math.max(nestedDeps.length, 1))
+              const nestedMinDistance = 100 // Minimum distance for nested nodes
 
               nestedDeps.slice(0, 4).forEach((nestedChild, nestedIndex) => {
                 // Sanitize nested child ID to ensure it's unique and valid
@@ -520,10 +594,18 @@ export default function DependencyRelationshipGraph({
                   const nestedProportionalOffset = (nestedCenteredIndex / Math.max(nestedDeps.length - 1, 1)) * nestedSpread
                   const nestedHash =
                     nestedChildId.split("").reduce((sum, char) => sum + char.charCodeAt(0), 0) % 100
-                  const nestedJitter = ((nestedHash / 100) - 0.5) * (Math.PI / 30)
-                  const nestedAngle = baseAngle + nestedProportionalOffset + nestedJitter
-                  const nestedX = x + Math.cos(nestedAngle) * nestedRadius
-                  const nestedY = y + Math.sin(nestedAngle) * nestedRadius
+                  const nestedJitter = ((nestedHash / 100) - 0.5) * (Math.PI / 40) // Reduced jitter
+                  const nestedAngle = childAngle + nestedProportionalOffset + nestedJitter
+                  const initialNestedX = childX + Math.cos(nestedAngle) * nestedRadius
+                  const initialNestedY = childY + Math.sin(nestedAngle) * nestedRadius
+
+                  // Check for collision and find a non-colliding position
+                  const { x: nestedX, y: nestedY } = findNonCollidingPosition(
+                    initialNestedX,
+                    initialNestedY,
+                    nodes,
+                    nestedMinDistance
+                  )
 
                   nodes.push({
                     id: nestedChildId,
@@ -757,6 +839,28 @@ export default function DependencyRelationshipGraph({
     if (node.level === "root") return
 
     if (node.level === "direct") {
+      // Check if this direct node has children
+      const dep = filteredDirectDependencies.find(d => {
+        const sanitizedId = d.id.replace(/[^a-zA-Z0-9-_]/g, '_')
+        return `direct-${sanitizedId}` === node.id
+      })
+      
+      if (dep && (!dep.children || dep.children.length === 0)) {
+        // Show message that this node has no dependencies
+        setNoDependenciesMessage({ visible: true, nodeName: node.label })
+        
+        // Clear any existing timeout
+        if (messageTimeoutRef.current) {
+          clearTimeout(messageTimeoutRef.current)
+        }
+        
+        // Hide message after 3 seconds with fade
+        messageTimeoutRef.current = setTimeout(() => {
+          setNoDependenciesMessage(prev => ({ ...prev, visible: false }))
+        }, 3000)
+        return
+      }
+      
       // Toggle expansion for direct dependencies so their children appear inline
       toggleNodeExpansion(node.id)
       return
@@ -788,6 +892,22 @@ export default function DependencyRelationshipGraph({
           if (response.ok) {
             const payload = await response.json()
             if (Array.isArray(payload?.directDependencies)) {
+              if (payload.directDependencies.length === 0) {
+                // Show message that this node has no dependencies
+                setNoDependenciesMessage({ visible: true, nodeName: node.label })
+                
+                // Clear any existing timeout
+                if (messageTimeoutRef.current) {
+                  clearTimeout(messageTimeoutRef.current)
+                }
+                
+                // Hide message after 3 seconds with fade
+                messageTimeoutRef.current = setTimeout(() => {
+                  setNoDependenciesMessage(prev => ({ ...prev, visible: false }))
+                }, 3000)
+                return
+              }
+              
               const sanitized: DirectDependency[] = payload.directDependencies.map(
                 (dep: DirectDependency) => ({
                   ...dep,
@@ -809,10 +929,51 @@ export default function DependencyRelationshipGraph({
                 newMap.set(nodeId, sanitized)
                 return newMap
               })
+            } else {
+              // No dependencies found
+              setNoDependenciesMessage({ visible: true, nodeName: node.label })
+              
+              // Clear any existing timeout
+              if (messageTimeoutRef.current) {
+                clearTimeout(messageTimeoutRef.current)
+              }
+              
+              // Hide message after 3 seconds with fade
+              messageTimeoutRef.current = setTimeout(() => {
+                setNoDependenciesMessage(prev => ({ ...prev, visible: false }))
+              }, 3000)
+              return
             }
+          } else {
+            // API call failed, might mean no dependencies
+            setNoDependenciesMessage({ visible: true, nodeName: node.label })
+            
+            // Clear any existing timeout
+            if (messageTimeoutRef.current) {
+              clearTimeout(messageTimeoutRef.current)
+            }
+            
+            // Hide message after 3 seconds with fade
+            messageTimeoutRef.current = setTimeout(() => {
+              setNoDependenciesMessage(prev => ({ ...prev, visible: false }))
+            }, 3000)
+            return
           }
         } catch (error) {
           console.warn("Failed to fetch nested dependencies:", error)
+          // Show message on error
+          setNoDependenciesMessage({ visible: true, nodeName: node.label })
+          
+          // Clear any existing timeout
+          if (messageTimeoutRef.current) {
+            clearTimeout(messageTimeoutRef.current)
+          }
+          
+          // Hide message after 3 seconds with fade
+          messageTimeoutRef.current = setTimeout(() => {
+            setNoDependenciesMessage(prev => ({ ...prev, visible: false }))
+          }, 3000)
+          return
         }
       }
       
@@ -821,6 +982,15 @@ export default function DependencyRelationshipGraph({
       return
     }
   }
+  
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (messageTimeoutRef.current) {
+        clearTimeout(messageTimeoutRef.current)
+      }
+    }
+  }, [])
 
   return (
     <Card style={{ backgroundColor: colors.background.card }}>
@@ -986,7 +1156,7 @@ export default function DependencyRelationshipGraph({
             ref={graphRef}
             height={420}
             graphData={graphData}
-            cooldownTicks={0}
+            cooldownTicks={100}
             autoPauseRedraw={false}
             enableNodeDrag={false}
             nodeRelSize={6}
@@ -1117,6 +1287,21 @@ export default function DependencyRelationshipGraph({
             }}
             backgroundColor="rgb(18, 18, 18)"
           />
+          
+          {/* No dependencies message */}
+          <div
+            className="absolute bottom-4 right-4 px-4 py-2 rounded-lg border shadow-lg transition-opacity duration-500 pointer-events-none z-20"
+            style={{
+              backgroundColor: "rgba(18, 18, 18, 0.95)",
+              borderColor: "hsl(var(--border))",
+              opacity: noDependenciesMessage.visible ? 1 : 0,
+              visibility: noDependenciesMessage.visible ? 'visible' : 'hidden',
+            }}
+          >
+            <p className="text-sm text-gray-300">
+              No dependencies found for <span className="font-semibold text-white">{noDependenciesMessage.nodeName}</span>
+            </p>
+          </div>
         </div>
 
         <hr style={{ borderColor: "hsl(var(--border))" }} />
