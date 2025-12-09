@@ -1311,14 +1311,14 @@ export default function DependencyRelationshipGraph({
             <span className="h-2 w-6 rounded-full bg-sky-400" />
             Primary dependency
           </div>
-          <div className="flex items-center gap-2 text-gray-300">
-            <span className="h-2 w-6 rounded-full bg-emerald-400" />
-            Direct dependency · low risk (&lt; 60)
-          </div>
-          <div className="flex items-center gap-2 text-gray-300">
-            <span className="h-2 w-6 rounded-full bg-amber-300" />
-            Direct dependency · medium risk (60-74)
-          </div>
+            <div className="flex items-center gap-2 text-gray-300">
+              <span className="h-2 w-6 rounded-full bg-emerald-400" />
+              Direct dependency · low risk (&lt; 50)
+            </div>
+            <div className="flex items-center gap-2 text-gray-300">
+              <span className="h-2 w-6 rounded-full bg-amber-300" />
+              Direct dependency · medium risk (50-74)
+            </div>
           <div className="flex items-center gap-2 text-gray-300">
             <span className="h-2 w-6 rounded-full bg-orange-400" />
             Direct dependency · high risk (≥ 75)
