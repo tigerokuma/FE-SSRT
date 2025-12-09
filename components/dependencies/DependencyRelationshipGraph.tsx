@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useRef } from "react"
 import dynamic from "next/dynamic"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { colors } from "@/lib/design-system"
 import { Input } from "@/components/ui/input"
@@ -11,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
-import { Check, ChevronsUpDown, X } from "lucide-react"
+import { Check, ChevronsUpDown, X, ExternalLink } from "lucide-react"
 
 const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), {
   ssr: false,
@@ -35,6 +36,7 @@ type GraphNode = {
   x?: number
   y?: number
   slug?: string
+  packageId?: string
   width?: number
   height?: number
 }
@@ -178,6 +180,7 @@ export default function DependencyRelationshipGraph({
   packageName,
   version,
 }: DependencyRelationshipGraphProps) {
+  const router = useRouter()
   const [expandedNodes, setExpandedNodes] = useState<string[]>([])
   const [nestedDependencies, setNestedDependencies] = useState<Map<string, DirectDependency[]>>(new Map())
   const [searchMode, setSearchMode] = useState<"direct" | "all">("all")
@@ -193,8 +196,11 @@ export default function DependencyRelationshipGraph({
   const [selectedDependency, setSelectedDependency] = useState<string>("")
   const [popoverWidth, setPopoverWidth] = useState<number | undefined>(undefined)
   const [isNoDepsMessageClosed, setIsNoDepsMessageClosed] = useState<boolean>(false)
+  const [contextMenuNode, setContextMenuNode] = useState<GraphNode | null>(null)
+  const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number; y: number } | null>(null)
   const graphRef = useRef<any>(null)
   const searchTriggerRef = useRef<HTMLDivElement>(null)
+  const contextMenuRef = useRef<HTMLDivElement>(null)
   
 
   const apiBase = "/api/backend"
@@ -242,6 +248,22 @@ export default function DependencyRelationshipGraph({
       controller.abort()
     }
   }, [packageId, packageName, apiBase])
+
+  // Close context menu on escape key or click outside
+  useEffect(() => {
+    if (!contextMenuPosition) return
+
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setContextMenuPosition(null)
+      }
+    }
+
+    document.addEventListener('keydown', handleEscape)
+    return () => {
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [contextMenuPosition])
 
   const localFiltered = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase()
@@ -1084,8 +1106,14 @@ export default function DependencyRelationshipGraph({
               const node = nodeObject as GraphNode
               if (!node.slug) return
               event.preventDefault()
-              const targetUrl = `/dependency/${encodeURIComponent(node.slug)}`
-              window.open(targetUrl, "_blank", "noopener,noreferrer")
+              
+              // Get mouse position relative to the viewport
+              const mouseEvent = event as MouseEvent
+              const x = mouseEvent.clientX
+              const y = mouseEvent.clientY
+              
+              setContextMenuNode(node)
+              setContextMenuPosition({ x, y })
             }}
             backgroundColor="rgb(18, 18, 18)"
           />
@@ -1112,6 +1140,87 @@ export default function DependencyRelationshipGraph({
           </div>
         </div>
       </CardContent>
+
+      {/* Right-click context menu */}
+      {contextMenuPosition && contextMenuNode && (
+        <>
+          {/* Backdrop to close menu on click outside */}
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setContextMenuPosition(null)}
+            onContextMenu={(e) => {
+              e.preventDefault()
+              setContextMenuPosition(null)
+            }}
+          />
+          {/* Context menu */}
+          <div
+            ref={contextMenuRef}
+            className="fixed z-50 min-w-[180px] rounded-md border shadow-lg"
+            style={{
+              left: `${contextMenuPosition.x}px`,
+              top: `${contextMenuPosition.y}px`,
+              backgroundColor: colors.background.card,
+              borderColor: "hsl(var(--border))",
+            }}
+            onClick={(e) => e.stopPropagation()}
+            onContextMenu={(e) => e.preventDefault()}
+          >
+            <div className="p-1">
+              <button
+                onClick={async () => {
+                  if (contextMenuNode?.slug) {
+                    // Extract projectId from current URL
+                    const currentPath = window.location.pathname
+                    const pathParts = currentPath.split('/').filter(Boolean)
+                    
+                    // URL structure: /dependency/[projectId]/[packageId]/[version]
+                    let projectId = 'default'
+                    if (pathParts[0] === 'dependency' && pathParts[1]) {
+                      projectId = pathParts[1]
+                    } else if (pathParts[0] === 'project' && pathParts[1]) {
+                      // If we're in a project page, use that project ID
+                      projectId = pathParts[1]
+                    }
+                    
+                    // Use packageId if already stored in node, otherwise query it from Memgraph
+                    let packageId = contextMenuNode.packageId
+                    
+                    if (!packageId) {
+                      // Query package ID from Memgraph using package name and version
+                      try {
+                        const params = new URLSearchParams()
+                        if (contextMenuNode.version) {
+                          params.append('version', contextMenuNode.version)
+                        }
+                        const response = await fetch(
+                          `${apiBase}/sbom/package-id/${encodeURIComponent(contextMenuNode.slug)}?${params.toString()}`
+                        )
+                        if (response.ok) {
+                          const data = await response.json()
+                          packageId = data?.packageId
+                        }
+                      } catch (error) {
+                        console.error('Error fetching package ID from Memgraph:', error)
+                      }
+                    }
+                    
+                    // Use package ID if available, otherwise fallback to slug (package name)
+                    const finalPackageId = packageId || contextMenuNode.slug
+                    const targetUrl = `/dependency/${projectId}/${encodeURIComponent(finalPackageId)}${contextMenuNode.version ? `/${encodeURIComponent(contextMenuNode.version)}` : ''}`
+                    router.push(targetUrl)
+                    setContextMenuPosition(null)
+                  }
+                }}
+                className="w-full flex items-center gap-2 px-2 py-1.5 text-sm text-gray-200 hover:bg-gray-800 rounded-sm cursor-pointer transition-colors"
+              >
+                <ExternalLink className="h-4 w-4" />
+                <span>Go to dependency</span>
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </Card>
   )
 }
