@@ -8,6 +8,7 @@ const isPublicRoute = createRouteMatcher([
   "/api/backend(.*)",
   '/favicon(.*)',
   '/api/backend(.*)',  // Backend API routes - let Next.js rewrite proxy to backend (port 3000)
+  '/jira/oauth/callback(.*)',  // Jira OAuth callback - public (called by Atlassian)
 ])
 
 export default clerkMiddleware(async (auth, req) => {

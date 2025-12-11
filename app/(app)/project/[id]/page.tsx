@@ -1,7 +1,7 @@
 "use client"
 
 import {useState, useEffect, useRef, useMemo} from "react"
-import {useParams, useRouter} from "next/navigation"
+import {useParams, useRouter, useSearchParams} from "next/navigation"
 import {Button} from "@/components/ui/button"
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card"
 import {Input} from "@/components/ui/input"
@@ -340,6 +340,10 @@ export default function ProjectDetailPage() {
         slack: boolean;
         discord: boolean
     }>({alerts: true, slack: false, discord: false})
+    const [jiraConnected, setJiraConnected] = useState(false)
+    const [jiraProjectKey, setJiraProjectKey] = useState<string | null>(null)
+    const [slackConnected, setSlackConnected] = useState(false)
+    const [slackChannelId, setSlackChannelId] = useState<string | null>(null)
     const [healthNotifications, setHealthNotifications] = useState<{
         alerts: boolean;
         slack: boolean;
@@ -551,6 +555,44 @@ export default function ProjectDetailPage() {
 
     const projectId = params.id as string
 
+    // Handle Jira OAuth callback redirect
+    useEffect(() => {
+        const jiraConnected = searchParams.get('jira_connected')
+        if (jiraConnected === 'true') {
+            // Remove query param and refresh Jira data
+            router.replace(`/project/${projectId}?tab=settings&settingsTab=integrations`, { scroll: false })
+            // Refresh Jira connection status
+            if (backendUserId) {
+                fetch(`${apiBase}/jira/projects/${projectId}/status`)
+                    .then(res => res.json())
+                    .then(data => {
+                        setJiraConnected(data.connected || false)
+                        setJiraProjectKey(data.project_key || null)
+                    })
+                    .catch(console.error)
+            }
+        }
+    }, [searchParams, router, projectId, backendUserId, apiBase])
+
+    // Handle Slack OAuth callback redirect
+    useEffect(() => {
+        const slackConnected = searchParams.get('slack_connected')
+        if (slackConnected === 'true') {
+            // Remove query param and refresh Slack data
+            router.replace(`/project/${projectId}?tab=settings&settingsTab=integrations`, { scroll: false })
+            // Refresh Slack connection status
+            if (backendUserId) {
+                fetch(`${apiBase}/slack/projects/${projectId}/status`)
+                    .then(res => res.json())
+                    .then(data => {
+                        setSlackConnected(data.connected || false)
+                        setSlackChannelId(data.channel_id || null)
+                    })
+                    .catch(console.error)
+            }
+        }
+    }, [searchParams, router, projectId, backendUserId, apiBase])
+
     // Debug logging
     console.log('🔍 Project page - params:', params, 'projectId:', projectId)
 
@@ -647,6 +689,22 @@ export default function ProjectDetailPage() {
                     }
                 })
                 setPackageStatuses(statusMap)
+            }
+
+            // Fetch Jira connection status
+            const jiraStatusResponse = await fetch(`${apiBase}/jira/projects/${projectId}/status`)
+            if (jiraStatusResponse.ok) {
+                const jiraStatus = await jiraStatusResponse.json()
+                setJiraConnected(jiraStatus.connected || false)
+                setJiraProjectKey(jiraStatus.project_key || null)
+            }
+
+            // Fetch Slack connection status
+            const slackStatusResponse = await fetch(`${apiBase}/slack/projects/${projectId}/status`)
+            if (slackStatusResponse.ok) {
+                const slackStatus = await slackStatusResponse.json()
+                setSlackConnected(slackStatus.connected || false)
+                setSlackChannelId(slackStatus.channel_id || null)
             }
 
             // Fetch flattening analysis from backend (includes score, recommendations, and low similarity packages)
@@ -3288,14 +3346,29 @@ export default function ProjectDetailPage() {
                                                         </div>
                                                         <div>
                                                             <div className="text-white font-medium">Jira</div>
-                                                            <div className="text-xs text-gray-400">Project management
+                                                            <div className="text-xs text-gray-400">
+                                                                {jiraConnected && jiraProjectKey 
+                                                                    ? `Connected to ${jiraProjectKey}` 
+                                                                    : 'Project management'}
                                                             </div>
                                                         </div>
                                                     </div>
-                                                    <Button variant="outline" size="sm"
-                                                            className="border-gray-600 text-gray-300 hover:bg-gray-700">
-                                                        Connect
-                                                    </Button>
+                                                    {jiraConnected ? (
+                                                        <Badge variant="outline" className="border-green-500/50 text-green-400 bg-green-500/10">
+                                                            Connected
+                                                        </Badge>
+                                                    ) : (
+                                                        <Button 
+                                                            variant="outline" 
+                                                            size="sm"
+                                                            className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                                                            onClick={() => {
+                                                                window.location.href = `${apiBase}/jira/connect?project_id=${projectId}`
+                                                            }}
+                                                        >
+                                                            Connect
+                                                        </Button>
+                                                    )}
                                                 </div>
                                             </CardContent>
                                         </Card>
@@ -3312,14 +3385,29 @@ export default function ProjectDetailPage() {
                                                         </div>
                                                         <div>
                                                             <div className="text-white font-medium">Slack</div>
-                                                            <div className="text-xs text-gray-400">Team communication
+                                                            <div className="text-xs text-gray-400">
+                                                                {slackConnected && slackChannelId 
+                                                                    ? `Connected to ${slackChannelId}` 
+                                                                    : 'Team communication'}
                                                             </div>
                                                         </div>
                                                     </div>
-                                                    <Button variant="outline" size="sm"
-                                                            className="border-gray-600 text-gray-300 hover:bg-gray-700">
-                                                        Connect
-                                                    </Button>
+                                                    {slackConnected ? (
+                                                        <Badge variant="outline" className="border-green-500/50 text-green-400 bg-green-500/10">
+                                                            Connected
+                                                        </Badge>
+                                                    ) : (
+                                                        <Button 
+                                                            variant="outline" 
+                                                            size="sm"
+                                                            className="border-gray-600 text-gray-300 hover:bg-gray-700"
+                                                            onClick={() => {
+                                                                window.location.href = `${apiBase}/slack/connect?project_id=${projectId}`
+                                                            }}
+                                                        >
+                                                            Connect
+                                                        </Button>
+                                                    )}
                                                 </div>
                                             </CardContent>
                                         </Card>
