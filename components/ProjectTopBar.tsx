@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { colors } from "@/lib/design-system"
+import { useRouter } from "next/navigation"
+import { ArrowLeft } from "lucide-react"
 
 interface ProjectTopBarProps {
   projectName: string
@@ -25,55 +27,56 @@ const tabs = [
 // Function to get project icon based on language
 const getProjectIcon = (language?: string) => {
   const lang = language?.toLowerCase()
-  
+
   // React/JavaScript projects
   if (lang === 'javascript' || lang === 'typescript' || lang === 'react' || lang === 'nodejs') {
     return <img src="/Node_logo.png" alt="Node.js" className="h-5 w-5 bg-transparent" />
   }
-  
+
   // Vue projects
   if (lang === 'vue') {
     return <img src="/Vue_logo.png" alt="Vue" className="h-5 w-5 bg-transparent" />
   }
-  
+
   // Python projects
   if (lang === 'python') {
     return <img src="/Python_logo.png" alt="Python" className="h-5 w-5 bg-transparent" />
   }
-  
+
   // Go projects
   if (lang === 'go') {
     return <img src="/Go_logo.png" alt="Go" className="h-5 w-5 bg-transparent" />
   }
-  
+
   // Java projects
   if (lang === 'java') {
     return <img src="/Java_logo.png" alt="Java" className="h-5 w-5 bg-transparent" />
   }
-  
+
   // Rust projects
   if (lang === 'rust') {
     return <img src="/Rust_logo.png" alt="Rust" className="h-5 w-5 bg-transparent" />
   }
-  
+
   // Ruby projects
   if (lang === 'ruby') {
     return <img src="/Ruby_logo.png" alt="Ruby" className="h-5 w-5 bg-transparent" />
   }
-  
+
   // Default to Deply logo for unknown languages
   return <img src="/Deply_Logo.png" alt="Deply" className="h-5 w-5 bg-transparent" />
 }
 
-export function ProjectTopBar({ 
-  projectName, 
-  projectIcon, 
+export function ProjectTopBar({
+  projectName,
+  projectIcon,
   projectLanguage,
-  currentTab, 
+  currentTab,
   onTabChange
 }: ProjectTopBarProps) {
   const [indicatorStyle, setIndicatorStyle] = useState<{ left: number; width: number }>({ left: 0, width: 0 })
   const tabRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({})
+  const router = useRouter()
 
   useEffect(() => {
     const updateIndicator = () => {
@@ -87,15 +90,26 @@ export function ProjectTopBar({
     }
 
     updateIndicator() // Initial position
-    
+
     window.addEventListener('resize', updateIndicator) // Update on resize
     return () => window.removeEventListener('resize', updateIndicator) // Cleanup
   }, [currentTab]) // Recalculate when currentTab changes
   return (
     <div className="fixed top-0 z-50 w-full border-b" style={{ backgroundColor: colors.background.card, borderColor: 'hsl(var(--border))', borderBottomWidth: '1px' }}>
       <div className="px-6 py-3 w-full max-w-none">
+
+
         {/* First line - Project info */}
         <div className="flex items-center gap-3 mb-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            style={{ padding: 0 }}
+            onClick={() => router.push("/project")}
+            className="mr-1 h-6 w-6"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
           {/* Project icon */}
           <div className="w-6 h-6 rounded-lg flex items-center justify-center">
             {projectLanguage ? (
@@ -112,7 +126,7 @@ export function ProjectTopBar({
               <div className="w-full h-full bg-gray-600 rounded animate-pulse"></div>
             )}
           </div>
-          
+
           {/* Project name */}
           {projectName ? (
             <h1 className="text-xl font-semibold text-white">{projectName}</h1>
@@ -127,8 +141,8 @@ export function ProjectTopBar({
             return (
               <Button
                 key={tab.id}
-                ref={(el) => { 
-                  if (el) tabRefs.current[tab.id] = el 
+                ref={(el) => {
+                  if (el) tabRefs.current[tab.id] = el
                 }}
                 onClick={() => onTabChange(tab.id)}
                 variant="ghost"
@@ -146,11 +160,11 @@ export function ProjectTopBar({
           })}
         </div>
       </div>
-      
+
       {/* Active tab indicator bar */}
       <div className="relative px-6">
         <div className="absolute bottom-0 left-6 right-6 h-0.5"></div> {/* Base line */}
-        <div 
+        <div
           className="absolute bottom-0 h-0.5 transition-all duration-200"
           style={{
             left: indicatorStyle.left, // Match tabs container padding (px-6 = 24px)
