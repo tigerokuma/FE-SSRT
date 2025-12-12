@@ -76,7 +76,6 @@ import {useWatchlistControls} from "@/lib/useWatchlistControls";
 
 import {AlertsPanel} from "@/components/alerts/AlertsPanel";
 import {AlertKind} from "@/components/alerts/AlertsCard";
-import {useSearchParams} from "next/navigation"
 
 
 // Function to get project language icon based on language
