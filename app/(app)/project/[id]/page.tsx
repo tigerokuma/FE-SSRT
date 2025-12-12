@@ -1,7 +1,7 @@
 "use client"
 
 import {useState, useEffect, useRef, useMemo} from "react"
-import {useParams, useRouter} from "next/navigation"
+import {useParams, useRouter, useSearchParams} from "next/navigation"
 import {Button} from "@/components/ui/button"
 import {Card, CardContent, CardHeader, CardTitle} from "@/components/ui/card"
 import {Input} from "@/components/ui/input"
@@ -40,6 +40,8 @@ import {
     Terminal
 } from "lucide-react"
 import {Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger} from "@/components/ui/dialog"
+import {Tabs, TabsList, TabsTrigger, TabsContent} from "@/components/ui/tabs"
+import {Skeleton} from "@/components/ui/skeleton"
 import {Collapsible, CollapsibleContent, CollapsibleTrigger} from "@/components/ui/collapsible"
 import {toast} from "@/hooks/use-toast"
 import {WatchlistSearchDialog} from "@/components/watchlist/WatchlistSearchDialog"
@@ -74,7 +76,6 @@ import {useWatchlistControls} from "@/lib/useWatchlistControls";
 
 import {AlertsPanel} from "@/components/alerts/AlertsPanel";
 import {AlertKind} from "@/components/alerts/AlertsCard";
-import {useSearchParams} from "next/navigation"
 
 
 // Function to get project language icon based on language
@@ -328,6 +329,7 @@ export default function ProjectDetailPage() {
     const [selectedLicense, setSelectedLicense] = useState<string>("")
     const [isSavingLicense, setIsSavingLicense] = useState(false)
     const [flatteningDialogOpen, setFlatteningDialogOpen] = useState(false)
+    const [flatteningDialogTab, setFlatteningDialogTab] = useState<'recommendations' | 'anchors'>('recommendations')
     const [projectName, setProjectName] = useState<string>("")
     const [isSavingName, setIsSavingName] = useState(false)
     const [vulnerabilityNotifications, setVulnerabilityNotifications] = useState<{
@@ -953,7 +955,7 @@ export default function ProjectDetailPage() {
         setIsDownloadingSbom(true)
 
         try {
-            const response = await fetch(`${apiBase}/sbom/sbom/create-custom`, {
+            const response = await fetch(`${apiBase}/sbom/create-custom`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({
@@ -1278,9 +1280,13 @@ export default function ProjectDetailPage() {
             const suggestions: FlatteningSuggestion[] = [];
             const recommendations = flatteningAnalysisData.recommendations;
             const conflicts = flatteningAnalysisData.duplicateCount || 0;
-
-            // Generate suggestions from upgrade recommendations
-            if (recommendations && !recommendations.error && recommendations.combo) {
+            
+            // Use formatted recommendations if available (preferred)
+            if (recommendations?.formatted && Array.isArray(recommendations.formatted) && recommendations.formatted.length > 0) {
+                suggestions.push(...recommendations.formatted);
+            }
+            // Fallback to combo format for backward compatibility
+            else if (recommendations && !recommendations.error && recommendations.combo) {
                 const upgrades = recommendations.combo;
 
                 if (upgrades.length > 0) {
@@ -1335,19 +1341,6 @@ export default function ProjectDetailPage() {
                         dependencies: [],
                     });
                 }
-
-                // Add a dummy recommendation for demonstration if no real recommendations exist
-                if (suggestions.length === 0) {
-                    suggestions.push({
-                        title: "Upgrade react to latest version",
-                        description: "Upgrading to version 18.2.0 will help optimize your dependency tree and reduce conflicts.",
-                        impact: "medium" as const,
-                        dependencies: ["react@18.2.0"],
-                        packageName: "react",
-                        oldVersion: "17.0.2",
-                        newVersion: "18.2.0",
-                    });
-                }
             }
 
             // Add suggestions for low similarity packages (high-risk anchors)
@@ -1370,26 +1363,37 @@ export default function ProjectDetailPage() {
                 });
             }
 
-            // Fallback if no suggestions - add dummy recommendation for demo
-            if (suggestions.length === 0) {
-                suggestions.push({
-                    title: "Upgrade react to latest version",
-                    description: "Upgrading to version 18.2.0 will help optimize your dependency tree and reduce conflicts.",
-                    impact: "medium" as const,
-                    dependencies: ["react@18.2.0"],
-                    packageName: "react",
-                    oldVersion: "17.0.2",
-                    newVersion: "18.2.0",
-                });
-            }
+
+            // Calculate high-risk count from suggestions that appear in the high-risk anchors tab
+            // Count suggestions with "High-risk anchor" in the title
+            const highRiskAnchorsSuggestions = suggestions.filter(
+                s => s.title?.includes("High-risk anchor") || s.title?.includes("high-risk anchor")
+            );
+            const highRiskCount = highRiskAnchorsSuggestions.length;
+
+            // Separate high-risk anchors from other suggestions
+            const highRiskAnchors = suggestions.filter(
+                s => s.title?.includes("High-risk anchor") || s.title?.includes("high-risk anchor")
+            );
+            const otherSuggestions = suggestions.filter(
+                s => !s.title?.includes("High-risk anchor") && !s.title?.includes("high-risk anchor")
+            );
+
+            // Combine: all high-risk anchors + up to 5 other suggestions
+            const combinedSuggestions = [...highRiskAnchors, ...otherSuggestions.slice(0, 5)];
+
+            // Count recommendations (non-high-risk anchor suggestions)
+            const recommendationsCount = otherSuggestions.length;
 
             return {
                 score: flatteningAnalysisData.score || 50,
                 duplicateCount: flatteningAnalysisData.duplicateCount || 0,
-                highRiskCount: flatteningAnalysisData.highRiskCount || 0,
+                highRiskCount: highRiskCount,
+                recommendationsCount: recommendationsCount,
                 transitiveTagCount: 0, // Not provided by backend currently
                 total: deps.length,
-                suggestions: suggestions.slice(0, 5),
+                suggestions: combinedSuggestions,
+                dependencyStats: flatteningAnalysisData.dependencyStats, // Include dependency stats from backend
             };
         }
 
@@ -1400,6 +1404,7 @@ export default function ProjectDetailPage() {
                 level: "Awaiting data",
                 duplicateCount: 0,
                 highRiskCount: 0,
+                recommendationsCount: 0,
                 transitiveTagCount: 0,
                 total: 0,
                 suggestions: [
@@ -1474,23 +1479,17 @@ export default function ProjectDetailPage() {
             });
         }
 
-        if (!suggestions.length) {
-            // Add dummy recommendation for demonstration
-            suggestions.push({
-                title: "Upgrade react to latest version",
-                description: "Upgrading to version 18.2.0 will help optimize your dependency tree and reduce conflicts.",
-                impact: "medium" as const,
-                dependencies: ["react@18.2.0"],
-                packageName: "react",
-                oldVersion: "17.0.2",
-                newVersion: "18.2.0",
-            });
-        }
+
+        // Count recommendations (non-high-risk anchor suggestions)
+        const recommendationsCount = suggestions.filter(
+            s => !s.title?.includes("High-risk anchor") && !s.title?.includes("high-risk anchor")
+        ).length;
 
         return {
             score,
             duplicateCount: duplicateGroups.length,
             highRiskCount: highRisk.length,
+            recommendationsCount: recommendationsCount,
             transitiveTagCount: transitiveDeps.length,
             total,
             suggestions: suggestions.slice(0, 5),
@@ -2324,37 +2323,52 @@ export default function ProjectDetailPage() {
 
                             {/* Dependency Flattening */}
                             <Card
-                                style={{backgroundColor: colors.background.card}}
-                            >
-                                <CardHeader>
-                                    <CardTitle className="text-white">Dependency Flattening</CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="space-y-4">
-                                        <div className="text-center">
-                                            <div
-                                                className={`text-3xl font-bold ${flatteningScoreColor}`}>{flatteningAnalysis.score}</div>
-                                            <div className="text-sm text-gray-400">Flattening score</div>
-                                        </div>
+                                 style={{backgroundColor: colors.background.card}}
+                             >
+                                 <CardHeader>
+                                     <CardTitle className="text-white">Dependency Flattening</CardTitle>
+                                 </CardHeader>
+                                 <CardContent>
+                                     <div className="space-y-4">
+                                         <div className="text-center">
+                                             <div className={`text-3xl font-bold ${flatteningScoreColor}`}>{flatteningAnalysis.score}</div>
+                                             <div className="text-sm text-gray-400">Flattening score</div>
+                                         </div>
 
-                                        <div className="space-y-3 text-sm text-gray-300">
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-3 h-3 rounded-full bg-indigo-400"></div>
-                                                    <span>Duplicate packages</span>
-                                                </div>
-                                                <span
-                                                    className="text-white font-semibold">{flatteningAnalysis.duplicateCount}</span>
-                                            </div>
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-3 h-3 rounded-full bg-purple-400"></div>
-                                                    <span>High-risk anchors</span>
-                                                </div>
-                                                <span
-                                                    className="text-white font-semibold">{flatteningAnalysis.highRiskCount}</span>
-                                            </div>
-                                        </div>
+                                         <div className="space-y-3 text-sm text-gray-300">
+                                             <div className="flex items-center justify-between">
+                                                 <div className="flex items-center gap-2">
+                                                     <div className="w-3 h-3 rounded-full bg-indigo-400"></div>
+                                                     <span>Duplicate packages</span>
+                                                 </div>
+                                                 <button
+                                                     type="button"
+                                                     onClick={() => {
+                                                         setFlatteningDialogTab('recommendations')
+                                                         setFlatteningDialogOpen(true)
+                                                     }}
+                                                     className="text-white font-semibold hover:text-indigo-300 transition-colors cursor-pointer"
+                                                 >
+                                                     {flatteningAnalysis.duplicateCount}
+                                                 </button>
+                                             </div>
+                                             <div className="flex items-center justify-between">
+                                                 <div className="flex items-center gap-2">
+                                                     <div className="w-3 h-3 rounded-full bg-purple-400"></div>
+                                                     <span>High-risk anchors</span>
+                                                 </div>
+                                                 <button
+                                                     type="button"
+                                                     onClick={() => {
+                                                         setFlatteningDialogTab('anchors')
+                                                         setFlatteningDialogOpen(true)
+                                                     }}
+                                                     className="text-white font-semibold hover:text-purple-300 transition-colors cursor-pointer"
+                                                 >
+                                                     {flatteningAnalysis.highRiskCount}
+                                                 </button>
+                                             </div>
+                                         </div>
 
                                         <div className="flex justify-end">
                                             <button
@@ -2362,12 +2376,12 @@ export default function ProjectDetailPage() {
                                                 onClick={() => setFlatteningDialogOpen(true)}
                                                 className="text-xs font-semibold text-indigo-300 underline underline-offset-4 hover:text-indigo-200"
                                             >
-                                                Recommendations
+                                                Recommendations{flatteningAnalysis.recommendationsCount > 0 ? ` (${flatteningAnalysis.recommendationsCount})` : ''}
                                             </button>
                                         </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
+                                     </div>
+                                 </CardContent>
+                             </Card>
 
                             {/* License Compliance */}
                             <Card style={{backgroundColor: colors.background.card}}>
@@ -2983,40 +2997,7 @@ export default function ProjectDetailPage() {
                                         <Button
                                             className="w-full hover:opacity-90 text-white"
                                             style={{backgroundColor: colors.primary}}
-                                            onClick={() => {
-                                                // Generate SBOM data
-                                                const sbomData = {
-                                                    project: {
-                                                        name: project?.name || 'Unknown Project',
-                                                        license: project?.license || 'unlicensed',
-                                                        totalDependencies: complianceData.totalDependencies
-                                                    },
-                                                    dependencies: projectDependencies.map(dep => ({
-                                                        name: dep.name,
-                                                        version: dep.version,
-                                                        licenseScore: dep.package?.license_score || 0,
-                                                        vulnerabilityScore: dep.package?.vulnerability_score || 0,
-                                                        totalScore: dep.package?.total_score || 0
-                                                    })),
-                                                    compliance: {
-                                                        overallCompliance: complianceData.overallCompliance,
-                                                        licenseConflicts: complianceData.licenseConflicts,
-                                                        vulnerableDependencies: complianceData.vulnerableDependencies
-                                                    },
-                                                    generatedAt: new Date().toISOString()
-                                                }
-
-                                                // Download as JSON
-                                                const blob = new Blob([JSON.stringify(sbomData, null, 2)], {type: 'application/json'})
-                                                const url = URL.createObjectURL(blob)
-                                                const a = document.createElement('a')
-                                                a.href = url
-                                                a.download = `${project?.name || 'project'}-sbom.json`
-                                                document.body.appendChild(a)
-                                                a.click()
-                                                document.body.removeChild(a)
-                                                URL.revokeObjectURL(url)
-                                            }}
+                                            onClick={() => setShowSbomDownloadDialog(true)}
                                         >
                                             <Download className="h-4 w-4 mr-2"/>
                                             Download SBOM
@@ -4848,25 +4829,139 @@ export default function ProjectDetailPage() {
             </Dialog>
 
             <Dialog open={flatteningDialogOpen} onOpenChange={setFlatteningDialogOpen}>
-                <DialogContent
-                    className="max-w-5xl border border-gray-800 bg-gray-950 text-gray-200 max-h-[90vh] overflow-y-auto">
-                    <DialogHeader>
+                <DialogContent className="max-w-6xl h-[700px] border border-gray-800 bg-gray-950 text-gray-200 overflow-hidden flex flex-col" style={{left: 'calc(280px + (100vw - 280px) / 2)', transform: 'translateX(-50%) translateY(-50%)'}}>
+                    <DialogHeader className="flex-shrink-0">
                         <DialogTitle className="text-white">Dependency Flattening Recommendations</DialogTitle>
                         <p className="text-xs text-gray-500">Provides recommendations for resolving dependency version
                             conflicts and consolidating transitive packages.</p>
                     </DialogHeader>
-                    <div className="space-y-4">
-                        <div className="grid gap-3">
-                            {flatteningAnalysis.suggestions.map((suggestion, idx) => (
-                                <RecommendationItem
-                                    key={`${suggestion.title}-${idx}`}
-                                    suggestion={suggestion}
-                                    projectId={projectId}
-                                    apiBase={apiBase}
-                                />
-                            ))}
-                        </div>
-                    </div>
+                    <Tabs value={flatteningDialogTab} onValueChange={(value) => setFlatteningDialogTab(value as 'recommendations' | 'anchors')} className="w-full flex-1 flex flex-col min-h-0 overflow-hidden">
+                        <TabsList className="grid w-full grid-cols-2 bg-gray-900 flex-shrink-0">
+                            <TabsTrigger value="recommendations" className="data-[state=active]:bg-gray-800 data-[state=active]:text-white">
+                                Recommendations & Duplicates
+                            </TabsTrigger>
+                            <TabsTrigger value="anchors" className="data-[state=active]:bg-gray-800 data-[state=active]:text-white">
+                                High-Risk Anchors
+                            </TabsTrigger>
+                        </TabsList>
+                        <TabsContent value="recommendations" className="mt-4 flex-1 overflow-y-auto min-h-0 pr-2">
+                            {!flatteningAnalysisData ? (
+                                <div className="space-y-4">
+                                    {[1, 2, 3].map((i) => (
+                                        <div key={i} className="border border-gray-800 rounded-lg p-4 bg-gray-900">
+                                            <Skeleton className="h-5 w-3/4 mb-2 bg-gray-700" />
+                                            <Skeleton className="h-4 w-full mb-1 bg-gray-700" />
+                                            <Skeleton className="h-4 w-5/6 mb-3 bg-gray-700" />
+                                            <div className="flex gap-2 mt-3">
+                                                <Skeleton className="h-8 w-24 bg-gray-700" />
+                                                <Skeleton className="h-8 w-24 bg-gray-700" />
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    <div className="grid gap-3">
+                                        {flatteningAnalysis.suggestions
+                                            .filter(s => {
+                                                // Show all suggestions that have upgrade info (duplicates/upgrades)
+                                                const hasUpgradeInfo = 'packageName' in s && 'oldVersion' in s && 'newVersion' in s;
+                                                if (hasUpgradeInfo) return true;
+                                                
+                                                // Also show high-risk anchors that are also duplicates (check if there's a separate upgrade suggestion)
+                                                const isHighRiskAnchor = s.title?.includes("High-risk anchor") || s.title?.includes("high-risk anchor");
+                                                if (isHighRiskAnchor) {
+                                                    // Extract package name from high-risk anchor suggestion
+                                                    const anchorPackageName = s.dependencies?.[0]?.split('@')[0] || 
+                                                                              s.title?.replace('High-risk anchor:', '').trim() || '';
+                                                    // Check if there's a separate upgrade suggestion for this package
+                                                    return flatteningAnalysis.suggestions.some(upgradeSuggestion => 
+                                                        'packageName' in upgradeSuggestion && 
+                                                        upgradeSuggestion.packageName?.toLowerCase() === anchorPackageName.toLowerCase() &&
+                                                        'oldVersion' in upgradeSuggestion &&
+                                                        'newVersion' in upgradeSuggestion
+                                                    );
+                                                }
+                                                return false;
+                                            })
+                                            .map((suggestion, idx) => (
+                                                <RecommendationItem
+                                                    key={`${suggestion.title}-${idx}`}
+                                                    suggestion={suggestion}
+                                                    projectId={projectId}
+                                                    apiBase={apiBase}
+                                                    allRecommendations={flatteningAnalysis.suggestions.filter((s): s is FlatteningSuggestion & { packageName: string; oldVersion: string; newVersion: string } => 
+                                                        'packageName' in s && 'oldVersion' in s && 'newVersion' in s && 
+                                                        !!s.packageName && !!s.oldVersion && !!s.newVersion
+                                                    )}
+                                                />
+                                            ))}
+                                        {flatteningAnalysis.suggestions.filter(s => {
+                                            const hasUpgradeInfo = 'packageName' in s && 'oldVersion' in s && 'newVersion' in s;
+                                            if (hasUpgradeInfo) return true;
+                                            const isHighRiskAnchor = s.title?.includes("High-risk anchor") || s.title?.includes("high-risk anchor");
+                                            if (isHighRiskAnchor) {
+                                                const anchorPackageName = s.dependencies?.[0]?.split('@')[0] || 
+                                                                          s.title?.replace('High-risk anchor:', '').trim() || '';
+                                                return flatteningAnalysis.suggestions.some(upgradeSuggestion => 
+                                                    'packageName' in upgradeSuggestion && 
+                                                    upgradeSuggestion.packageName?.toLowerCase() === anchorPackageName.toLowerCase() &&
+                                                    'oldVersion' in upgradeSuggestion &&
+                                                    'newVersion' in upgradeSuggestion
+                                                );
+                                            }
+                                            return false;
+                                        }).length === 0 && (
+                                            <div className="text-center py-8 text-gray-400">
+                                                <p>No recommendations or duplicate packages found.</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                        </TabsContent>
+                        <TabsContent value="anchors" className="mt-4 flex-1 overflow-y-auto min-h-0 pr-2">
+                            {!flatteningAnalysisData ? (
+                                <div className="space-y-4">
+                                    {[1, 2, 3].map((i) => (
+                                        <div key={i} className="border border-gray-800 rounded-lg p-4 bg-gray-900">
+                                            <Skeleton className="h-5 w-3/4 mb-2 bg-gray-700" />
+                                            <Skeleton className="h-4 w-full mb-1 bg-gray-700" />
+                                            <Skeleton className="h-4 w-5/6 mb-3 bg-gray-700" />
+                                            <div className="flex gap-2 mt-3">
+                                                <Skeleton className="h-8 w-24 bg-gray-700" />
+                                                <Skeleton className="h-8 w-24 bg-gray-700" />
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    <div className="grid gap-3">
+                                        {flatteningAnalysis.suggestions
+                                            .filter(s => s.title?.includes("High-risk anchor") || s.title?.includes("high-risk anchor"))
+                                            .map((suggestion, idx) => (
+                                                <RecommendationItem
+                                                    key={`${suggestion.title}-${idx}`}
+                                                    suggestion={suggestion}
+                                                    projectId={projectId}
+                                                    apiBase={apiBase}
+                                                    allRecommendations={flatteningAnalysis.suggestions.filter((s): s is FlatteningSuggestion & { packageName: string; oldVersion: string; newVersion: string } => 
+                                                        'packageName' in s && 'oldVersion' in s && 'newVersion' in s && 
+                                                        !!s.packageName && !!s.oldVersion && !!s.newVersion
+                                                    )}
+                                                />
+                                            ))}
+                                        {flatteningAnalysis.suggestions.filter(s => s.title?.includes("High-risk anchor") || s.title?.includes("high-risk anchor")).length === 0 && (
+                                            <div className="text-center py-8 text-gray-400">
+                                                <p>No high-risk anchor packages found.</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+                        </TabsContent>
+                    </Tabs>
                 </DialogContent>
             </Dialog>
         </div>

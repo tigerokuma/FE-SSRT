@@ -1351,7 +1351,11 @@ export default function DependencyDetailsPage() {
                 </div>
               </div>
               {/* Direct Dependency Graph */}
-              <DependencyRelationshipGraph packageId={packageId} version={version} />
+              <DependencyRelationshipGraph 
+                packageId={packageId} 
+                packageName={packageData?.name} 
+                version={version === 'watchlist' ? undefined : version} 
+              />
             </div>
           </div>
         )}
