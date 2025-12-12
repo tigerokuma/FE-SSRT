@@ -83,6 +83,8 @@ export default function AppSidebar() {
 
     const [projects, setProjects] = useState<Project[]>([])
     const [isLoading, setIsLoading] = useState(true)
+    const [globalProjectsLoading, setGlobalProjectsLoading] = useState(false)
+
 
     useEffect(() => {
         let cancelled = false
@@ -122,6 +124,22 @@ export default function AppSidebar() {
         }
     }, [isLoaded, isEnsured, backendUserId, apiBase])
 
+    useEffect(() => {
+        const handleLoading = () => setGlobalProjectsLoading(true)
+        const handleLoaded = () => setGlobalProjectsLoading(false)
+
+        window.addEventListener("projects:loading", handleLoading)
+        window.addEventListener("projects:loaded", handleLoaded)
+
+        return () => {
+            window.removeEventListener("projects:loading", handleLoading)
+            window.removeEventListener("projects:loaded", handleLoaded)
+        }
+    }, [])
+
+    const showLoading = isLoading || globalProjectsLoading
+
+
     const mainNavItems = useMemo(
         () => [
             {title: "Dashboard", href: "/project", icon: Home},
@@ -158,14 +176,14 @@ export default function AppSidebar() {
                             className="flex items-center gap-2 rounded-md px-2 py-1 hover:bg-gray-100 dark:hover:bg-neutral-800"
                             aria-label="Go to Projects"
                         >
-                            <Image 
-                                src="/deply-mark.svg" 
-                                alt="Deply" 
-                                width={24} 
+                            <Image
+                                src="/deply-mark.svg"
+                                alt="Deply"
+                                width={24}
                                 height={24}
                                 className="h-6 w-6 object-contain flex-shrink-0"
                             />
-                            <BrandWord variant="shield" className="text-base leading-6" />
+                            <BrandWord variant="shield" className="text-base leading-6"/>
                         </Link>
                     )}
                     {!isMobile && (
@@ -232,24 +250,30 @@ export default function AppSidebar() {
                     <SidebarGroupContent>
                         <SidebarMenu className="space-y-1">
                             {/* Loading row */}
-                            {isLoading && (
+                            {showLoading && (
                                 <SidebarMenuItem>
                                     <div
                                         className={cn(
-                                            "flex items-center gap-3 rounded-md w-full px-4 py-2 text-muted-foreground",
+                                            "flex items-center gap-3 rounded-md w-full px-4 py-2",
                                             isCollapsed && !isMobile ? "justify-center" : ""
                                         )}
                                     >
-                                        <div
-                                            className="h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground/40 border-t-transparent"/>
-                                        {(!isCollapsed || isMobile) &&
-                                            <span className="text-sm">Loading projects…</span>}
+                                        {/* icon skeleton */}
+                                        <div className="w-4 h-4 rounded-full bg-gray-600 animate-pulse"/>
+
+                                        {/* text skeleton (only when expanded) */}
+                                        {(!isCollapsed || isMobile) && (
+                                            <div className="flex flex-col gap-2 flex-1">
+                                                <div className="h-3 w-24 rounded bg-gray-600 animate-pulse"/>
+                                                <div className="h-3 w-16 rounded bg-gray-600 animate-pulse"/>
+                                            </div>
+                                        )}
                                     </div>
                                 </SidebarMenuItem>
                             )}
 
                             {/* No data row */}
-                            {!isLoading && projects.length === 0 && (
+                            {!showLoading && projects.length === 0 && (
                                 <SidebarMenuItem>
                                     <div
                                         className={cn(
@@ -266,7 +290,7 @@ export default function AppSidebar() {
                             )}
 
                             {/* Project rows */}
-                            {!isLoading &&
+                            {!showLoading &&
                                 projects.map((project) => {
                                     const href = `/project/${project.id}`
                                     const active = pathname.startsWith(href)

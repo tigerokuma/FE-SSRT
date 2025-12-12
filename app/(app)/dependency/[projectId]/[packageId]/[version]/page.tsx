@@ -160,9 +160,9 @@ export default function DependencyDetailsPage() {
     }
 
     if (high > 0) {
-      return { 
-        status: 'high', 
-        color: 'red', 
+      return {
+        status: 'high',
+        color: 'red',
         text: `${total} vulnerabilities`,
         badges: [
           { count: high, severity: 'H', color: 'red' },
@@ -866,6 +866,15 @@ export default function DependencyDetailsPage() {
         <div className="px-6 py-3 w-full max-w-none">
           {/* First line - Dependency info */}
           <div className="flex items-center gap-3 mb-2">
+            <Button
+            variant="ghost"
+            size="icon"
+            style={{ padding: 0 }}
+            onClick={() => router.push(`/project/${projectId}?tab=dependencies`)}
+            className="mr-1 h-6 w-6"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
             {/* NPM logo */}
             <div className="flex items-center justify-center w-6 h-6">
               <img src="/Npm_logo.png" alt="NPM Package" className="w-full h-full object-contain" />
