@@ -325,6 +325,7 @@ export default function ProjectDetailPage() {
     const [tempSelectedFilters, setTempSelectedFilters] = useState<FilterId[]>([])
     const [showDependencyReviewDialog, setShowDependencyReviewDialog] = useState(false)
     const [selectedDependency, setSelectedDependency] = useState<any>(null)
+    const [isSubmittingComment, setIsSubmittingComment] = useState(false)
     const [alertFilter, setAlertFilter] = useState("all")
     const [selectedLicense, setSelectedLicense] = useState<string>("")
     const [isSavingLicense, setIsSavingLicense] = useState(false)
@@ -2551,7 +2552,7 @@ export default function ProjectDetailPage() {
                                     <Button
                                         variant="outline"
                                         size="default"
-                                        className="border-blue-500 text-blue-400 hover:bg-blue-500/20 font-medium"
+                                        className="border-gray-600 text-white hover:bg-gray-700 font-medium"
                                         onClick={async () => {
                                             try {
                                                 const response = await fetch(`${apiBase}/projects/${projectId}/github-app/installation-url`);
@@ -2564,7 +2565,7 @@ export default function ProjectDetailPage() {
                                             }
                                         }}
                                     >
-                                        <img src="/Github_icon.png" alt="GitHub" className="w-5 h-5 mr-2"/>
+                                        <Github className="w-4 h-4 mr-2"/>
                                         Integrate GitHub
                                     </Button>
                                 ) : (
@@ -2573,10 +2574,10 @@ export default function ProjectDetailPage() {
                                             setCurrentTab("settings");
                                             setCurrentSettingsTab("integrations");
                                         }}
-                                        className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-600 bg-gray-800/50 hover:bg-gray-700/50 transition-colors cursor-pointer"
+                                        className="flex items-center gap-2 px-3 py-2 rounded-lg border border-green-600/50 bg-green-500/10 hover:bg-green-500/20 transition-colors cursor-pointer"
                                     >
-                                        <img src="/Github_icon.png" alt="GitHub" className="w-5 h-5"/>
-                                        <span className="text-sm font-medium text-gray-300">
+                                        <Github className="w-4 h-4 text-green-400"/>
+                                        <span className="text-sm font-medium text-green-400">
                                             Integrated
                                         </span>
                                     </button>
@@ -2584,53 +2585,7 @@ export default function ProjectDetailPage() {
                             </div>
                         </div>
 
-                        {/* C) Watchlist header with sortable columns */}
-                        <div
-                            className="hidden md:grid grid-cols-12 items-center px-3 py-2 rounded-lg mb-2"
-                            style={{backgroundColor: colors.background.card, border: '1px solid hsl(var(--border))'}}
-                        >
-                            <button
-                                className="col-span-4 text-left text-sm text-gray-300 hover:text-white"
-                                onClick={() => cycleWatchSort("name")}
-                                type="button"
-                            >
-                                Name {watchArrow("name")}
-                            </button>
-
-                            <button
-                                className="col-span-2 text-left text-sm text-gray-300 hover:text-white"
-                                onClick={() => cycleWatchSort("added_at")}
-                                type="button"
-                            >
-                                Added {watchArrow("added_at")}
-                            </button>
-
-                            <button
-                                className="col-span-2 text-left text-sm text-gray-300 hover:text-white"
-                                onClick={() => cycleWatchSort("risk")}
-                                type="button"
-                            >
-                                Risk {watchArrow("risk")}
-                            </button>
-
-                            <button
-                                className="col-span-2 text-left text-sm text-gray-300 hover:text-white"
-                                onClick={() => cycleWatchSort("stars")}
-                                type="button"
-                            >
-                                Stars {watchArrow("stars")}
-                            </button>
-
-                            <button
-                                className="col-span-2 text-left text-sm text-gray-300 hover:text-white"
-                                onClick={() => cycleWatchSort("status")}
-                                type="button"
-                            >
-                                Status {watchArrow("status")}
-                            </button>
-                        </div>
-
-                        {/* D) Watchlist list */}
+                        {/* Watchlist list */}
                         <div className="grid gap-4">
                             {watchlistItems && watchlistItems.length > 0 ? (
                                 watchlistItems.map((w) => {
@@ -3884,6 +3839,8 @@ export default function ProjectDetailPage() {
                 open={showWatchlistSearchDialog}
                 onOpenChange={setShowWatchlistSearchDialog}
                 projectId={projectId}
+                existingWatchlistPackages={projectWatchlist.map((w: any) => w.package?.name || w.name).filter(Boolean)}
+                existingDependencies={projectDependencies.map((d: any) => d.package?.name || d.name).filter(Boolean)}
                 onRepositoryAdded={async () => {
                     setShowWatchlistSearchDialog(false)
 
@@ -3970,602 +3927,371 @@ export default function ProjectDetailPage() {
             {/* Dependency Review Dialog */}
             <Dialog open={showDependencyReviewDialog} onOpenChange={setShowDependencyReviewDialog}>
                 <DialogContent
-                    className="bg-gray-900 border-gray-800 max-w-4xl max-h-[90vh] overflow-y-auto scrollbar-hide">
+                    className="border-gray-800 max-w-xl max-h-[85vh] overflow-y-auto scrollbar-hide"
+                    style={{backgroundColor: colors.background.main}}>
                     <DialogHeader>
-                        <DialogTitle className="text-white flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-lg flex items-center justify-center"
+                        <DialogTitle className="text-white flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-lg flex items-center justify-center"
                                  style={{backgroundColor: 'rgb(84, 0, 250)'}}>
-                                <img src="/package_icon.png" alt="Package" className="w-5 h-5"/>
+                                <img src="/package_icon.png" alt="Package" className="w-4 h-4"/>
                             </div>
-                            {selectedDependency?.name}
+                            <span className="text-lg font-semibold">{selectedDependency?.name}</span>
                         </DialogTitle>
                     </DialogHeader>
 
                     {selectedDependency && (
-                        <div className="space-y-6">
-                            {/* Package Details - Full Width */}
-                            <Card style={{backgroundColor: colors.background.card}}>
-                                <CardHeader>
-                                    <div className="flex items-center justify-between">
-                                        <CardTitle className="text-white">Package Details</CardTitle>
-                                        {/*<Button*/}
-                                        {/*    variant="outline"*/}
-                                        {/*    size="sm"*/}
-                                        {/*    className="border-gray-600 text-gray-300 hover:bg-gray-700"*/}
-                                        {/*    onClick={() => {*/}
-                                        {/*        const pkgId =*/}
-                                        {/*            selectedDependency?.package_id ??*/}
-                                        {/*            selectedDependency?.package?.id ??*/}
-                                        {/*            selectedDependency?.packageId*/}
-
-                                        {/*        const ver =*/}
-                                        {/*            selectedDependency?.version ??*/}
-                                        {/*            projectDependencies.find(d =>*/}
-                                        {/*                d.package_id === pkgId || d.package?.id === pkgId*/}
-                                        {/*            )?.version*/}
-
-                                        {/*        if (pkgId) {*/}
-                                        {/*            gotoDependency(pkgId, ver)   // ✅ uses your helper*/}
-                                        {/*        } else {*/}
-                                        {/*            console.error('No package ID found in selectedDependency')*/}
-                                        {/*        }*/}
-                                        {/*    }}*/}
-                                        {/*>*/}
-                                        {/*    <ExternalLinkIcon className="mr-2 h-4 w-4"/>*/}
-                                        {/*    View Full Details*/}
-                                        {/*</Button>*/}
-                                    </div>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="flex items-center gap-8">
-                                        {/* Progress Circle for Score */}
-                                        <div className="flex items-center gap-4">
-                                            <div className="relative w-32 h-32">
-                                                <svg className="w-32 h-32 transform -rotate-90" viewBox="0 0 36 36">
-                                                    <path
-                                                        className="text-gray-800"
-                                                        stroke="currentColor"
-                                                        strokeWidth="3"
-                                                        fill="none"
-                                                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                                                    />
-                                                    <path
-                                                        style={{stroke: 'rgb(84, 0, 250)'}}
-                                                        stroke="currentColor"
-                                                        strokeWidth="3"
-                                                        fill="none"
-                                                        strokeDasharray={`${selectedDependency.riskScore}, 100`}
-                                                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                                                    />
-                                                </svg>
-                                                <div className="absolute inset-0 flex items-center justify-center">
-                                                    <div className="text-center">
-                                                        <div
-                                                            className="text-3xl font-bold text-white">{selectedDependency.riskScore}</div>
-                                                        <div className="text-sm text-gray-400">Score</div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Progress Bars for Score Breakdown */}
-                                        <div className="flex-1 space-y-3">
-                                            <div>
-                                                <div className="flex items-center justify-between mb-2">
-                                                    <span className="text-sm text-gray-300">Activity Score</span>
-                                                    <span
-                                                        className="text-sm text-white font-medium">{selectedDependency.activityScore}</span>
-                                                </div>
-                                                <div className="w-full bg-gray-700 rounded-full h-2">
-                                                    <div
-                                                        className="h-2 rounded-full transition-all duration-300"
-                                                        style={{
-                                                            width: `${selectedDependency.activityScore}%`,
-                                                            backgroundColor: 'rgb(84, 0, 250)'
-                                                        }}
-                                                    ></div>
-                                                </div>
-                                            </div>
-
-                                            <div>
-                                                <div className="flex items-center justify-between mb-2">
-                                                    <span className="text-sm text-gray-300">Bus Factor</span>
-                                                    <span
-                                                        className="text-sm text-white font-medium">{selectedDependency.busFactor}</span>
-                                                </div>
-                                                <div className="w-full bg-gray-700 rounded-full h-2">
-                                                    <div
-                                                        className="h-2 rounded-full transition-all duration-300"
-                                                        style={{
-                                                            width: `${Math.min(selectedDependency.busFactor * 5, 100)}%`,
-                                                            backgroundColor: 'rgb(84, 0, 250)'
-                                                        }}
-                                                    ></div>
-                                                </div>
-                                            </div>
-
-                                            <div>
-                                                <div className="flex items-center justify-between mb-2">
-                                                    <span className="text-sm text-gray-300">Vulnerability Score</span>
-                                                    <span
-                                                        className="text-sm text-white font-medium">{selectedDependency.vulnerabilities}</span>
-                                                </div>
-                                                <div className="w-full bg-gray-700 rounded-full h-2">
-                                                    <div
-                                                        className="h-2 rounded-full transition-all duration-300"
-                                                        style={{
-                                                            width: `${selectedDependency.vulnerabilities}%`,
-                                                            backgroundColor: 'rgb(84, 0, 250)'
-                                                        }}
-                                                    ></div>
-                                                </div>
-                                            </div>
-
-                                            <div>
-                                                <div className="flex items-center justify-between mb-2">
-                                                    <span className="text-sm text-gray-300">License Score</span>
-                                                    <span
-                                                        className="text-sm text-white font-medium">{selectedDependency.licenseScore || 'N/A'}</span>
-                                                </div>
-                                                <div className="w-full bg-gray-700 rounded-full h-2">
-                                                    <div
-                                                        className="h-2 rounded-full transition-all duration-300"
-                                                        style={{
-                                                            width: `${selectedDependency.licenseScore || 0}%`,
-                                                            backgroundColor: 'rgb(84, 0, 250)'
-                                                        }}
-                                                    ></div>
-                                                </div>
-                                            </div>
-
-                                            <div>
-                                                <div className="flex items-center justify-between mb-2">
-                                                    <span className="text-sm text-gray-300">Health Score</span>
-                                                    <span
-                                                        className="text-sm text-white font-medium">{selectedDependency.healthScore}</span>
-                                                </div>
-                                                <div className="w-full bg-gray-700 rounded-full h-2">
-                                                    <div
-                                                        className="h-2 rounded-full transition-all duration-300"
-                                                        style={{
-                                                            width: `${selectedDependency.healthScore}%`,
-                                                            backgroundColor: 'rgb(84, 0, 250)'
-                                                        }}
-                                                    ></div>
-                                                </div>
+                        <div className="space-y-5">
+                            {/* Package Score & Metrics - Compact Layout */}
+                            <div className="flex items-center gap-6">
+                                {/* Compact Score Circle */}
+                                <div className="flex-shrink-0">
+                                    <div className="relative w-20 h-20">
+                                        <svg className="w-20 h-20 transform -rotate-90" viewBox="0 0 36 36">
+                                            <path
+                                                className="text-gray-800"
+                                                stroke="currentColor"
+                                                strokeWidth="3"
+                                                fill="none"
+                                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                            />
+                                            <path
+                                                style={{stroke: 'rgb(84, 0, 250)'}}
+                                                strokeWidth="3"
+                                                fill="none"
+                                                strokeDasharray={`${selectedDependency.riskScore}, 100`}
+                                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                            />
+                                        </svg>
+                                        <div className="absolute inset-0 flex items-center justify-center">
+                                            <div className="text-center">
+                                                <div className="text-xl font-bold text-white">{selectedDependency.riskScore}</div>
+                                                <div className="text-[10px] text-gray-500">Score</div>
                                             </div>
                                         </div>
                                     </div>
-                                </CardContent>
-                            </Card>
+                                </div>
 
-                            {/* Second Row - Vulnerabilities and License */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {/* Vulnerabilities Card */}
-                                <Card style={{backgroundColor: colors.background.card}}>
-                                    <CardHeader>
-                                        <CardTitle className="text-white">Vulnerabilities</CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="space-y-2">
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                                                <span className="text-sm text-gray-300">No known vulnerabilities in current version</span>
-                                            </div>
-                                            <div className="flex items-center gap-2 mt-2">
-                                                <img src="/osv_logo.svg" alt="OSV" className="w-4 h-4"/>
-                                                <span className="text-xs text-gray-500">Data from OSV</span>
-                                            </div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-
-                                {/* License Information Card */}
-                                <Card style={{backgroundColor: colors.background.card}}>
-                                    <CardHeader>
-                                        <CardTitle className="text-white">License Information</CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-3">
-                                                <div
-                                                    className="px-3 py-2 rounded-lg bg-green-500/20 flex items-center justify-center min-w-fit">
-                                                    <span
-                                                        className="text-green-400 font-bold text-sm whitespace-nowrap">{selectedDependency.license}</span>
-                                                </div>
-                                                <div>
-                                                    <div
-                                                        className="text-white font-medium">{selectedDependency.license} License
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            {(() => {
-                                                const hasProjectLicense = selectedDependency.projectLicense && selectedDependency.projectLicense !== 'unlicensed' && selectedDependency.projectLicense !== 'none' && selectedDependency.projectLicense !== null && selectedDependency.projectLicense !== undefined
-
-                                                if (!hasProjectLicense) {
-                                                    return null // Don't show anything if no project license
-                                                }
-
-                                                const licenseCompatibility = checkLicenseCompatibility(selectedDependency.projectLicense, selectedDependency.license)
-
-                                                if (licenseCompatibility.isCompatible) {
-                                                    return (
-                                                        <Badge variant="outline"
-                                                               className="border-green-500 text-green-500">
-                                                            <Shield className="mr-1 h-3 w-3"/>
-                                                            License OK
-                                                        </Badge>
-                                                    )
-                                                } else {
-                                                    const severityColor = licenseCompatibility.severity === 'high' ? 'red' :
-                                                        licenseCompatibility.severity === 'medium' ? 'yellow' : 'blue'
-                                                    return (
-                                                        <Badge variant="outline"
-                                                               className={`border-${severityColor}-500 text-${severityColor}-500`}>
-                                                            <AlertTriangle className="mr-1 h-3 w-3"/>
-                                                            License Issue
-                                                        </Badge>
-                                                    )
-                                                }
-                                            })()}
-                                        </div>
-                                    </CardContent>
-                                </Card>
+                                {/* Metrics Grid - Compact */}
+                                <div className="flex-1 grid grid-cols-2 gap-2">
+                                    <div className="flex items-center justify-between px-3 py-2 rounded-lg border border-gray-800" style={{backgroundColor: colors.background.card}}>
+                                        <span className="text-xs text-gray-400">Activity</span>
+                                        <span className="text-sm font-medium text-white">{selectedDependency.activityScore}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between px-3 py-2 rounded-lg border border-gray-800" style={{backgroundColor: colors.background.card}}>
+                                        <span className="text-xs text-gray-400">Bus Factor</span>
+                                        <span className="text-sm font-medium text-white">{selectedDependency.busFactor}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between px-3 py-2 rounded-lg border border-gray-800" style={{backgroundColor: colors.background.card}}>
+                                        <span className="text-xs text-gray-400">Vulnerability</span>
+                                        <span className="text-sm font-medium text-white">{selectedDependency.vulnerabilities}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between px-3 py-2 rounded-lg border border-gray-800" style={{backgroundColor: colors.background.card}}>
+                                        <span className="text-xs text-gray-400">License</span>
+                                        <span className="text-sm font-medium text-white">{selectedDependency.licenseScore || 'N/A'}</span>
+                                    </div>
+                                    <div className="col-span-2 flex items-center justify-between px-3 py-2 rounded-lg border border-gray-800" style={{backgroundColor: colors.background.card}}>
+                                        <span className="text-xs text-gray-400">Health Score</span>
+                                        <span className="text-sm font-medium text-white">{selectedDependency.healthScore}</span>
+                                    </div>
+                                </div>
                             </div>
 
-                            {/* Review and Timeline - Combined */}
-                            <Card style={{backgroundColor: colors.background.card}}>
-                                <CardHeader>
+                            {/* Vulnerabilities & License - Inline Row */}
+                            <div className="grid grid-cols-2 gap-4">
+                                {/* Vulnerabilities */}
+                                <div className="p-3 rounded-lg border border-gray-800" style={{backgroundColor: colors.background.card}}>
+                                    <div className="text-xs font-medium text-gray-400 mb-2">Vulnerabilities</div>
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                                        <span className="text-sm text-gray-300">No known vulnerabilities</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 mt-2">
+                                        <img src="/osv_logo.svg" alt="OSV" className="w-3 h-3 opacity-50"/>
+                                        <span className="text-[10px] text-gray-600">Data from OSV</span>
+                                    </div>
+                                </div>
+
+                                {/* License */}
+                                <div className="p-3 rounded-lg border border-gray-800" style={{backgroundColor: colors.background.card}}>
+                                    <div className="text-xs font-medium text-gray-400 mb-2">License Information</div>
                                     <div className="flex items-center justify-between">
-                                        <CardTitle className="text-white">Review</CardTitle>
-                                        <div>
-                                            {selectedDependency.status === 'approved' && (
-                                                <Badge variant="outline" className="border-green-500 text-green-500">
-                                                    <Check className="mr-1 h-3 w-3"/>
-                                                    Approved
-                                                </Badge>
-                                            )}
-                                            {selectedDependency.status === 'rejected' && (
-                                                <Badge variant="outline" className="border-red-500 text-red-500">
-                                                    <Trash2 className="mr-1 h-3 w-3"/>
-                                                    Rejected
-                                                </Badge>
-                                            )}
-                                            {selectedDependency.status === 'pending' && (
-                                                <Badge variant="outline"
-                                                       className="border-gray-500 text-gray-400 bg-gray-800/50">
-                                                    <Clock className="mr-1 h-3 w-3"/>
-                                                    Pending
-                                                </Badge>
-                                            )}
+                                        <div className="flex items-center gap-2">
+                                            <span className="px-2 py-1 rounded text-xs font-semibold bg-green-500/20 text-green-400">{selectedDependency.license}</span>
+                                            <span className="text-sm text-white">{selectedDependency.license} License</span>
+                                        </div>
+                                        {(() => {
+                                            const hasProjectLicense = selectedDependency.projectLicense && selectedDependency.projectLicense !== 'unlicensed' && selectedDependency.projectLicense !== 'none' && selectedDependency.projectLicense !== null && selectedDependency.projectLicense !== undefined
+                                            if (!hasProjectLicense) return null
+                                            const licenseCompatibility = checkLicenseCompatibility(selectedDependency.projectLicense, selectedDependency.license)
+                                            if (licenseCompatibility.isCompatible) {
+                                                return <Shield className="h-4 w-4 text-green-500" />
+                                            } else {
+                                                return <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                                            }
+                                        })()}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Review Section - Clean */}
+                            <div className="border-t border-gray-800 pt-4">
+                                <div className="flex items-center justify-between mb-3">
+                                    <span className="text-sm font-medium text-white">Review</span>
+                                    {selectedDependency.status === 'approved' && (
+                                        <Badge variant="outline" className="border-green-500 text-green-500 text-xs">
+                                            <Check className="mr-1 h-3 w-3"/>
+                                            Approved
+                                        </Badge>
+                                    )}
+                                    {selectedDependency.status === 'rejected' && (
+                                        <Badge variant="outline" className="border-red-500 text-red-500 text-xs">
+                                            <Trash2 className="mr-1 h-3 w-3"/>
+                                            Rejected
+                                        </Badge>
+                                    )}
+                                    {selectedDependency.status === 'pending' && (
+                                        <Badge variant="outline" className="border-gray-600 text-gray-400 text-xs">
+                                            <Clock className="mr-1 h-3 w-3"/>
+                                            Pending
+                                        </Badge>
+                                    )}
+                                </div>
+
+                                {/* Timeline */}
+                                <div className="space-y-3">
+                                    <div className="flex items-start gap-2.5">
+                                        <div className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                            <User className="h-3 w-3 text-gray-400"/>
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="text-sm text-white">
+                                                <span className="font-medium">{selectedDependency.addedBy}</span>
+                                                <span className="text-gray-400"> added this to watchlist</span>
+                                            </div>
+                                            <div className="text-xs text-gray-500">
+                                                {selectedDependency.addedAt ? formatRelativeDate(selectedDependency.addedAt) : 'Unknown date'}
+                                            </div>
                                         </div>
                                     </div>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="space-y-4">
-                                        {/* Timeline */}
-                                        <div className="space-y-4">
-                                            <div className="flex items-start gap-3">
-                                                <div
-                                                    className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
-                                                    <User className="h-4 w-4 text-blue-400"/>
+
+                                    {/* Comments */}
+                                    {selectedDependency.comments && selectedDependency.comments.length > 0 && (
+                                        selectedDependency.comments.map((comment: any, index: number) => (
+                                            <div key={index} className="flex items-start gap-2.5">
+                                                <div className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                                    <MessageSquare className="h-3 w-3 text-gray-400"/>
                                                 </div>
-                                                <div className="flex-1">
-                                                    <div
-                                                        className="text-white font-medium">{selectedDependency.addedBy} added
-                                                        this dependency to watchlist
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="text-sm">
+                                                        <span className="font-medium text-white">{comment.user?.name || comment.user?.email || comment.user_id}</span>
+                                                        <span className="text-gray-400"> commented</span>
                                                     </div>
-                                                    <div className="text-sm text-gray-400">
-                                                        {selectedDependency.addedAt ? formatRelativeDate(selectedDependency.addedAt) : 'Unknown date'}
+                                                    <div className="text-sm text-gray-300 mt-0.5">{comment.comment}</div>
+                                                    <div className="text-xs text-gray-500">
+                                                        {comment.created_at ? formatRelativeDate(comment.created_at) : 'Unknown date'}
                                                     </div>
                                                 </div>
                                             </div>
+                                        ))
+                                    )}
 
-                                            {/* Dynamic Comments */}
-                                            {selectedDependency.comments && selectedDependency.comments.length > 0 && (
-                                                selectedDependency.comments.map((comment: any, index: number) => (
-                                                    <div key={index} className="flex items-start gap-3">
-                                                        <div
-                                                            className="w-8 h-8 rounded-full bg-gray-500/20 flex items-center justify-center">
-                                                            <MessageSquare className="h-4 w-4 text-gray-400"/>
-                                                        </div>
-                                                        <div className="flex-1">
-                                                            <div
-                                                                className="text-white font-medium">{comment.user?.name || comment.user?.email || comment.user_id} commented
-                                                            </div>
-                                                            <div className="text-gray-300 mt-1">{comment.comment}</div>
-                                                            <div className="text-sm text-gray-400">
-                                                                {comment.created_at ? formatRelativeDate(comment.created_at) : 'Unknown date'}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                ))
-                                            )}
-
-                                            {/* Show approval/rejection events if not pending */}
-                                            {selectedDependency.status === 'approved' && (
-                                                <div className="flex items-start gap-3">
-                                                    <div
-                                                        className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
-                                                        <Check className="h-4 w-4 text-green-400"/>
-                                                    </div>
-                                                    <div className="flex-1">
-                                                        <div
-                                                            className="text-white font-medium">{selectedDependency.approvedBy || 'Someone'} approved
-                                                            this dependency
-                                                        </div>
-                                                        <div className="text-gray-300 mt-1">This package has been
-                                                            approved for use.
-                                                        </div>
-                                                        <div className="text-sm text-gray-400">
-                                                            {selectedDependency.approvedAt ? formatRelativeDate(selectedDependency.approvedAt) : 'Recently'}
-                                                        </div>
-                                                    </div>
+                                    {/* Approval event */}
+                                    {selectedDependency.status === 'approved' && (
+                                        <div className="flex items-start gap-2.5">
+                                            <div className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                                <Check className="h-3 w-3 text-green-400"/>
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="text-sm">
+                                                    <span className="font-medium text-white">{selectedDependency.approvedBy || 'Someone'}</span>
+                                                    <span className="text-gray-400"> approved this dependency</span>
                                                 </div>
-                                            )}
-
-                                            {selectedDependency.status === 'rejected' && (
-                                                <div className="flex items-start gap-3">
-                                                    <div
-                                                        className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center">
-                                                        <Trash2 className="h-4 w-4 text-red-400"/>
-                                                    </div>
-                                                    <div className="flex-1">
-                                                        <div
-                                                            className="text-white font-medium">{selectedDependency.rejectedBy || 'Someone'} rejected
-                                                            this dependency
-                                                        </div>
-                                                        <div className="text-gray-300 mt-1">This package has been
-                                                            rejected and will not be used.
-                                                        </div>
-                                                        <div className="text-sm text-gray-400">
-                                                            {selectedDependency.rejectedAt ? formatRelativeDate(selectedDependency.rejectedAt) : 'Recently'}
-                                                        </div>
-                                                    </div>
+                                                <div className="text-xs text-gray-500">
+                                                    {selectedDependency.approvedAt ? formatRelativeDate(selectedDependency.approvedAt) : 'Recently'}
                                                 </div>
-                                            )}
+                                            </div>
                                         </div>
+                                    )}
 
-                                        {/* Add Comment Section - Only show when pending */}
-                                        {selectedDependency.status === 'pending' && (
-                                            <div className="border-t border-gray-700 pt-4">
-                                                <div className="flex items-start gap-3">
-                                                    <div
-                                                        className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
-                                                        <User className="h-4 w-4 text-blue-400"/>
-                                                    </div>
-                                                    <div className="flex-1">
-                            <textarea
-                                placeholder="Add a comment..."
-                                className="w-full px-3 py-2 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                                style={{
-                                    backgroundColor: colors.background.card,
-                                    borderColor: 'hsl(var(--border))',
-                                    borderWidth: '1px'
-                                }}
-                                rows={3}
-                            />
-                                                        <div className="flex items-center justify-between mt-2">
-                                                            <div className="flex items-center gap-2">
-                                                                <Button
-                                                                    size="sm"
-                                                                    className="text-white"
-                                                                    style={{backgroundColor: 'rgb(34, 197, 94)'}}
-                                                                    onClick={async () => {
-                                                                        try {
-                                                                            const response = await fetch(`${apiBase}/projects/watchlist/${selectedDependency.id}/approve`, {
-                                                                                method: 'POST',
-                                                                                headers: {'Content-Type': 'application/json'},
-                                                                                body: JSON.stringify({userId: backendUserId})
-                                                                            })
+                                    {/* Rejection event */}
+                                    {selectedDependency.status === 'rejected' && (
+                                        <div className="flex items-start gap-2.5">
+                                            <div className="w-6 h-6 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                                <Trash2 className="h-3 w-3 text-red-400"/>
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="text-sm">
+                                                    <span className="font-medium text-white">{selectedDependency.rejectedBy || 'Someone'}</span>
+                                                    <span className="text-gray-400"> rejected this dependency</span>
+                                                </div>
+                                                <div className="text-xs text-gray-500">
+                                                    {selectedDependency.rejectedAt ? formatRelativeDate(selectedDependency.rejectedAt) : 'Recently'}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
 
-                                                                            if (response.ok) {
-                                                                                // Refresh watchlist data to get actual approver info from database
-                                                                                try {
-                                                                                    const projectWatchlistResponse = await fetch(`${apiBase}/projects/${projectId}/project-watchlist`)
-                                                                                    if (projectWatchlistResponse.ok) {
-                                                                                        const projectWatchlistData = await projectWatchlistResponse.json()
-                                                                                        setProjectWatchlist(projectWatchlistData)
-
-                                                                                        // Find the updated package and update selectedDependency
-                                                                                        const updatedPackage = projectWatchlistData.find((pkg: any) => pkg.id === selectedDependency.id)
-                                                                                        if (updatedPackage) {
-                                                                                            setSelectedDependency((prev: any) => ({
-                                                                                                ...prev,
-                                                                                                status: updatedPackage.status,
-                                                                                                approvedBy: updatedPackage.approvedByUser?.name || updatedPackage.approvedBy,
-                                                                                                approvedAt: updatedPackage.approvedAt
-                                                                                            }))
-                                                                                        }
-                                                                                    }
-                                                                                } catch (error) {
-                                                                                    console.error('Error refreshing watchlist data:', error)
-                                                                                }
-
-                                                                                setShowDependencyReviewDialog(false)
-                                                                                toast({
-                                                                                    title: "Dependency Approved",
-                                                                                    description: `${selectedDependency.name} has been approved.`,
-                                                                                })
-                                                                                // Status updated successfully - UI already updated
-                                                                            } else {
-                                                                                toast({
-                                                                                    title: "Error",
-                                                                                    description: "Failed to approve dependency.",
-                                                                                    variant: "destructive"
-                                                                                })
-                                                                            }
-                                                                        } catch (error) {
-                                                                            toast({
-                                                                                title: "Error",
-                                                                                description: "Failed to approve dependency.",
-                                                                                variant: "destructive"
-                                                                            })
-                                                                        }
-                                                                    }}
-                                                                >
-                                                                    <Check className="mr-1 h-3 w-3"/>
-                                                                    Approve
-                                                                </Button>
-                                                                <Button
-                                                                    size="sm"
-                                                                    className="text-white"
-                                                                    style={{backgroundColor: 'rgb(239, 68, 68)'}}
-                                                                    onClick={async () => {
-                                                                        try {
-                                                                            const response = await fetch(`${apiBase}/projects/watchlist/${selectedDependency.id}/reject`, {
-                                                                                method: 'POST',
-                                                                                headers: {'Content-Type': 'application/json'},
-                                                                                body: JSON.stringify({userId: backendUserId})
-                                                                            })
-
-                                                                            if (response.ok) {
-                                                                                // Refresh watchlist data to get actual approver info from database
-                                                                                try {
-                                                                                    const projectWatchlistResponse = await fetch(`${apiBase}/projects/${projectId}/project-watchlist`)
-                                                                                    if (projectWatchlistResponse.ok) {
-                                                                                        const projectWatchlistData = await projectWatchlistResponse.json()
-                                                                                        setProjectWatchlist(projectWatchlistData)
-
-                                                                                        // Find the updated package and update selectedDependency
-                                                                                        const updatedPackage = projectWatchlistData.find((pkg: any) => pkg.id === selectedDependency.id)
-                                                                                        if (updatedPackage) {
-                                                                                            setSelectedDependency((prev: any) => ({
-                                                                                                ...prev,
-                                                                                                status: updatedPackage.status,
-                                                                                                rejectedBy: updatedPackage.rejectedByUser?.name || updatedPackage.rejectedBy,
-                                                                                                rejectedAt: updatedPackage.rejectedAt
-                                                                                            }))
-                                                                                        }
-                                                                                    }
-                                                                                } catch (error) {
-                                                                                    console.error('Error refreshing watchlist data:', error)
-                                                                                }
-
-                                                                                setShowDependencyReviewDialog(false)
-                                                                                toast({
-                                                                                    title: "Dependency Rejected",
-                                                                                    description: `${selectedDependency.name} has been rejected.`,
-                                                                                })
-                                                                                // Status updated successfully - UI already updated
-                                                                            } else {
-                                                                                toast({
-                                                                                    title: "Error",
-                                                                                    description: "Failed to reject dependency.",
-                                                                                    variant: "destructive"
-                                                                                })
-                                                                            }
-                                                                        } catch (error) {
-                                                                            toast({
-                                                                                title: "Error",
-                                                                                description: "Failed to reject dependency.",
-                                                                                variant: "destructive"
-                                                                            })
-                                                                        }
-                                                                    }}
-                                                                >
-                                                                    <Trash2 className="mr-1 h-3 w-3"/>
-                                                                    Reject
-                                                                </Button>
-                                                            </div>
-                                                            <Button
-                                                                size="sm"
-                                                                className="text-white"
-                                                                style={{backgroundColor: colors.primary}}
-                                                                onClick={async () => {
-                                                                    const textarea = document.querySelector('textarea[placeholder="Add a comment..."]') as HTMLTextAreaElement
-                                                                    const comment = textarea?.value?.trim()
-
-                                                                    if (!comment) {
-                                                                        toast({
-                                                                            title: "Error",
-                                                                            description: "Please enter a comment.",
-                                                                            variant: "destructive"
-                                                                        })
-                                                                        return
-                                                                    }
-
-                                                                    try {
-                                                                        const response = await fetch(`${apiBase}/projects/watchlist/${selectedDependency.id}/comment`, {
-                                                                            method: 'POST',
-                                                                            headers: {'Content-Type': 'application/json'},
-                                                                            body: JSON.stringify({
-                                                                                userId: backendUserId,
-                                                                                comment: comment
-                                                                            })
-                                                                        })
-
-                                                                        console.log('Comment API response:', response.status, response.statusText, 'ok:', response.ok)
-
-                                                                        if (response.status >= 200 && response.status < 300) {
-                                                                            console.log('SUCCESS: Comment added successfully')
-                                                                            textarea.value = ''
-                                                                            toast({
-                                                                                title: "Comment Added",
-                                                                                description: "Your comment has been added.",
-                                                                            })
-
-                                                                            // Add the new comment to the selected dependency immediately
-                                                                            console.log('Current user data:', currentUser)
-                                                                            const newComment = {
-                                                                                user_id: backendUserId,
-                                                                                user: {
-                                                                                    name: currentUser?.name || currentUser?.email || 'User',
-                                                                                    email: currentUser?.email || 'user@example.com'
-                                                                                },
-                                                                                comment: comment,
-                                                                                created_at: new Date().toISOString()
-                                                                            }
-                                                                            console.log('New comment object:', newComment)
-
+                                {/* Comment Input - Only when pending */}
+                                {selectedDependency.status === 'pending' && (
+                                    <div className="mt-4 pt-3 border-t border-gray-800">
+                                        <textarea
+                                            placeholder="Add a comment..."
+                                            className="w-full px-3 py-2 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-600 resize-none border border-gray-800"
+                                            style={{backgroundColor: colors.background.card}}
+                                            rows={2}
+                                        />
+                                        <div className="flex items-center justify-between mt-3">
+                                            <div className="flex items-center gap-2">
+                                                <Button
+                                                    size="sm"
+                                                    className="text-white text-xs h-7"
+                                                    style={{backgroundColor: 'rgb(34, 197, 94)'}}
+                                                    onClick={async () => {
+                                                        try {
+                                                            const response = await fetch(`${apiBase}/projects/watchlist/${selectedDependency.id}/approve`, {
+                                                                method: 'POST',
+                                                                headers: {'Content-Type': 'application/json'},
+                                                                body: JSON.stringify({userId: backendUserId})
+                                                            })
+                                                            if (response.ok) {
+                                                                try {
+                                                                    const projectWatchlistResponse = await fetch(`${apiBase}/projects/${projectId}/project-watchlist`)
+                                                                    if (projectWatchlistResponse.ok) {
+                                                                        const projectWatchlistData = await projectWatchlistResponse.json()
+                                                                        setProjectWatchlist(projectWatchlistData)
+                                                                        const updatedPackage = projectWatchlistData.find((pkg: any) => pkg.id === selectedDependency.id)
+                                                                        if (updatedPackage) {
                                                                             setSelectedDependency((prev: any) => ({
                                                                                 ...prev,
-                                                                                comments: [...(prev.comments || []), newComment]
+                                                                                status: updatedPackage.status,
+                                                                                approvedBy: updatedPackage.approvedByUser?.name || updatedPackage.approvedBy,
+                                                                                approvedAt: updatedPackage.approvedAt
                                                                             }))
-
-                                                                            // Also update the projectWatchlist to show the comment in the card
-                                                                            setProjectWatchlist((prev: any[]) =>
-                                                                                prev.map((item: any) =>
-                                                                                    item.id === selectedDependency.id
-                                                                                        ? {
-                                                                                            ...item,
-                                                                                            comments: [...(item.comments || []), newComment]
-                                                                                        }
-                                                                                        : item
-                                                                                )
-                                                                            )
-
-                                                                            // Comment added successfully - UI already updated
-                                                                        } else {
-                                                                            console.log('ERROR: Comment failed with status:', response.status)
-                                                                            const errorText = await response.text()
-                                                                            console.log('Comment API error:', response.status, errorText)
-                                                                            toast({
-                                                                                title: "Error",
-                                                                                description: `Failed to add comment. Status: ${response.status}`,
-                                                                                variant: "destructive"
-                                                                            })
                                                                         }
-                                                                    } catch (error) {
-                                                                        console.log('Comment API catch error:', error)
-                                                                        toast({
-                                                                            title: "Error",
-                                                                            description: "Failed to add comment.",
-                                                                            variant: "destructive"
-                                                                        })
                                                                     }
-                                                                }}
-                                                            >
-                                                                Comment
-                                                            </Button>
-                                                        </div>
-                                                    </div>
-                                                </div>
+                                                                } catch (error) {
+                                                                    console.error('Error refreshing watchlist data:', error)
+                                                                }
+                                                                setShowDependencyReviewDialog(false)
+                                                                toast({ title: "Dependency Approved", description: `${selectedDependency.name} has been approved.` })
+                                                            } else {
+                                                                toast({ title: "Error", description: "Failed to approve dependency.", variant: "destructive" })
+                                                            }
+                                                        } catch (error) {
+                                                            toast({ title: "Error", description: "Failed to approve dependency.", variant: "destructive" })
+                                                        }
+                                                    }}
+                                                >
+                                                    <Check className="mr-1 h-3 w-3"/>
+                                                    Approve
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    className="text-white text-xs h-7"
+                                                    style={{backgroundColor: 'rgb(239, 68, 68)'}}
+                                                    onClick={async () => {
+                                                        try {
+                                                            const response = await fetch(`${apiBase}/projects/watchlist/${selectedDependency.id}/reject`, {
+                                                                method: 'POST',
+                                                                headers: {'Content-Type': 'application/json'},
+                                                                body: JSON.stringify({userId: backendUserId})
+                                                            })
+                                                            if (response.ok) {
+                                                                try {
+                                                                    const projectWatchlistResponse = await fetch(`${apiBase}/projects/${projectId}/project-watchlist`)
+                                                                    if (projectWatchlistResponse.ok) {
+                                                                        const projectWatchlistData = await projectWatchlistResponse.json()
+                                                                        setProjectWatchlist(projectWatchlistData)
+                                                                        const updatedPackage = projectWatchlistData.find((pkg: any) => pkg.id === selectedDependency.id)
+                                                                        if (updatedPackage) {
+                                                                            setSelectedDependency((prev: any) => ({
+                                                                                ...prev,
+                                                                                status: updatedPackage.status,
+                                                                                rejectedBy: updatedPackage.rejectedByUser?.name || updatedPackage.rejectedBy,
+                                                                                rejectedAt: updatedPackage.rejectedAt
+                                                                            }))
+                                                                        }
+                                                                    }
+                                                                } catch (error) {
+                                                                    console.error('Error refreshing watchlist data:', error)
+                                                                }
+                                                                setShowDependencyReviewDialog(false)
+                                                                toast({ title: "Dependency Rejected", description: `${selectedDependency.name} has been rejected.` })
+                                                            } else {
+                                                                toast({ title: "Error", description: "Failed to reject dependency.", variant: "destructive" })
+                                                            }
+                                                        } catch (error) {
+                                                            toast({ title: "Error", description: "Failed to reject dependency.", variant: "destructive" })
+                                                        }
+                                                    }}
+                                                >
+                                                    <Trash2 className="mr-1 h-3 w-3"/>
+                                                    Reject
+                                                </Button>
                                             </div>
-                                        )}
+                                            <Button
+                                                size="sm"
+                                                className="text-white text-xs h-7"
+                                                style={{backgroundColor: colors.primary}}
+                                                disabled={isSubmittingComment}
+                                                onClick={async () => {
+                                                    const textarea = document.querySelector('textarea[placeholder="Add a comment..."]') as HTMLTextAreaElement
+                                                    const comment = textarea?.value?.trim()
+                                                    if (!comment) {
+                                                        toast({ title: "Error", description: "Please enter a comment.", variant: "destructive" })
+                                                        return
+                                                    }
+                                                    setIsSubmittingComment(true)
+                                                    try {
+                                                        const response = await fetch(`${apiBase}/projects/watchlist/${selectedDependency.id}/comment`, {
+                                                            method: 'POST',
+                                                            headers: {'Content-Type': 'application/json'},
+                                                            body: JSON.stringify({ userId: backendUserId, comment: comment })
+                                                        })
+                                                        if (response.status >= 200 && response.status < 300) {
+                                                            textarea.value = ''
+                                                            toast({ title: "Comment Added", description: "Your comment has been added." })
+                                                            const newComment = {
+                                                                user_id: backendUserId,
+                                                                user: {
+                                                                    name: user?.fullName || user?.firstName || user?.primaryEmailAddress?.emailAddress || 'User',
+                                                                    email: user?.primaryEmailAddress?.emailAddress || 'user@example.com'
+                                                                },
+                                                                comment: comment,
+                                                                created_at: new Date().toISOString()
+                                                            }
+                                                            setSelectedDependency((prev: any) => ({
+                                                                ...prev,
+                                                                comments: [...(prev.comments || []), newComment]
+                                                            }))
+                                                            setProjectWatchlist((prev: any[]) =>
+                                                                prev.map((item: any) =>
+                                                                    item.id === selectedDependency.id
+                                                                        ? { ...item, comments: [...(item.comments || []), newComment] }
+                                                                        : item
+                                                                )
+                                                            )
+                                                        } else {
+                                                            toast({ title: "Error", description: `Failed to add comment. Status: ${response.status}`, variant: "destructive" })
+                                                        }
+                                                    } catch (error) {
+                                                        toast({ title: "Error", description: "Failed to add comment.", variant: "destructive" })
+                                                    } finally {
+                                                        setIsSubmittingComment(false)
+                                                    }
+                                                }}
+                                            >
+                                                {isSubmittingComment ? (
+                                                    <RefreshCw className="h-3 w-3 animate-spin" />
+                                                ) : (
+                                                    'Comment'
+                                                )}
+                                            </Button>
+                                        </div>
                                     </div>
-                                </CardContent>
-                            </Card>
+                                )}
+                            </div>
 
                         </div>
                     )}

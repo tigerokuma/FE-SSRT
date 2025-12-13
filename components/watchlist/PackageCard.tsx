@@ -1,7 +1,6 @@
 "use client"
 
-import { Download, Plus, Shield, Loader2, AlertTriangle, CheckCircle } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Download, Shield, AlertTriangle, CheckCircle } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import type { Package as PackageType } from '../../lib/watchlist/types'
 import { formatNumber, getVulnerabilityCount, hasVulnerabilities, getHighestSeverity } from '../../lib/watchlist/index'
@@ -11,11 +10,9 @@ interface PackageCardProps {
   onSelect: (pkg: PackageType) => void
   searchQuery: string
   isSelected: boolean
-  onAdd: (pkg: PackageType) => void
-  isAdding: boolean
 }
 
-export function PackageCard({ pkg, onSelect, searchQuery, isSelected, onAdd, isAdding }: PackageCardProps) {
+export function PackageCard({ pkg, onSelect, searchQuery, isSelected }: PackageCardProps) {
   const isExactMatch = pkg.name.toLowerCase() === searchQuery.toLowerCase().trim()
   
   // Separate active (unpatched) and historical (patched) vulnerabilities
@@ -178,7 +175,7 @@ export function PackageCard({ pkg, onSelect, searchQuery, isSelected, onAdd, isA
       )}
 
       {/* Footer */}
-      <div className="flex items-center justify-between gap-4 pt-3 border-t border-gray-200 dark:border-gray-800">
+      <div className="flex items-center gap-4 pt-3 border-t border-gray-200 dark:border-gray-800">
         <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
           {pkg.version && (
             <span className="font-mono text-gray-600 dark:text-gray-300">v{pkg.version}</span>
@@ -190,34 +187,6 @@ export function PackageCard({ pkg, onSelect, searchQuery, isSelected, onAdd, isA
             </span>
           )}
         </div>
-        
-        <Button
-          onClick={(e) => {
-            e.stopPropagation()
-            onAdd(pkg)
-          }}
-          disabled={isAdding}
-          size="sm"
-          className={`h-8 px-4 text-sm font-medium transition-colors disabled:opacity-50 ${
-            hasActiveVulns 
-              ? 'bg-red-600 text-white hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700' 
-              : hasOnlyPatchedVulns
-              ? 'bg-yellow-600 text-white hover:bg-yellow-700 dark:bg-yellow-600 dark:hover:bg-yellow-700'
-              : 'bg-violet-600 text-white hover:bg-violet-700 dark:bg-violet-600 dark:hover:bg-violet-700'
-          }`}
-        >
-          {isAdding ? (
-            <>
-              <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-              Adding...
-            </>
-          ) : (
-            <>
-              <Plus className="w-3 h-3 mr-1" />
-              Add
-            </>
-          )}
-        </Button>
       </div>
     </div>
   )

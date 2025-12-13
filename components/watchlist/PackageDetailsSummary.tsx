@@ -15,9 +15,11 @@ interface PackageDetailsSummaryProps {
   pkg: PackageType | null
   onAdd: (pkg: PackageType) => void
   isAdding?: boolean
+  isInWatchlist?: boolean
+  isInDependencies?: boolean
 }
 
-export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSummaryProps) {
+export function PackageDetailsSummary({ pkg, onAdd, isAdding, isInWatchlist = false, isInDependencies = false }: PackageDetailsSummaryProps) {
   const [detailedPkg, setDetailedPkg] = useState<PackageType | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -377,11 +379,15 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
           )}
 
           <Button
-            onClick={() => onAdd(displayPkg)}
-            disabled={isAdding}
+            onClick={() => !isInDependencies && !isInWatchlist && onAdd(displayPkg)}
+            disabled={isAdding || isInDependencies || isInWatchlist}
             size="sm"
             className={`w-full h-8 text-sm font-medium transition-colors disabled:opacity-50 ${
-              hasActiveVulns 
+              isInDependencies
+                ? 'bg-gray-600 text-gray-300 cursor-not-allowed'
+                : isInWatchlist
+                ? 'bg-green-600/20 text-green-400 border border-green-600/50 cursor-not-allowed'
+                : hasActiveVulns 
                 ? 'bg-red-600 text-white hover:bg-red-700 dark:bg-red-600 dark:hover:bg-red-700' 
                 : hasHistoricalVulns
                 ? 'bg-yellow-600 text-white hover:bg-yellow-700 dark:bg-yellow-600 dark:hover:bg-yellow-700'
@@ -392,6 +398,16 @@ export function PackageDetailsSummary({ pkg, onAdd, isAdding }: PackageDetailsSu
               <>
                 <Loader2 className="w-3 h-3 mr-1 animate-spin" />
                 Adding...
+              </>
+            ) : isInDependencies ? (
+              <>
+                <CheckCircle className="w-3 h-3 mr-1" />
+                Already in Project
+              </>
+            ) : isInWatchlist ? (
+              <>
+                <CheckCircle className="w-3 h-3 mr-1" />
+                Already in Watchlist
               </>
             ) : (
               <>
