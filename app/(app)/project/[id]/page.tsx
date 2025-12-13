@@ -417,9 +417,7 @@ export default function ProjectDetailPage() {
     // Use the exported FilterDef to keep structural typing aligned with deps-utils
     type FilterId =
         | 'high-risk'
-        | 'popular'
-        | 'few-contributors'
-        | 'stale';
+        | 'few-contributors';
 
     // 2) Local UI filter def with a strong id (FilterId) but util-compatible predicate
     type LocalFilterDef = {
@@ -446,28 +444,10 @@ export default function ProjectDetailPage() {
             predicate: (dep, _project) => (dep.package?.total_score ?? dep.risk ?? 100) <= 60,
         },
         {
-            id: 'popular',
-            label: 'Popular',
-            description: 'Stars ≥ 1000',
-            predicate: (dep) => (dep.package?.stars ?? 0) >= 1000,
-        },
-        {
             id: 'few-contributors',
             label: 'Few Contributors',
             description: 'Contributors < 5',
             predicate: (dep) => (dep.package?.contributors ?? 0) < 5,
-        },
-        {
-            id: 'stale',
-            label: 'Stale',
-            description: 'Updated > 180 days ago',
-            predicate: (dep) => {
-                const updated = dep.updated_at;
-                if (!updated) return false;
-                const daysBetween = (a: string | Date, b: string | Date) =>
-                    Math.abs((new Date(a).getTime() - new Date(b).getTime()) / (1000 * 60 * 60 * 24));
-                return daysBetween(updated, new Date()) > 180;
-            },
         },
     ];
 
@@ -2379,51 +2359,6 @@ export default function ProjectDetailPage() {
                                     )}
                                 </div>
                             </div>
-                        </div>
-
-                        <div
-                            className="hidden md:grid grid-cols-12 items-center px-3 py-2 rounded-lg mb-2"
-                            style={{backgroundColor: colors.background.card, border: '1px solid hsl(var(--border))'}}
-                        >
-                            <button
-                                type="button"
-                                className="col-span-5 text-left text-sm text-gray-300 hover:text-white"
-                                onClick={() => cycleDepSort('name')}
-                            >
-                                Name {depArrow('name')}
-                            </button>
-
-                            <button
-                                type="button"
-                                className="col-span-2 text-left text-sm text-gray-300 hover:text-white"
-                                onClick={() => cycleDepSort('version')}
-                            >
-                                Version {depArrow('version')}
-                            </button>
-
-                            <button
-                                type="button"
-                                className="col-span-2 text-left text-sm text-gray-300 hover:text-white"
-                                onClick={() => cycleDepSort('contributors')}
-                            >
-                                Contributors {depArrow('contributors')}
-                            </button>
-
-                            <button
-                                type="button"
-                                className="col-span-2 text-left text-sm text-gray-300 hover:text-white"
-                                onClick={() => cycleDepSort('stars')}
-                            >
-                                Stars {depArrow('stars')}
-                            </button>
-
-                            <button
-                                type="button"
-                                className="col-span-1 text-left text-sm text-gray-300 hover:text-white hidden lg:block"
-                                onClick={() => cycleDepSort('score')}
-                            >
-                                Score {depArrow('score')}
-                            </button>
                         </div>
 
                         {/* Dependencies List */}

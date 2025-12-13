@@ -150,7 +150,7 @@ export function DependencyPackageCard({
                   {Math.round(riskScore)}
                 </div>
               )}
-              <div className="text-xs text-gray-400">Risk Score</div>
+              <div className="text-xs text-gray-400">Score</div>
             </div>
           </div>
         </div>
