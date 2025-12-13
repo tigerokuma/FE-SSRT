@@ -51,11 +51,11 @@ export function RecommendationItem({
                         <div className="flex-1">
                             <div className="flex items-center gap-2">
                                 {hasStats && (
-                                    <div className="flex items-center justify-center w-5 h-5 rounded border border-blue-500/50 bg-blue-500/10">
+                                    <div className="flex items-center justify-center w-5 h-5 rounded border border-gray-600 bg-gray-800">
                                         {isOpen ? (
-                                            <ChevronDown className="h-3 w-3 text-blue-400 flex-shrink-0" />
+                                            <ChevronDown className="h-3 w-3 text-gray-400 flex-shrink-0" />
                                         ) : (
-                                            <ChevronRight className="h-3 w-3 text-blue-400 flex-shrink-0" />
+                                            <ChevronRight className="h-3 w-3 text-gray-400 flex-shrink-0" />
                                         )}
                                     </div>
                                 )}
@@ -75,7 +75,7 @@ export function RecommendationItem({
                             <p className="text-xs text-gray-400 mt-1">{suggestion.description}</p>
                             {hasStats && !isOpen && (
                                 <div className="mt-2 flex items-center gap-4 text-[11px]">
-                                    <div className="flex items-center gap-1 text-blue-400">
+                                    <div className="flex items-center gap-1 text-gray-500">
                                         <ChevronRight className="h-3 w-3" />
                                         <span>Click to view package changes</span>
                                     </div>
@@ -94,7 +94,7 @@ export function RecommendationItem({
                                 <div className="text-xs text-gray-400">
                                     <span className="text-gray-500">{suggestion.oldVersion}</span>
                                     <span className="mx-1.5 text-gray-600">→</span>
-                                    <span className="text-blue-400 font-medium">{suggestion.newVersion}</span>
+                                    <span className="text-purple-400 font-medium">{suggestion.newVersion}</span>
                                 </div>
                             </div>
                         )}
@@ -171,7 +171,7 @@ export function RecommendationItem({
                                                                     <div className="flex items-center gap-2">
                                                                         <span className="text-gray-500">{rec.oldVersion}</span>
                                                                         <span className="text-gray-600">→</span>
-                                                                        <span className={`font-medium ${rec.isDowngrade ? 'text-red-400' : 'text-blue-400'}`}>
+                                                                        <span className={`font-medium ${rec.isDowngrade ? 'text-red-400' : 'text-purple-400'}`}>
                                                                             {rec.newVersion}
                                                                         </span>
                                                                         {rec.isDowngrade && (
@@ -191,7 +191,7 @@ export function RecommendationItem({
                                                             <div className="flex items-center gap-2">
                                                                 <span className="text-gray-500">{suggestion.oldVersion}</span>
                                                                 <span className="text-gray-600">→</span>
-                                                                <span className={`font-medium ${suggestion.isDowngrade ? 'text-red-400' : 'text-blue-400'}`}>
+                                                                <span className={`font-medium ${suggestion.isDowngrade ? 'text-red-400' : 'text-purple-400'}`}>
                                                                     {suggestion.newVersion}
                                                                 </span>
                                                                 {suggestion.isDowngrade && (
@@ -210,7 +210,7 @@ export function RecommendationItem({
                                                                 <div className="flex items-center gap-2">
                                                                     <span className="text-gray-500">{change.oldVersion}</span>
                                                                     <span className="text-gray-600">→</span>
-                                                                    <span className="text-blue-400 font-medium">{change.newVersion}</span>
+                                                                    <span className="text-purple-400 font-medium">{change.newVersion}</span>
                                                                 </div>
                                                             </div>
                                                         ))}

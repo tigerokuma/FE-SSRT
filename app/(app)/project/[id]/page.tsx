@@ -362,6 +362,14 @@ export default function ProjectDetailPage() {
         [key: string]: { status: string, hasScores: boolean }
     }>({})
     const [healthScore, setHealthScore] = useState<any>(0)
+    const [realVulnerabilities, setRealVulnerabilities] = useState<{
+        critical: number;
+        high: number;
+        medium: number;
+        low: number;
+        total: number;
+    }>({critical: 0, high: 0, medium: 0, low: 0, total: 0})
+    const [previewAlerts, setPreviewAlerts] = useState<any[]>([])
     const [showWatchFilterPopup, setShowWatchFilterPopup] = useState(false);
     const [showSbomDownloadDialog, setShowSbomDownloadDialog] = useState(false);
     const [sbomFormat, setSbomFormat] = useState<'cyclonedx' | 'spdx'>('cyclonedx');
@@ -661,6 +669,46 @@ export default function ProjectDetailPage() {
             if (watchlistResponse.ok) {
                 const watchlistData = await watchlistResponse.json()
                 setWatchlistDependencies(watchlistData)
+            }
+
+            // Fetch real OSV vulnerabilities
+            const vulnResponse = await fetch(`${apiBase}/sbom/vulnerable-packages/${projectId}`)
+            if (vulnResponse.ok) {
+                const vulnData = await vulnResponse.json()
+                // Sum up vulnerability counts across all packages
+                const totals = {
+                    critical: 0,
+                    high: 0,
+                    medium: 0,
+                    low: 0,
+                    total: 0
+                }
+                if (Array.isArray(vulnData)) {
+                    vulnData.forEach((pkg: any) => {
+                        totals.critical += pkg.criticalCount || 0
+                        totals.high += pkg.highCount || 0
+                        totals.medium += pkg.mediumCount || 0
+                        totals.low += pkg.lowCount || 0
+                        totals.total += pkg.totalCount || 0
+                    })
+                }
+                setRealVulnerabilities(totals)
+            }
+
+            // Fetch alerts for preview (only active/unresolved alerts)
+            const alertsResponse = await fetch(`${apiBase}/projects/${projectId}/alerts`)
+            if (alertsResponse.ok) {
+                const alertsData = await alertsResponse.json()
+                const allAlerts = [
+                    ...(alertsData.projectAlerts || []),
+                    ...(alertsData.packageAlerts || []),
+                ]
+                // Filter out resolved alerts, sort by date descending, take first 3
+                const activeAlerts = allAlerts
+                    .filter((a: any) => a.status !== 'resolved')
+                    .sort((a: any, b: any) => new Date(b.created_at || b.detected_at).getTime() - new Date(a.created_at || a.detected_at).getTime())
+                    .slice(0, 3)
+                setPreviewAlerts(activeAlerts)
             }
 
             // Check current user's role in the project
@@ -1563,152 +1611,75 @@ export default function ProjectDetailPage() {
                     {/* Tab Content - Overview skeleton */}
                     {currentTab === "overview" && (
                         <div className="space-y-6">
-                            {/* Project Health Overview */}
-                            <Card style={{backgroundColor: colors.background.card}}>
-                                <CardHeader>
-                                    <CardTitle className="text-white">Project Health</CardTitle>
-                                    <p className="text-gray-400 text-sm">Average dependency risk</p>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                                        {/* Left: Security Score Skeleton */}
-                                        <div className="flex flex-col justify-center items-center lg:col-span-3"
-                                             style={{marginLeft: 'auto'}}>
-                                            <div className="relative w-48 h-48">
-                                                <div className="w-48 h-48 bg-gray-600 rounded-full animate-pulse"></div>
-                                                <div className="absolute inset-0 flex items-center justify-center">
-                                                    <div className="h-16 bg-gray-600 rounded w-16 animate-pulse"></div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Right: Security Score Graph Skeleton */}
-                                        <div className="lg:col-span-9">
-                                            <div className="h-64 w-full bg-gray-600 rounded animate-pulse"></div>
-                                        </div>
+                            {/* Top Row: Project Health + Compliance Badge Skeleton */}
+                            <div className="flex items-center justify-between">
+                                {/* Project Health Skeleton */}
+                                <div className="flex items-center gap-4">
+                                    <div className="w-16 h-16 bg-gray-700 rounded-full animate-pulse"></div>
+                                    <div>
+                                        <div className="h-5 bg-gray-700 rounded w-32 mb-2 animate-pulse"></div>
+                                        <div className="h-4 bg-gray-700 rounded w-40 animate-pulse"></div>
                                     </div>
-                                </CardContent>
-                            </Card>
+                                </div>
+                                {/* Compliance Badge Skeleton */}
+                                <div className="h-9 bg-gray-700 rounded-lg w-32 animate-pulse"></div>
+                            </div>
 
-                            {/* Vulnerabilities, Dependencies Flattening and License Compliance Row */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {/* Vulnerabilities */}
+                            {/* Three Column Grid Skeleton */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                {/* Vulnerabilities Card Skeleton */}
                                 <Card style={{backgroundColor: colors.background.card}}>
-                                    <CardHeader>
-                                        <CardTitle className="text-white">Vulnerabilities</CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="space-y-4">
-                                            {/* Total Vulnerabilities Skeleton */}
-                                            <div className="text-center">
-                                                <div
-                                                    className="h-8 bg-gray-600 rounded w-16 mx-auto mb-2 animate-pulse"></div>
-                                                <div
-                                                    className="h-4 bg-gray-600 rounded w-40 mx-auto animate-pulse"></div>
-                                            </div>
+                                    <CardContent className="p-5">
+                                        <div className="h-5 bg-gray-700 rounded w-28 mb-4 animate-pulse"></div>
+                                        <div className="space-y-2">
+                                            {['Critical', 'High', 'Medium', 'Low'].map((label) => (
+                                                <div key={label} className="flex items-center justify-between py-1.5">
+                                                    <span className="text-sm text-gray-500">{label}</span>
+                                                    <div className="h-4 bg-gray-700 rounded w-6 animate-pulse"></div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </CardContent>
+                                </Card>
 
-                                            {/* Severity Breakdown Skeleton */}
-                                            <div className="space-y-3">
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-2">
-                                                        <div
-                                                            className="w-3 h-3 bg-gray-600 rounded-full animate-pulse"></div>
-                                                        <span className="text-sm text-gray-300">Critical</span>
-                                                    </div>
-                                                    <div className="h-4 bg-gray-600 rounded w-4 animate-pulse"></div>
-                                                </div>
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-2">
-                                                        <div
-                                                            className="w-3 h-3 bg-gray-600 rounded-full animate-pulse"></div>
-                                                        <span className="text-sm text-gray-300">High</span>
-                                                    </div>
-                                                    <div className="h-4 bg-gray-600 rounded w-4 animate-pulse"></div>
-                                                </div>
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-2">
-                                                        <div
-                                                            className="w-3 h-3 bg-gray-600 rounded-full animate-pulse"></div>
-                                                        <span className="text-sm text-gray-300">Medium</span>
-                                                    </div>
-                                                    <div className="h-4 bg-gray-600 rounded w-4 animate-pulse"></div>
-                                                </div>
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-2">
-                                                        <div
-                                                            className="w-3 h-3 bg-gray-600 rounded-full animate-pulse"></div>
-                                                        <span className="text-sm text-gray-300">Low</span>
-                                                    </div>
-                                                    <div className="h-4 bg-gray-600 rounded w-4 animate-pulse"></div>
-                                                </div>
+                                {/* Dependency Flattening Card Skeleton */}
+                                <Card style={{backgroundColor: colors.background.card}}>
+                                    <CardContent className="p-5">
+                                        <div className="h-5 bg-gray-700 rounded w-40 mb-4 animate-pulse"></div>
+                                        <div className="text-center mb-4">
+                                            <div className="h-8 bg-gray-700 rounded w-12 mx-auto mb-1 animate-pulse"></div>
+                                            <div className="h-3 bg-gray-700 rounded w-16 mx-auto animate-pulse"></div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-sm text-gray-500">Duplicates</span>
+                                                <div className="h-4 bg-gray-700 rounded w-6 animate-pulse"></div>
+                                            </div>
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-sm text-gray-500">High-risk</span>
+                                                <div className="h-4 bg-gray-700 rounded w-6 animate-pulse"></div>
                                             </div>
                                         </div>
                                     </CardContent>
                                 </Card>
 
-                                {/* Dependency Flattening */}
-                                <Card
-                                    style={{backgroundColor: colors.background.card}}
-                                >
-                                    <CardHeader>
-                                        <CardTitle className="text-white">Dependency Flattening</CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="space-y-4">
-                                            <div className="text-center">
-                                                <div
-                                                    className="h-8 bg-gray-600 rounded w-16 mx-auto mb-2 animate-pulse"></div>
-                                                <div
-                                                    className="h-4 bg-gray-600 rounded w-40 mx-auto animate-pulse"></div>
-                                            </div>
-
-                                            <div className="space-y-3">
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-2">
-                                                        <div
-                                                            className="w-3 h-3 bg-gray-600 rounded-full animate-pulse"></div>
-                                                        <span
-                                                            className="text-sm text-gray-300">Duplicate packages</span>
-                                                    </div>
-                                                    <div className="h-4 bg-gray-600 rounded w-4 animate-pulse"></div>
-                                                </div>
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-2">
-                                                        <div
-                                                            className="w-3 h-3 bg-gray-600 rounded-full animate-pulse"></div>
-                                                        <span className="text-sm text-gray-300">High-risk anchors</span>
-                                                    </div>
-                                                    <div className="h-4 bg-gray-600 rounded w-4 animate-pulse"></div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-
-                                {/* License Compliance */}
+                                {/* Alerts Card Skeleton */}
                                 <Card style={{backgroundColor: colors.background.card}}>
-                                    <CardHeader>
-                                        <CardTitle className="text-white">License Compliance</CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="space-y-4">
-                                            {/* Project License Skeleton */}
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 bg-gray-600 rounded-lg animate-pulse"></div>
-                                                <div className="h-5 bg-gray-600 rounded w-24 animate-pulse"></div>
-                                            </div>
-
-                                            {/* Compliance Status Skeleton */}
-                                            <div className="space-y-3">
-                                                <div className="flex items-center justify-between">
-                                                    <span className="text-gray-400">Overall Compliance</span>
-                                                    <div className="h-4 bg-gray-600 rounded w-12 animate-pulse"></div>
+                                    <CardContent className="p-5">
+                                        <div className="flex items-center justify-between mb-4">
+                                            <div className="h-5 bg-gray-700 rounded w-16 animate-pulse"></div>
+                                            <div className="h-4 bg-gray-700 rounded w-16 animate-pulse"></div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            {[1, 2, 3].map((i) => (
+                                                <div key={i} className="flex items-center gap-3 p-2">
+                                                    <div className="w-8 h-8 bg-gray-700 rounded-lg animate-pulse"></div>
+                                                    <div className="flex-1">
+                                                        <div className="h-4 bg-gray-700 rounded w-24 mb-1 animate-pulse"></div>
+                                                        <div className="h-3 bg-gray-700 rounded w-32 animate-pulse"></div>
+                                                    </div>
                                                 </div>
-                                                <div className="flex items-center justify-between">
-                                                    <span className="text-gray-400">License Conflicts</span>
-                                                    <div className="h-4 bg-gray-600 rounded w-8 animate-pulse"></div>
-                                                </div>
-                                            </div>
+                                            ))}
                                         </div>
                                     </CardContent>
                                 </Card>
@@ -2138,300 +2109,201 @@ export default function ProjectDetailPage() {
                 {/* Tab Content */}
                 {currentTab === "overview" && (
                     <div className="space-y-6">
-                        {/* Project Health Overview */}
-                        <Card style={{backgroundColor: colors.background.card}}>
-                            <CardHeader>
-                                <CardTitle className="text-white">Project Health</CardTitle>
-                                <p className="text-gray-400 text-sm">Average dependency risk</p>
-                            </CardHeader>
-                            <CardContent>
-                                {/* MODIFIED: Changed to a 12-column grid to allow for a wider graph (3/9 split) */}
-                                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-
-                                    {/* Left: Security Score (3/12 columns on large screens) */}
-                                    <div className="flex flex-col justify-center items-center lg:col-span-3"
-                                         style={{marginLeft: 'auto'}}>
-                                        {/* Security Score with Progress Circle */}
-                                        <div className="relative">
-                                            <div className="relative w-48 h-48">
-                                                <svg className="w-48 h-48 transform -rotate-90" viewBox="0 0 100 100">
-                                                    <circle cx="50" cy="50" r="40" stroke="currentColor" strokeWidth="8"
-                                                            fill="none" className="text-gray-700"/>
-                                                    <circle
-                                                        cx="50"
-                                                        cy="50"
-                                                        r="40"
-                                                        stroke="currentColor"
-                                                        strokeWidth="8"
-                                                        fill="none"
-                                                        strokeDasharray={`${2 * Math.PI * 40}`}
-                                                        strokeDashoffset={`${2 * Math.PI * 40 * (1 - healthScore / 100)}`}
-                                                        style={{stroke: 'rgb(84, 0, 250)'}}
-                                                        strokeLinecap="round"
-                                                    />
-                                                </svg>
-                                                <div className="absolute inset-0 flex items-center justify-center">
-                                                    <div className="text-center">
-                                                        <div
-                                                            className="text-6xl font-bold text-white">{healthScore}</div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Right: Security Score Graph (9/12 columns on large screens) */}
-                                    <div className="lg:col-span-9">
-                                        <div className="h-64 w-full">
-                                            {/* MODIFIED: Increased viewBox width from 400 to 600 and adjusted points/text positions */}
-                                            <svg className="w-full h-full" viewBox="0 0 600 200">
-                                                {/* Grid lines */}
-                                                <defs>
-                                                    <pattern id="grid" width="20" height="20"
-                                                             patternUnits="userSpaceOnUse">
-                                                        <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#374151"
-                                                              strokeWidth="0.5" opacity="0.3"/>
-                                                    </pattern>
-                                                </defs>
-                                                <rect width="100%" height="100%" fill="url(#grid)"/>
-
-                                                {/* Y-axis scale numbers (no change) */}
-                                                <text x="15" y="25" fill="#9CA3AF" fontSize="12"
-                                                      textAnchor="middle">100
-                                                </text>
-                                                <text x="15" y="60" fill="#9CA3AF" fontSize="12"
-                                                      textAnchor="middle">80
-                                                </text>
-                                                <text x="15" y="95" fill="#9CA3AF" fontSize="12"
-                                                      textAnchor="middle">60
-                                                </text>
-                                                <text x="15" y="130" fill="#9CA3AF" fontSize="12"
-                                                      textAnchor="middle">40
-                                                </text>
-                                                <text x="15" y="165" fill="#9CA3AF" fontSize="12"
-                                                      textAnchor="middle">20
-                                                </text>
-                                                <text x="15" y="195" fill="#9CA3AF" fontSize="12"
-                                                      textAnchor="middle">0
-                                                </text>
-
-                                                {/* X-axis dates (Adjusted positions for wider graph: 50, 217, 384, 550) */}
-                                                <text x="50" y="195" fill="#9CA3AF" fontSize="10"
-                                                      textAnchor="middle">30d ago
-                                                </text>
-                                                <text x="217" y="195" fill="#9CA3AF" fontSize="10"
-                                                      textAnchor="middle">20d ago
-                                                </text>
-                                                <text x="384" y="195" fill="#9CA3AF" fontSize="10"
-                                                      textAnchor="middle">10d ago
-                                                </text>
-                                                <text x="550" y="195" fill="#9CA3AF" fontSize="10"
-                                                      textAnchor="middle">Today
-                                                </text>
-
-                                                {/* Line chart (Adjusted points for wider graph: 50, 150, 250, 350, 450, 550) */}
-                                                <polyline
-                                                    fill="none"
-                                                    stroke="rgb(84, 0, 250)"
-                                                    strokeWidth="3"
-                                                    points="50,180 150,160 250,140 350,120 450,100 550,60"
-                                                />
-
-                                                {/* Area fill (Adjusted points for wider graph) */}
-                                                <polygon
-                                                    fill="url(#securityGradient)"
-                                                    points="50,180 150,160 250,140 350,120 450,100 550,60 550,180 50,180"
-                                                />
-
-                                                {/* Gradient definition (no change) */}
-                                                <defs>
-                                                    <linearGradient id="securityGradient" x1="0%" y1="0%" x2="0%"
-                                                                    y2="100%">
-                                                        <stop offset="0%" stopColor="rgb(84, 0, 250)"
-                                                              stopOpacity="0.3"/>
-                                                        <stop offset="100%" stopColor="rgb(84, 0, 250)"
-                                                              stopOpacity="0.05"/>
-                                                    </linearGradient>
-                                                </defs>
-
-                                                {/* Data points (Adjusted positions for wider graph) */}
-                                                <circle cx="50" cy="180" r="3" fill="rgb(84, 0, 250)"/>
-                                                <circle cx="250" cy="140" r="3" fill="rgb(84, 0, 250)"/>
-                                                <circle cx="450" cy="100" r="3" fill="rgb(84, 0, 250)"/>
-                                                <circle cx="550" cy="60" r="3" fill="rgb(84, 0, 250)"/>
-                                            </svg>
-                                        </div>
+                        {/* Top Row: Project Health on left, Compliance Badge on right */}
+                        <div className="flex items-center justify-between">
+                            {/* Project Health (Inline) */}
+                            <div className="flex items-center gap-4">
+                                <div className="relative w-16 h-16">
+                                    <svg className="w-16 h-16 transform -rotate-90" viewBox="0 0 100 100">
+                                        <circle cx="50" cy="50" r="40" stroke="currentColor" strokeWidth="10"
+                                                fill="none" className="text-gray-700"/>
+                                        <circle
+                                            cx="50"
+                                            cy="50"
+                                            r="40"
+                                            stroke="currentColor"
+                                            strokeWidth="10"
+                                            fill="none"
+                                            strokeDasharray={`${2 * Math.PI * 40}`}
+                                            strokeDashoffset={`${2 * Math.PI * 40 * (1 - healthScore / 100)}`}
+                                            style={{stroke: 'rgb(84, 0, 250)'}}
+                                            strokeLinecap="round"
+                                        />
+                                    </svg>
+                                    <div className="absolute inset-0 flex items-center justify-center">
+                                        <div className="text-lg font-bold text-white">{healthScore}</div>
                                     </div>
                                 </div>
-                            </CardContent>
-                        </Card>
+                                <div>
+                                    <h2 className="text-xl font-bold text-white">Project Health</h2>
+                                    <p className="text-gray-400 text-sm">Based on {projectDependencies.length} dependencies</p>
+                                </div>
+                            </div>
 
-                        {/* Vulnerabilities and License Compliance Row */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {/* Vulnerabilities */}
+                            {/* Compliance Status Badge (Right side) - Based on license issues only */}
+                            <div className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
+                                complianceData.licenseConflicts === 0
+                                    ? 'bg-green-500/10 border border-green-500/30'
+                                    : 'bg-red-500/10 border border-red-500/30'
+                            }`}>
+                                {complianceData.licenseConflicts === 0 ? (
+                                    <>
+                                        <ShieldCheck className="h-4 w-4 text-green-400" />
+                                        <span className="text-green-400 font-medium text-sm">Compliant</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <AlertTriangle className="h-4 w-4 text-red-400" />
+                                        <span className="text-red-400 font-medium text-sm">Not Compliant</span>
+                                        <span className="text-gray-400 text-xs">
+                                            — {complianceData.licenseConflicts} license conflict{complianceData.licenseConflicts > 1 ? 's' : ''}
+                                        </span>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Main Content: Three Column Grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            {/* Vulnerabilities Card - Real OSV Data */}
                             <Card style={{backgroundColor: colors.background.card}}>
-                                <CardHeader>
-                                    <CardTitle className="text-white">Vulnerabilities</CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="space-y-4">
-                                        {/* Total Vulnerabilities */}
-                                        <div className="text-center">
-                                            <div
-                                                className="text-3xl font-bold text-white">{complianceData.vulnerableDependencies}</div>
-                                            <div className="text-sm text-gray-400">Total active vulnerabilities</div>
+                                <CardContent className="p-5">
+                                    <h3 className="text-base font-semibold text-white mb-4">Vulnerabilities</h3>
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between py-1.5">
+                                            <span className="text-sm text-gray-300">Critical</span>
+                                            <span className={`font-semibold text-sm ${realVulnerabilities.critical > 0 ? 'text-red-400' : 'text-gray-500'}`}>{realVulnerabilities.critical}</span>
                                         </div>
-
-                                        {/* Severity Breakdown */}
-                                        <div className="space-y-3">
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                                                    <span className="text-sm text-gray-300">Critical</span>
-                                                </div>
-                                                <span
-                                                    className="text-white font-semibold">{complianceData.vulnerabilityBreakdown.critical}</span>
-                                            </div>
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-3 h-3 rounded-full bg-orange-500"></div>
-                                                    <span className="text-sm text-gray-300">High</span>
-                                                </div>
-                                                <span
-                                                    className="text-white font-semibold">{complianceData.vulnerabilityBreakdown.high}</span>
-                                            </div>
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-                                                    <span className="text-sm text-gray-300">Medium</span>
-                                                </div>
-                                                <span
-                                                    className="text-white font-semibold">{complianceData.vulnerabilityBreakdown.medium}</span>
-                                            </div>
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                                                    <span className="text-sm text-gray-300">Low</span>
-                                                </div>
-                                                <span
-                                                    className="text-white font-semibold">{complianceData.vulnerabilityBreakdown.low}</span>
-                                            </div>
+                                        <div className="flex items-center justify-between py-1.5">
+                                            <span className="text-sm text-gray-300">High</span>
+                                            <span className={`font-semibold text-sm ${realVulnerabilities.high > 0 ? 'text-orange-400' : 'text-gray-500'}`}>{realVulnerabilities.high}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between py-1.5">
+                                            <span className="text-sm text-gray-300">Medium</span>
+                                            <span className={`font-semibold text-sm ${realVulnerabilities.medium > 0 ? 'text-yellow-400' : 'text-gray-500'}`}>{realVulnerabilities.medium}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between py-1.5">
+                                            <span className="text-sm text-gray-300">Low</span>
+                                            <span className={`font-semibold text-sm ${realVulnerabilities.low > 0 ? 'text-blue-400' : 'text-gray-500'}`}>{realVulnerabilities.low}</span>
                                         </div>
                                     </div>
                                 </CardContent>
                             </Card>
 
-                            {/* Dependency Flattening */}
-                            <Card
-                                 style={{backgroundColor: colors.background.card}}
-                             >
-                                 <CardHeader>
-                                     <CardTitle className="text-white">Dependency Flattening</CardTitle>
-                                 </CardHeader>
-                                 <CardContent>
-                                     <div className="space-y-4">
-                                         <div className="text-center">
-                                             <div className={`text-3xl font-bold ${flatteningScoreColor}`}>{flatteningAnalysis.score}</div>
-                                             <div className="text-sm text-gray-400">Flattening score</div>
-                                         </div>
-
-                                         <div className="space-y-3 text-sm text-gray-300">
-                                             <div className="flex items-center justify-between">
-                                                 <div className="flex items-center gap-2">
-                                                     <div className="w-3 h-3 rounded-full bg-indigo-400"></div>
-                                                     <span>Duplicate packages</span>
-                                                 </div>
-                                                 <button
-                                                     type="button"
-                                                     onClick={() => {
-                                                         setFlatteningDialogTab('recommendations')
-                                                         setFlatteningDialogOpen(true)
-                                                     }}
-                                                     className="text-white font-semibold hover:text-indigo-300 transition-colors cursor-pointer"
-                                                 >
-                                                     {flatteningAnalysis.duplicateCount}
-                                                 </button>
-                                             </div>
-                                             <div className="flex items-center justify-between">
-                                                 <div className="flex items-center gap-2">
-                                                     <div className="w-3 h-3 rounded-full bg-purple-400"></div>
-                                                     <span>High-risk anchors</span>
-                                                 </div>
-                                                 <button
-                                                     type="button"
-                                                     onClick={() => {
-                                                         setFlatteningDialogTab('anchors')
-                                                         setFlatteningDialogOpen(true)
-                                                     }}
-                                                     className="text-white font-semibold hover:text-purple-300 transition-colors cursor-pointer"
-                                                 >
-                                                     {flatteningAnalysis.highRiskCount}
-                                                 </button>
-                                             </div>
-                                         </div>
-
-                                        <div className="flex justify-end">
+                            {/* Dependency Flattening Card */}
+                            <Card style={{backgroundColor: colors.background.card}}>
+                                <CardContent className="p-5">
+                                    <h3 className="text-base font-semibold text-white mb-4">Dependency Flattening</h3>
+                                    <div className="text-center mb-4">
+                                        <div className={`text-3xl font-bold ${flatteningScoreColor}`}>{flatteningAnalysis.score}</div>
+                                        <div className="text-xs text-gray-400">Score</div>
+                                    </div>
+                                    <div className="space-y-2 text-sm">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-gray-300">Duplicates</span>
                                             <button
                                                 type="button"
-                                                onClick={() => setFlatteningDialogOpen(true)}
-                                                className="text-xs font-semibold text-indigo-300 underline underline-offset-4 hover:text-indigo-200"
+                                                onClick={() => {
+                                                    setFlatteningDialogTab('recommendations')
+                                                    setFlatteningDialogOpen(true)
+                                                }}
+                                                className="text-white font-semibold hover:text-gray-300 transition-colors cursor-pointer"
                                             >
-                                                Recommendations{flatteningAnalysis.recommendationsCount > 0 ? ` (${flatteningAnalysis.recommendationsCount})` : ''}
+                                                {flatteningAnalysis.duplicateCount}
                                             </button>
                                         </div>
-                                     </div>
-                                 </CardContent>
-                             </Card>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-gray-300">High-risk</span>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setFlatteningDialogTab('anchors')
+                                                    setFlatteningDialogOpen(true)
+                                                }}
+                                                className="text-white font-semibold hover:text-gray-300 transition-colors cursor-pointer"
+                                            >
+                                                {flatteningAnalysis.highRiskCount}
+                                            </button>
+                                        </div>
+                                    </div>
+                                    {flatteningAnalysis.recommendationsCount > 0 && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setFlatteningDialogOpen(true)}
+                                            className="mt-4 text-xs font-medium text-gray-400 hover:text-white transition-colors"
+                                        >
+                                            View {flatteningAnalysis.recommendationsCount} recommendation{flatteningAnalysis.recommendationsCount > 1 ? 's' : ''} →
+                                        </button>
+                                    )}
+                                </CardContent>
+                            </Card>
 
-                            {/* License Compliance */}
+                            {/* Alerts Preview Card */}
                             <Card style={{backgroundColor: colors.background.card}}>
-                                <CardHeader>
-                                    <CardTitle className="text-white">License Compliance</CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="space-y-4">
-                                        <div className="flex items-center gap-3">
-                                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                                                project?.license === 'MIT' ? 'bg-green-500/20' :
-                                                    project?.license === 'Apache-2.0' ? 'bg-blue-500/20' :
-                                                        project?.license === 'GPL-2.0' || project?.license === 'GPL-3.0' ? 'bg-red-500/20' :
-                                                            'bg-gray-500/20'
-                                            }`}>
-                        <span className={`font-bold text-sm ${
-                            project?.license === 'MIT' ? 'text-green-400' :
-                                project?.license === 'Apache-2.0' ? 'text-blue-400' :
-                                    project?.license === 'GPL-2.0' || project?.license === 'GPL-3.0' ? 'text-red-400' :
-                                        'text-gray-400'
-                        }`}>
-                          {project?.license ? project.license.substring(0, 3).toUpperCase() : 'N/A'}
-                        </span>
+                                <CardContent className="p-5">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h3 className="text-base font-semibold text-white">Alerts</h3>
+                                        <button
+                                            onClick={() => setCurrentTab('alerts')}
+                                            className="text-xs font-medium text-gray-400 hover:text-white transition-colors"
+                                        >
+                                            View all →
+                                        </button>
+                                    </div>
+                                    <div className="space-y-2">
+                                        {previewAlerts.length === 0 ? (
+                                            <div className="py-4 text-center">
+                                                <ShieldCheck className="h-8 w-8 text-green-400 mx-auto mb-2" />
+                                                <p className="text-sm text-gray-400">No active alerts</p>
                                             </div>
-                                            <div>
-                                                <div className="text-white font-medium">
-                                                    {project?.license ? getComplianceLicenseDisplayName(project.license) : 'No License Detected'}
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="space-y-3">
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-gray-400">Overall Compliance</span>
-                                                <span className={`font-semibold ${
-                                                    complianceData.overallCompliance >= 90 ? 'text-green-400' :
-                                                        complianceData.overallCompliance >= 70 ? 'text-yellow-400' :
-                                                            'text-red-400'
-                                                }`}>
-                          {complianceData.overallCompliance}%
-                        </span>
-                                            </div>
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-gray-400">License Conflicts</span>
-                                                <span className={`font-semibold ${
-                                                    complianceData.licenseConflicts === 0 ? 'text-green-400' : 'text-yellow-400'
-                                                }`}>
-                          {complianceData.licenseConflicts}
-                        </span>
-                                            </div>
-                                        </div>
+                                        ) : (
+                                            previewAlerts.map((alert, index) => {
+                                                const alertType = alert.alert_type
+                                                const severity = alert.severity?.toLowerCase()
+                                                const isVuln = alertType === 'vulnerability'
+                                                const isAnomaly = alertType === 'anomaly'
+                                                const isHealth = alertType === 'health'
+                                                const isLicense = alertType === 'license'
+                                                
+                                                // Determine color based on type/severity
+                                                const bgColor = isVuln 
+                                                    ? (severity === 'critical' ? 'bg-red-500/20' : severity === 'high' ? 'bg-orange-500/20' : 'bg-yellow-500/20')
+                                                    : isAnomaly ? 'bg-purple-500/20'
+                                                    : isHealth ? 'bg-blue-500/20'
+                                                    : 'bg-yellow-500/20'
+                                                const iconColor = isVuln 
+                                                    ? (severity === 'critical' ? 'text-red-400' : severity === 'high' ? 'text-orange-400' : 'text-yellow-400')
+                                                    : isAnomaly ? 'text-purple-400'
+                                                    : isHealth ? 'text-blue-400'
+                                                    : 'text-yellow-400'
+                                                
+                                                // Get message
+                                                let message = alert.message || ''
+                                                if (isVuln && alert.vulnerability_details?.summary) {
+                                                    message = alert.vulnerability_details.summary
+                                                }
+                                                const packageName = alert.package?.name || (isHealth ? 'Health' : isLicense ? 'License' : '')
+                                                
+                                                return (
+                                                    <div 
+                                                        key={alert.id || index}
+                                                        className="flex items-center gap-3 p-2 rounded cursor-pointer hover:bg-gray-800/50 transition-colors"
+                                                        onClick={() => setCurrentTab('alerts')}
+                                                    >
+                                                        <div className={`w-8 h-8 rounded-lg ${bgColor} flex items-center justify-center flex-shrink-0`}>
+                                                            <AlertTriangle className={`h-4 w-4 ${iconColor}`} />
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="text-sm text-white truncate">
+                                                                {packageName && <span className="font-medium">{packageName}: </span>}
+                                                                {alertType === 'vulnerability' ? 'Vulnerability' : alertType === 'anomaly' ? 'Anomaly' : alertType === 'health' ? 'Health Change' : 'License Issue'}
+                                                            </div>
+                                                            <div className="text-xs text-gray-400 truncate">{message || 'View details'}</div>
+                                                        </div>
+                                                    </div>
+                                                )
+                                            })
+                                        )}
                                     </div>
                                 </CardContent>
                             </Card>
@@ -4829,18 +4701,18 @@ export default function ProjectDetailPage() {
             </Dialog>
 
             <Dialog open={flatteningDialogOpen} onOpenChange={setFlatteningDialogOpen}>
-                <DialogContent className="max-w-6xl h-[700px] border border-gray-800 bg-gray-950 text-gray-200 overflow-hidden flex flex-col" style={{left: 'calc(280px + (100vw - 280px) / 2)', transform: 'translateX(-50%) translateY(-50%)'}}>
+                <DialogContent className="max-w-6xl h-[700px] border border-gray-800 text-gray-200 overflow-hidden flex flex-col" style={{left: 'calc(280px + (100vw - 280px) / 2)', transform: 'translateX(-50%) translateY(-50%)', backgroundColor: 'rgb(12, 12, 12)'}}>
                     <DialogHeader className="flex-shrink-0">
                         <DialogTitle className="text-white">Dependency Flattening Recommendations</DialogTitle>
                         <p className="text-xs text-gray-500">Provides recommendations for resolving dependency version
                             conflicts and consolidating transitive packages.</p>
                     </DialogHeader>
                     <Tabs value={flatteningDialogTab} onValueChange={(value) => setFlatteningDialogTab(value as 'recommendations' | 'anchors')} className="w-full flex-1 flex flex-col min-h-0 overflow-hidden">
-                        <TabsList className="grid w-full grid-cols-2 bg-gray-900 flex-shrink-0">
-                            <TabsTrigger value="recommendations" className="data-[state=active]:bg-gray-800 data-[state=active]:text-white">
+                        <TabsList className="grid w-full grid-cols-2 flex-shrink-0" style={{backgroundColor: 'rgb(18, 18, 18)'}}>
+                            <TabsTrigger value="recommendations" className="data-[state=active]:text-white text-gray-400" style={{backgroundColor: 'transparent'}} data-state-active-style={{backgroundColor: 'rgb(26, 26, 26)'}}>
                                 Recommendations & Duplicates
                             </TabsTrigger>
-                            <TabsTrigger value="anchors" className="data-[state=active]:bg-gray-800 data-[state=active]:text-white">
+                            <TabsTrigger value="anchors" className="data-[state=active]:text-white text-gray-400" style={{backgroundColor: 'transparent'}}>
                                 High-Risk Anchors
                             </TabsTrigger>
                         </TabsList>
