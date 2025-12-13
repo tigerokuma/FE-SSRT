@@ -9,6 +9,22 @@ import Image from "next/image"
 import CommitBehaviorGraph from "./CommitBehaviorGraph"
 import ContributorHeatmap from "./ContributorHeatmap"
 
+// Helper function to format factor names to be readable
+function formatFactorName(factor: string): string {
+  const factorMap: Record<string, string> = {
+    'files_changed': 'Files Changed',
+    'lines_changed': 'Lines Changed',
+    'message_length': 'Message Length',
+    'insert_delete_ratio': 'Insert/Delete Ratio',
+    'abnormal_time': 'Abnormal Time',
+    'abnormal_day': 'Abnormal Day',
+    'new_files': 'New Files',
+    'file_types': 'File Types',
+    'commit_frequency': 'Commit Frequency',
+  }
+  return factorMap[factor] || factor.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+}
+
 // Helper function to get colors based on anomaly score
 function getAnomalyColors(score: number) {
   // Anomaly score is now just a number, not out of 30
@@ -258,16 +274,16 @@ function CommitItem({ commit, isLast = false, repoId }: CommitItemProps) {
                       pointColor = 'rgb(234, 179, 8)' // Yellow for low points
                     }
                     
-                    return (
-                      <div key={index} className="flex items-center gap-2" title={item.reason}>
-                        <span className="text-sm" style={{ color: colors.text.secondary }}>
-                          {item.factor}
-                        </span>
-                        <span className="text-sm font-medium" style={{ color: pointColor }}>
-                          +{item.points.toFixed(1)}
-                        </span>
-                      </div>
-                    )
+                                    return (
+                                      <div key={index} className="flex items-center gap-2" title={item.reason}>
+                                        <span className="text-sm" style={{ color: colors.text.secondary }}>
+                                          {formatFactorName(item.factor)}
+                                        </span>
+                                        <span className="text-sm font-medium" style={{ color: pointColor }}>
+                                          +{item.points.toFixed(1)}
+                                        </span>
+                                      </div>
+                                    )
                   })
                 ) : (
                   <div className="text-sm" style={{ color: colors.text.secondary }}>
