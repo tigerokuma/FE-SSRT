@@ -12,6 +12,7 @@ import { colors } from "@/lib/design-system"
 import CommitTimeline from "@/components/dependencies/CommitTimeline"
 import { HealthScoreChart } from "@/components/health-score-chart"
 import { AlertsCard, AlertItem, AlertKind } from "@/components/alerts/AlertsCard"
+import { ProcessingBanner } from "@/components/ui/processing-banner"
 import {
   Dialog,
   DialogContent,
@@ -92,6 +93,11 @@ export default function DependencyDetailsPage() {
       }
 
   const packageScore = packageData?.total_score || 0
+
+  // Check if package is still being processed (not fully analyzed yet)
+  // Status values: "queued" -> "fast" -> "done"
+  const isStillProcessing = packageData?.status && packageData.status !== 'done'
+  const processingStatus = packageData?.status || 'unknown'
 
   // Helper functions for status logic
   const getStatusInfo = (score: number | null | undefined) => {
@@ -942,6 +948,27 @@ export default function DependencyDetailsPage() {
         {/* Tab Content */}
         {currentTab === "overview" && (
           <div className="space-y-8">
+            {/* Processing Status Banner */}
+            {!loading && isStillProcessing && (
+              <div 
+                className="flex items-center gap-3 p-4 rounded-lg"
+                style={{ 
+                  backgroundColor: 'rgba(84, 0, 250, 0.1)',
+                  border: `1px solid ${colors.primary}40`
+                }}
+              >
+                <Loader2 className="w-5 h-5 animate-spin" style={{ color: colors.primary }} />
+                <div>
+                  <span className="text-sm font-medium" style={{ color: colors.text.primary }}>
+                    Full analysis in progress
+                  </span>
+                  <p className="text-xs" style={{ color: colors.text.secondary }}>
+                    Basic package info is available. Detailed security scores, commit history, and vulnerability data are still being analyzed.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Header Section */}
             <div className="grid grid-cols-1 xl:grid-cols-4 gap-6 mb-8">
               {/* Left Side - Package Info, Install Command, and AI Summary */}
@@ -1201,20 +1228,45 @@ export default function DependencyDetailsPage() {
             <div className="space-y-6">
               {/* Scorecard Health */}
               <div className="rounded-xl p-6 border" style={{ backgroundColor: colors.background.card }}>
-                
-                <HealthScoreChart
-                  data={healthHistory}
-                  onDataPointSelect={handleHealthDataSelect}
-                  scorecardData={scorecardHealth}
-                  layout="side-by-side"
-                  repoUrl={packageData?.repo_url}
-                  isLoading={loading}
-                  onViewFullAssessment={(scorecardData) => {
-                    setSelectedScorecardData(scorecardData)
-                    setShowScorecardModal(true)
-                  }}
-                        />
+                {loading ? (
+                  <HealthScoreChart
+                    data={[]}
+                    onDataPointSelect={handleHealthDataSelect}
+                    scorecardData={undefined}
+                    layout="side-by-side"
+                    repoUrl={packageData?.repo_url}
+                    isLoading={true}
+                  />
+                ) : isStillProcessing && (!packageData?.scorecardHistory || packageData.scorecardHistory.length === 0) ? (
+                  <div>
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-8 h-8 flex items-center justify-center">
+                        <img src="/Scorecard_logo.png" alt="Scorecard" className="w-full h-full object-contain" />
                       </div>
+                      <h3 className="text-lg font-semibold" style={{ color: colors.text.primary }}>
+                        OpenSSF Scorecard
+                      </h3>
+                    </div>
+                    <ProcessingBanner 
+                      title="Scorecard Analysis in Progress"
+                      message="We're running security checks on this package. The OpenSSF Scorecard results will appear here once complete."
+                    />
+                  </div>
+                ) : (
+                  <HealthScoreChart
+                    data={healthHistory}
+                    onDataPointSelect={handleHealthDataSelect}
+                    scorecardData={scorecardHealth}
+                    layout="side-by-side"
+                    repoUrl={packageData?.repo_url}
+                    isLoading={false}
+                    onViewFullAssessment={(scorecardData) => {
+                      setSelectedScorecardData(scorecardData)
+                      setShowScorecardModal(true)
+                    }}
+                  />
+                )}
+              </div>
 
               {/* Security & Legal Compliance */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
@@ -1471,12 +1523,17 @@ export default function DependencyDetailsPage() {
                         repoUrl={packageData?.repo_url}
                         isLoading={false}
                       />
+                    ) : isStillProcessing ? (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <ProcessingBanner 
+                          title="Analyzing Commit History"
+                          message="We're processing the commit history for this package."
+                        />
+                      </div>
                     ) : (
                       <div className="w-full h-full bg-gray-800/30 rounded-lg flex items-center justify-center">
                         <div className="text-gray-400 text-sm">
-                          No commit data available yet.
-                          <br />
-                          <span className="text-xs">This data is populated during package setup.</span>
+                          No commit data available.
                         </div>
                       </div>
                     )}
@@ -1526,7 +1583,14 @@ export default function DependencyDetailsPage() {
                 </div>
               )}
               
-              <CommitTimeline commits={commits} isLoading={commitsLoading} repoId={repoId}/>
+              {!commitsLoading && isStillProcessing && commits.length === 0 ? (
+                <ProcessingBanner 
+                  title="Commit Analysis in Progress"
+                  message="We're analyzing the commit history for this package. Recent commits will appear here once complete."
+                />
+              ) : (
+                <CommitTimeline commits={commits} isLoading={commitsLoading} repoId={repoId}/>
+              )}
             </div>
           </div>
         )}

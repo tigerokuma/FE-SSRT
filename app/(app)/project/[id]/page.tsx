@@ -3526,14 +3526,16 @@ export default function ProjectDetailPage() {
                                 <div className="space-y-8">
                                     <div className="flex items-center justify-between">
                                         <h2 className="text-2xl font-bold text-white">Team Members</h2>
-                                        <Button
-                                            style={{backgroundColor: colors.primary}}
-                                            className="hover:opacity-90 text-white"
-                                            onClick={handleAddMember}
-                                        >
-                                            <Plus className="h-4 w-4 mr-2"/>
-                                            Add Member
-                                        </Button>
+                                        {currentUserRole === 'admin' && (
+                                            <Button
+                                                style={{backgroundColor: colors.primary}}
+                                                className="hover:opacity-90 text-white"
+                                                onClick={handleAddMember}
+                                            >
+                                                <Plus className="h-4 w-4 mr-2"/>
+                                                Add Member
+                                            </Button>
+                                        )}
                                     </div>
 
                                     <div className="space-y-0 border border-gray-700 rounded-lg overflow-hidden">
@@ -3562,7 +3564,8 @@ export default function ProjectDetailPage() {
                                                             className="text-sm text-gray-400 capitalize">{member.role}</div>
                                                     </div>
                                                 </div>
-                                                {member.user?.user_id !== currentUser?.id && (
+                                                {/* Admin can promote/remove other members */}
+                                                {currentUserRole === 'admin' && member.user?.user_id !== currentUser?.id && (
                                                     <div className="flex items-center gap-2">
                                                         <Button variant="outline" size="sm"
                                                                 className="border-gray-600 text-gray-300 hover:bg-gray-700">
@@ -3573,6 +3576,13 @@ export default function ProjectDetailPage() {
                                                             <Trash2 className="h-4 w-4"/>
                                                         </Button>
                                                     </div>
+                                                )}
+                                                {/* Non-admin members can only leave (remove themselves) */}
+                                                {currentUserRole !== 'admin' && member.user?.user_id === currentUser?.id && (
+                                                    <Button variant="outline" size="sm"
+                                                            className="border-red-600 text-red-400 hover:bg-red-600/20">
+                                                        Leave Project
+                                                    </Button>
                                                 )}
                                             </div>
                                         ))}
