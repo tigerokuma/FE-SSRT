@@ -34,6 +34,7 @@ type Project = {
     id: string
     name: string
     language?: string | null
+    status?: string
 }
 
 // ---------- Helpers ----------
@@ -67,6 +68,7 @@ function normalizeProjects(payload: any): Project[] {
             id: p.id ?? p.project_id ?? p._id ?? p.uuid ?? null,
             name: p.name ?? p.project_name ?? p.repo_name ?? p.slug ?? "Untitled",
             language: p.language ?? p.primary_language ?? p.lang ?? p.stack ?? null,
+            status: p.status ?? p.project_status ?? null,
         }))
         .filter((p: Project) => p.id && p.name)
 }
@@ -293,7 +295,8 @@ export default function AppSidebar() {
                             {!showLoading &&
                                 projects.map((project) => {
                                     const href = `/project/${project.id}`
-                                    const active = pathname.startsWith(href)
+                                    const isCreating = project.status === "creating"
+                                    const active = !isCreating && pathname.startsWith(href)
                                     return (
                                         <SidebarMenuItem key={project.id}>
                                             <SidebarMenuButton
@@ -305,16 +308,27 @@ export default function AppSidebar() {
                                                     isCollapsed && !isMobile ? "justify-center py-2" : "px-4 py-2",
                                                     active
                                                         ? "bg-gray-200 text-gray-900 dark:bg-neutral-800 dark:text-white"
-                                                        : "hover:bg-gray-100 dark:hover:bg-neutral-800"
+                                                        : "hover:bg-gray-100 dark:hover:bg-neutral-800",
+                                                    isCreating && "opacity-50 cursor-not-allowed pointer-events-none"
                                                 )}
                                             >
-                                                <Link href={href} className="flex items-center gap-3">
-                                                    <ProjectIcon language={project.language}/>
-                                                    {(!isCollapsed || isMobile) && (
-                                                        <span
-                                                            className="font-medium truncate text-sm">{project.name}</span>
-                                                    )}
-                                                </Link>
+                                                {isCreating ? (
+                                                    <div className="flex items-center gap-3">
+                                                        <ProjectIcon language={project.language}/>
+                                                        {(!isCollapsed || isMobile) && (
+                                                            <span
+                                                                className="font-medium truncate text-sm">{project.name}</span>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <Link href={href} className="flex items-center gap-3">
+                                                        <ProjectIcon language={project.language}/>
+                                                        {(!isCollapsed || isMobile) && (
+                                                            <span
+                                                                className="font-medium truncate text-sm">{project.name}</span>
+                                                        )}
+                                                    </Link>
+                                                )}
                                             </SidebarMenuButton>
                                         </SidebarMenuItem>
                                     )
