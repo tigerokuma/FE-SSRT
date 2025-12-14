@@ -16,21 +16,24 @@ export function ProcessingBanner({
 }: ProcessingBannerProps) {
   return (
     <div 
-      className={`flex flex-col items-center justify-center py-8 px-4 rounded-lg ${className}`}
+      className={`flex flex-col items-center justify-center py-8 px-4 rounded-xl ${className}`}
       style={{ 
-        backgroundColor: 'rgba(84, 0, 250, 0.05)',
-        border: `1px dashed ${colors.primary}40`
+        backgroundColor: colors.background.card,
+        border: `1px solid ${colors.border.default}`
       }}
     >
-      <div className="flex items-center gap-3 mb-2">
+      <div 
+        className="w-10 h-10 rounded-full flex items-center justify-center mb-3"
+        style={{ backgroundColor: 'rgba(84, 0, 250, 0.15)' }}
+      >
         <Loader2 
           className="w-5 h-5 animate-spin" 
           style={{ color: colors.primary }}
         />
-        <span className="text-sm font-medium" style={{ color: colors.text.primary }}>
-          {title}
-        </span>
       </div>
+      <span className="text-sm font-medium mb-1" style={{ color: colors.text.primary }}>
+        {title}
+      </span>
       <p className="text-xs text-center max-w-md" style={{ color: colors.text.secondary }}>
         {message}
       </p>
@@ -46,8 +49,8 @@ export function ProcessingBannerCompact({
     <div 
       className={`flex items-center gap-2 py-2 px-3 rounded-lg ${className}`}
       style={{ 
-        backgroundColor: 'rgba(84, 0, 250, 0.08)',
-        border: `1px solid ${colors.primary}30`
+        backgroundColor: colors.background.card,
+        border: `1px solid ${colors.border.default}`
       }}
     >
       <Loader2 

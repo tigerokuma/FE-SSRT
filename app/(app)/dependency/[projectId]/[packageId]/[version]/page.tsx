@@ -951,13 +951,18 @@ export default function DependencyDetailsPage() {
             {/* Processing Status Banner */}
             {!loading && isStillProcessing && (
               <div 
-                className="flex items-center gap-3 p-4 rounded-lg"
+                className="flex items-center gap-3 p-4 rounded-xl"
                 style={{ 
-                  backgroundColor: 'rgba(84, 0, 250, 0.1)',
-                  border: `1px solid ${colors.primary}40`
+                  backgroundColor: colors.background.card,
+                  border: `1px solid ${colors.border.default}`
                 }}
               >
-                <Loader2 className="w-5 h-5 animate-spin" style={{ color: colors.primary }} />
+                <div 
+                  className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+                  style={{ backgroundColor: 'rgba(84, 0, 250, 0.15)' }}
+                >
+                  <Loader2 className="w-4 h-4 animate-spin" style={{ color: colors.primary }} />
+                </div>
                 <div>
                   <span className="text-sm font-medium" style={{ color: colors.text.primary }}>
                     Full analysis in progress
