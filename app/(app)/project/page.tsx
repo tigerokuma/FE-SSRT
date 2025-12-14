@@ -654,17 +654,17 @@ export default function Home() {
                 ) : filteredProjects.length === 0 ? (
                     <div className="py-16">
                         {/* One way to create a project */}
-                        <div className="max-w-4xl mx-auto">
+                        <div className="max-w-xl mx-auto">
                             <div className="grid grid-cols-1 gap-6 mb-8">
                                 {/* Option: Connect GitHub Repository */}
-                                <div className="text-center p-6 rounded-lg"
+                                <div className="text-center p-4 rounded-lg"
                                      style={{backgroundColor: colors.background.card}}>
-                                    <div className="w-12 h-12 rounded-lg flex items-center justify-center mx-auto mb-4"
+                                    <div className="w-10 h-10 rounded-lg flex items-center justify-center mx-auto mb-3"
                                          style={{backgroundColor: colors.primaryBubble}}>
-                                        <Github className="h-6 w-6 text-white"/>
+                                        <Github className="h-5 w-5 text-white"/>
                                     </div>
-                                    <h3 className="text-lg font-semibold text-white mb-2">Connect GitHub Repo</h3>
-                                    <p className="text-gray-400 text-sm">Link to one of your repositories for automatic
+                                    <h3 className="text-base font-semibold text-white mb-1">Connect GitHub Repo</h3>
+                                    <p className="text-gray-400 text-xs">Link to one of your repositories for automatic
                                         updates</p>
                                 </div>
                             </div>
