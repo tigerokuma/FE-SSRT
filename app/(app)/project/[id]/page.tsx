@@ -3097,9 +3097,16 @@ export default function ProjectDetailPage() {
                                                         </div>
                                                     </div>
                                                     {jiraConnected ? (
-                                                        <Badge variant="outline" className="border-green-500/50 text-green-400 bg-green-500/10">
-                                                            Connected
-                                                        </Badge>
+                                                        <Button 
+                                                            variant="outline" 
+                                                            size="sm"
+                                                            className="border-green-500/50 text-green-400 bg-green-500/10 hover:bg-green-500/20"
+                                                            onClick={() => {
+                                                                window.location.href = `${apiBase}/jira/connect?project_id=${projectId}`
+                                                            }}
+                                                        >
+                                                            Reconnect
+                                                        </Button>
                                                     ) : (
                                                         <Button 
                                                             variant="outline" 
@@ -3136,9 +3143,16 @@ export default function ProjectDetailPage() {
                                                         </div>
                                                     </div>
                                                     {slackConnected ? (
-                                                        <Badge variant="outline" className="border-green-500/50 text-green-400 bg-green-500/10">
-                                                            Connected
-                                                        </Badge>
+                                                        <Button 
+                                                            variant="outline" 
+                                                            size="sm"
+                                                            className="border-green-500/50 text-green-400 bg-green-500/10 hover:bg-green-500/20"
+                                                            onClick={() => {
+                                                                window.location.href = `${apiBase}/slack/connect?project_id=${projectId}`
+                                                            }}
+                                                        >
+                                                            Reconnect
+                                                        </Button>
                                                     ) : (
                                                         <Button 
                                                             variant="outline" 
