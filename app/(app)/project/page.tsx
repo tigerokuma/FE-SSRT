@@ -688,8 +688,8 @@ export default function Home() {
                             const isFailed = project.status === 'failed'
                             const isReady = project.status === 'ready'
 
-                            // Use actual health score for ready projects, mock data for others
-                            const projectScore = isReady && project.health_score ? project.health_score : (isCreating ? 0 : Math.floor(Math.random() * 40) + 60)
+                            // Use actual health score if available, otherwise 0
+                            const projectScore = project.health_score ?? 0
                             const activeAlerts = project.activeAlerts ?? 0
 
                             // Debug progress data for creating projects
