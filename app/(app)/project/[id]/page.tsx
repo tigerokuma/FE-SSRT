@@ -377,6 +377,10 @@ export default function ProjectDetailPage() {
     const [sbomCompressed, setSbomCompressed] = useState(false);
     const [sbomIncludeWatchlist, setSbomIncludeWatchlist] = useState(true);
     const [isDownloadingSbom, setIsDownloadingSbom] = useState(false);
+
+    const [flatteningLoading, setFlatteningLoading] = useState(false)
+    const [flatteningError, setFlatteningError] = useState<string | null>(null)
+
     const handleTabChange = (tab: string) => {
         setCurrentTab(tab)
         router.replace(`/project/${projectId}?tab=${tab}`, {scroll: false})
@@ -551,7 +555,7 @@ export default function ProjectDetailPage() {
         const jiraConnected = searchParams.get('jira_connected')
         if (jiraConnected === 'true') {
             // Remove query param and refresh Jira data
-            router.replace(`/project/${projectId}?tab=settings&settingsTab=integrations`, { scroll: false })
+            router.replace(`/project/${projectId}?tab=settings&settingsTab=integrations`, {scroll: false})
             // Refresh Jira connection status
             if (backendUserId) {
                 fetch(`${apiBase}/jira/projects/${projectId}/status`)
@@ -570,7 +574,7 @@ export default function ProjectDetailPage() {
         const slackConnected = searchParams.get('slack_connected')
         if (slackConnected === 'true') {
             // Remove query param and refresh Slack data
-            router.replace(`/project/${projectId}?tab=settings&settingsTab=integrations`, { scroll: false })
+            router.replace(`/project/${projectId}?tab=settings&settingsTab=integrations`, {scroll: false})
             // Refresh Slack connection status
             if (backendUserId) {
                 fetch(`${apiBase}/slack/projects/${projectId}/status`)
@@ -583,6 +587,36 @@ export default function ProjectDetailPage() {
             }
         }
     }, [searchParams, router, projectId, backendUserId, apiBase])
+    useEffect(() => {
+        if (!projectId || !isUserReady) return
+
+        const controller = new AbortController()
+
+        ;(async () => {
+            try {
+                setFlatteningLoading(true)
+                setFlatteningError(null)
+
+                const res = await fetch(`${apiBase}/sbom/flattening-analysis/${projectId}`, {
+                    signal: controller.signal,
+                    cache: "no-store",
+                })
+
+                if (!res.ok) throw new Error(`Flattening fetch failed: ${res.status}`)
+
+                const data = await res.json()
+                setFlatteningAnalysisData(data)
+            } catch (e: any) {
+                if (e?.name === "AbortError") return
+                console.error("Failed to fetch flattening analysis:", e)
+                setFlatteningError("Failed to load flattening analysis")
+            } finally {
+                setFlatteningLoading(false)
+            }
+        })()
+
+        return () => controller.abort()
+    }, [projectId, isUserReady, apiBase])
 
     // Debug logging
     console.log('🔍 Project page - params:', params, 'projectId:', projectId)
@@ -739,15 +773,15 @@ export default function ProjectDetailPage() {
             }
 
             // Fetch flattening analysis from backend (includes score, recommendations, and low similarity packages)
-            try {
-                const flatteningResponse = await fetch(`${apiBase}/sbom/flattening-analysis/${projectId}`)
-                if (flatteningResponse.ok) {
-                    const flatteningData = await flatteningResponse.json()
-                    setFlatteningAnalysisData(flatteningData)
-                }
-            } catch (error) {
-                console.error('Failed to fetch flattening analysis:', error)
-            }
+            // try {
+            //     const flatteningResponse = await fetch(`${apiBase}/sbom/flattening-analysis/${projectId}`)
+            //     if (flatteningResponse.ok) {
+            //         const flatteningData = await flatteningResponse.json()
+            //         setFlatteningAnalysisData(flatteningData)
+            //     }
+            // } catch (error) {
+            //     console.error('Failed to fetch flattening analysis:', error)
+            // }
 
         } catch (err) {
             console.error('Error fetching project data:', err)
@@ -1309,7 +1343,7 @@ export default function ProjectDetailPage() {
             const suggestions: FlatteningSuggestion[] = [];
             const recommendations = flatteningAnalysisData.recommendations;
             const conflicts = flatteningAnalysisData.duplicateCount || 0;
-            
+
             // Use formatted recommendations if available (preferred)
             if (recommendations?.formatted && Array.isArray(recommendations.formatted) && recommendations.formatted.length > 0) {
                 suggestions.push(...recommendations.formatted);
@@ -1628,7 +1662,8 @@ export default function ProjectDetailPage() {
                                     <CardContent className="p-5">
                                         <div className="h-5 bg-gray-700 rounded w-40 mb-4 animate-pulse"></div>
                                         <div className="text-center mb-4">
-                                            <div className="h-8 bg-gray-700 rounded w-12 mx-auto mb-1 animate-pulse"></div>
+                                            <div
+                                                className="h-8 bg-gray-700 rounded w-12 mx-auto mb-1 animate-pulse"></div>
                                             <div className="h-3 bg-gray-700 rounded w-16 mx-auto animate-pulse"></div>
                                         </div>
                                         <div className="space-y-2">
@@ -1656,8 +1691,10 @@ export default function ProjectDetailPage() {
                                                 <div key={i} className="flex items-center gap-3 p-2">
                                                     <div className="w-8 h-8 bg-gray-700 rounded-lg animate-pulse"></div>
                                                     <div className="flex-1">
-                                                        <div className="h-4 bg-gray-700 rounded w-24 mb-1 animate-pulse"></div>
-                                                        <div className="h-3 bg-gray-700 rounded w-32 animate-pulse"></div>
+                                                        <div
+                                                            className="h-4 bg-gray-700 rounded w-24 mb-1 animate-pulse"></div>
+                                                        <div
+                                                            className="h-3 bg-gray-700 rounded w-32 animate-pulse"></div>
                                                     </div>
                                                 </div>
                                             ))}
@@ -2117,7 +2154,8 @@ export default function ProjectDetailPage() {
                                 </div>
                                 <div>
                                     <h2 className="text-xl font-bold text-white">Project Health</h2>
-                                    <p className="text-gray-400 text-sm">Based on {projectDependencies.length} dependencies</p>
+                                    <p className="text-gray-400 text-sm">Based
+                                        on {projectDependencies.length} dependencies</p>
                                 </div>
                             </div>
 
@@ -2129,12 +2167,12 @@ export default function ProjectDetailPage() {
                             }`}>
                                 {complianceData.licenseConflicts === 0 ? (
                                     <>
-                                        <ShieldCheck className="h-4 w-4 text-green-400" />
+                                        <ShieldCheck className="h-4 w-4 text-green-400"/>
                                         <span className="text-green-400 font-medium text-sm">Compliant</span>
                                     </>
                                 ) : (
                                     <>
-                                        <AlertTriangle className="h-4 w-4 text-red-400" />
+                                        <AlertTriangle className="h-4 w-4 text-red-400"/>
                                         <span className="text-red-400 font-medium text-sm">Not Compliant</span>
                                         <span className="text-gray-400 text-xs">
                                             — {complianceData.licenseConflicts} license conflict{complianceData.licenseConflicts > 1 ? 's' : ''}
@@ -2153,19 +2191,23 @@ export default function ProjectDetailPage() {
                                     <div className="space-y-2">
                                         <div className="flex items-center justify-between py-1.5">
                                             <span className="text-sm text-gray-300">Critical</span>
-                                            <span className={`font-semibold text-sm ${realVulnerabilities.critical > 0 ? 'text-red-400' : 'text-gray-500'}`}>{realVulnerabilities.critical}</span>
+                                            <span
+                                                className={`font-semibold text-sm ${realVulnerabilities.critical > 0 ? 'text-red-400' : 'text-gray-500'}`}>{realVulnerabilities.critical}</span>
                                         </div>
                                         <div className="flex items-center justify-between py-1.5">
                                             <span className="text-sm text-gray-300">High</span>
-                                            <span className={`font-semibold text-sm ${realVulnerabilities.high > 0 ? 'text-orange-400' : 'text-gray-500'}`}>{realVulnerabilities.high}</span>
+                                            <span
+                                                className={`font-semibold text-sm ${realVulnerabilities.high > 0 ? 'text-orange-400' : 'text-gray-500'}`}>{realVulnerabilities.high}</span>
                                         </div>
                                         <div className="flex items-center justify-between py-1.5">
                                             <span className="text-sm text-gray-300">Medium</span>
-                                            <span className={`font-semibold text-sm ${realVulnerabilities.medium > 0 ? 'text-yellow-400' : 'text-gray-500'}`}>{realVulnerabilities.medium}</span>
+                                            <span
+                                                className={`font-semibold text-sm ${realVulnerabilities.medium > 0 ? 'text-yellow-400' : 'text-gray-500'}`}>{realVulnerabilities.medium}</span>
                                         </div>
                                         <div className="flex items-center justify-between py-1.5">
                                             <span className="text-sm text-gray-300">Low</span>
-                                            <span className={`font-semibold text-sm ${realVulnerabilities.low > 0 ? 'text-blue-400' : 'text-gray-500'}`}>{realVulnerabilities.low}</span>
+                                            <span
+                                                className={`font-semibold text-sm ${realVulnerabilities.low > 0 ? 'text-blue-400' : 'text-gray-500'}`}>{realVulnerabilities.low}</span>
                                         </div>
                                     </div>
                                 </CardContent>
@@ -2175,46 +2217,83 @@ export default function ProjectDetailPage() {
                             <Card style={{backgroundColor: colors.background.card}}>
                                 <CardContent className="p-5">
                                     <h3 className="text-base font-semibold text-white mb-4">Dependency Flattening</h3>
-                                    <div className="text-center mb-4">
-                                        <div className={`text-3xl font-bold ${flatteningScoreColor}`}>{flatteningAnalysis.score}</div>
-                                        <div className="text-xs text-gray-400">Score</div>
-                                    </div>
-                                    <div className="space-y-2 text-sm">
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-gray-300">Duplicates</span>
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    setFlatteningDialogTab('recommendations')
-                                                    setFlatteningDialogOpen(true)
-                                                }}
-                                                className="text-white font-semibold hover:text-gray-300 transition-colors cursor-pointer"
-                                            >
-                                                {flatteningAnalysis.duplicateCount}
-                                            </button>
+
+                                    {flatteningLoading ? (
+                                        // ✅ Loading (matches your new compact layout)
+                                        <>
+                                            <div className="text-center mb-4">
+                                                <div className="h-9 w-16 mx-auto bg-gray-600 rounded animate-pulse"/>
+                                                <div
+                                                    className="h-3 w-10 mx-auto mt-2 bg-gray-700 rounded animate-pulse"/>
+                                            </div>
+
+                                            <div className="space-y-2 text-sm">
+                                                {[1, 2].map((i) => (
+                                                    <div key={i} className="flex items-center justify-between">
+                                                        <div className="h-4 w-20 bg-gray-700 rounded animate-pulse"/>
+                                                        <div className="h-4 w-8 bg-gray-600 rounded animate-pulse"/>
+                                                    </div>
+                                                ))}
+                                            </div>
+
+                                            <div className="mt-4 h-3 w-48 bg-gray-700 rounded animate-pulse"/>
+                                        </>
+                                    ) : flatteningError ? (
+                                        // ✅ Error (only this card)
+                                        <div className="text-sm text-red-400">
+                                            {flatteningError}
                                         </div>
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-gray-300">High-risk</span>
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    setFlatteningDialogTab('anchors')
-                                                    setFlatteningDialogOpen(true)
-                                                }}
-                                                className="text-white font-semibold hover:text-gray-300 transition-colors cursor-pointer"
-                                            >
-                                                {flatteningAnalysis.highRiskCount}
-                                            </button>
-                                        </div>
-                                    </div>
-                                    {flatteningAnalysis.recommendationsCount > 0 && (
-                                        <button
-                                            type="button"
-                                            onClick={() => setFlatteningDialogOpen(true)}
-                                            className="mt-4 text-xs font-medium text-gray-400 hover:text-white transition-colors"
-                                        >
-                                            View {flatteningAnalysis.recommendationsCount} recommendation{flatteningAnalysis.recommendationsCount > 1 ? 's' : ''} →
-                                        </button>
+                                    ) : (
+                                        // ✅ Loaded (your real UI)
+                                        <>
+                                            <div className="text-center mb-4">
+                                                <div className={`text-3xl font-bold ${flatteningScoreColor}`}>
+                                                    {flatteningAnalysis.score}
+                                                </div>
+                                                <div className="text-xs text-gray-400">Score</div>
+                                            </div>
+
+                                            <div className="space-y-2 text-sm">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-gray-300">Duplicates</span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setFlatteningDialogTab("recommendations")
+                                                            setFlatteningDialogOpen(true)
+                                                        }}
+                                                        className="text-white font-semibold hover:text-gray-300 transition-colors cursor-pointer"
+                                                    >
+                                                        {flatteningAnalysis.duplicateCount}
+                                                    </button>
+                                                </div>
+
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-gray-300">High-risk</span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setFlatteningDialogTab("anchors")
+                                                            setFlatteningDialogOpen(true)
+                                                        }}
+                                                        className="text-white font-semibold hover:text-gray-300 transition-colors cursor-pointer"
+                                                    >
+                                                        {flatteningAnalysis.highRiskCount}
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {flatteningAnalysis.recommendationsCount > 0 && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setFlatteningDialogOpen(true)}
+                                                    className="mt-4 text-xs font-medium text-gray-400 hover:text-white transition-colors"
+                                                >
+                                                    View {flatteningAnalysis.recommendationsCount} recommendation
+                                                    {flatteningAnalysis.recommendationsCount > 1 ? "s" : ""} →
+                                                </button>
+                                            )}
+                                        </>
                                     )}
                                 </CardContent>
                             </Card>
@@ -2234,7 +2313,7 @@ export default function ProjectDetailPage() {
                                     <div className="space-y-2">
                                         {previewAlerts.length === 0 ? (
                                             <div className="py-4 text-center">
-                                                <ShieldCheck className="h-8 w-8 text-green-400 mx-auto mb-2" />
+                                                <ShieldCheck className="h-8 w-8 text-green-400 mx-auto mb-2"/>
                                                 <p className="text-sm text-gray-400">No active alerts</p>
                                             </div>
                                         ) : (
@@ -2245,41 +2324,44 @@ export default function ProjectDetailPage() {
                                                 const isAnomaly = alertType === 'anomaly'
                                                 const isHealth = alertType === 'health'
                                                 const isLicense = alertType === 'license'
-                                                
+
                                                 // Determine color based on type/severity
-                                                const bgColor = isVuln 
+                                                const bgColor = isVuln
                                                     ? (severity === 'critical' ? 'bg-red-500/20' : severity === 'high' ? 'bg-orange-500/20' : 'bg-yellow-500/20')
                                                     : isAnomaly ? 'bg-purple-500/20'
-                                                    : isHealth ? 'bg-blue-500/20'
-                                                    : 'bg-yellow-500/20'
-                                                const iconColor = isVuln 
+                                                        : isHealth ? 'bg-blue-500/20'
+                                                            : 'bg-yellow-500/20'
+                                                const iconColor = isVuln
                                                     ? (severity === 'critical' ? 'text-red-400' : severity === 'high' ? 'text-orange-400' : 'text-yellow-400')
                                                     : isAnomaly ? 'text-purple-400'
-                                                    : isHealth ? 'text-blue-400'
-                                                    : 'text-yellow-400'
-                                                
+                                                        : isHealth ? 'text-blue-400'
+                                                            : 'text-yellow-400'
+
                                                 // Get message
                                                 let message = alert.message || ''
                                                 if (isVuln && alert.vulnerability_details?.summary) {
                                                     message = alert.vulnerability_details.summary
                                                 }
                                                 const packageName = alert.package?.name || (isHealth ? 'Health' : isLicense ? 'License' : '')
-                                                
+
                                                 return (
-                                                    <div 
+                                                    <div
                                                         key={alert.id || index}
                                                         className="flex items-center gap-3 p-2 rounded cursor-pointer hover:bg-gray-800/50 transition-colors"
                                                         onClick={() => setCurrentTab('alerts')}
                                                     >
-                                                        <div className={`w-8 h-8 rounded-lg ${bgColor} flex items-center justify-center flex-shrink-0`}>
-                                                            <AlertTriangle className={`h-4 w-4 ${iconColor}`} />
+                                                        <div
+                                                            className={`w-8 h-8 rounded-lg ${bgColor} flex items-center justify-center flex-shrink-0`}>
+                                                            <AlertTriangle className={`h-4 w-4 ${iconColor}`}/>
                                                         </div>
                                                         <div className="flex-1 min-w-0">
                                                             <div className="text-sm text-white truncate">
-                                                                {packageName && <span className="font-medium">{packageName}: </span>}
+                                                                {packageName && <span
+                                                                    className="font-medium">{packageName}: </span>}
                                                                 {alertType === 'vulnerability' ? 'Vulnerability' : alertType === 'anomaly' ? 'Anomaly' : alertType === 'health' ? 'Health Change' : 'License Issue'}
                                                             </div>
-                                                            <div className="text-xs text-gray-400 truncate">{message || 'View details'}</div>
+                                                            <div
+                                                                className="text-xs text-gray-400 truncate">{message || 'View details'}</div>
                                                         </div>
                                                     </div>
                                                 )
@@ -3090,15 +3172,15 @@ export default function ProjectDetailPage() {
                                                         <div>
                                                             <div className="text-white font-medium">Jira</div>
                                                             <div className="text-xs text-gray-400">
-                                                                {jiraConnected && jiraProjectKey 
-                                                                    ? `Connected to ${jiraProjectKey}` 
+                                                                {jiraConnected && jiraProjectKey
+                                                                    ? `Connected to ${jiraProjectKey}`
                                                                     : 'Project management'}
                                                             </div>
                                                         </div>
                                                     </div>
                                                     {jiraConnected ? (
-                                                        <Button 
-                                                            variant="outline" 
+                                                        <Button
+                                                            variant="outline"
                                                             size="sm"
                                                             className="border-green-500/50 text-green-400 bg-green-500/10 hover:bg-green-500/20"
                                                             onClick={() => {
@@ -3108,8 +3190,8 @@ export default function ProjectDetailPage() {
                                                             Reconnect
                                                         </Button>
                                                     ) : (
-                                                        <Button 
-                                                            variant="outline" 
+                                                        <Button
+                                                            variant="outline"
                                                             size="sm"
                                                             className="border-gray-600 text-gray-300 hover:bg-gray-700"
                                                             onClick={() => {
@@ -3136,15 +3218,15 @@ export default function ProjectDetailPage() {
                                                         <div>
                                                             <div className="text-white font-medium">Slack</div>
                                                             <div className="text-xs text-gray-400">
-                                                                {slackConnected && slackChannelId 
-                                                                    ? `Connected to ${slackChannelId}` 
+                                                                {slackConnected && slackChannelId
+                                                                    ? `Connected to ${slackChannelId}`
                                                                     : 'Team communication'}
                                                             </div>
                                                         </div>
                                                     </div>
                                                     {slackConnected ? (
-                                                        <Button 
-                                                            variant="outline" 
+                                                        <Button
+                                                            variant="outline"
                                                             size="sm"
                                                             className="border-green-500/50 text-green-400 bg-green-500/10 hover:bg-green-500/20"
                                                             onClick={() => {
@@ -3154,8 +3236,8 @@ export default function ProjectDetailPage() {
                                                             Reconnect
                                                         </Button>
                                                     ) : (
-                                                        <Button 
-                                                            variant="outline" 
+                                                        <Button
+                                                            variant="outline"
                                                             size="sm"
                                                             className="border-gray-600 text-gray-300 hover:bg-gray-700"
                                                             onClick={() => {
@@ -3988,7 +4070,8 @@ export default function ProjectDetailPage() {
                                         </svg>
                                         <div className="absolute inset-0 flex items-center justify-center">
                                             <div className="text-center">
-                                                <div className="text-xl font-bold text-white">{selectedDependency.riskScore}</div>
+                                                <div
+                                                    className="text-xl font-bold text-white">{selectedDependency.riskScore}</div>
                                                 <div className="text-[10px] text-gray-500">Score</div>
                                             </div>
                                         </div>
@@ -3997,25 +4080,40 @@ export default function ProjectDetailPage() {
 
                                 {/* Metrics Grid - Compact */}
                                 <div className="flex-1 grid grid-cols-2 gap-2">
-                                    <div className="flex items-center justify-between px-3 py-2 rounded-lg border border-gray-800" style={{backgroundColor: colors.background.card}}>
+                                    <div
+                                        className="flex items-center justify-between px-3 py-2 rounded-lg border border-gray-800"
+                                        style={{backgroundColor: colors.background.card}}>
                                         <span className="text-xs text-gray-400">Activity</span>
-                                        <span className="text-sm font-medium text-white">{selectedDependency.activityScore}</span>
+                                        <span
+                                            className="text-sm font-medium text-white">{selectedDependency.activityScore}</span>
                                     </div>
-                                    <div className="flex items-center justify-between px-3 py-2 rounded-lg border border-gray-800" style={{backgroundColor: colors.background.card}}>
+                                    <div
+                                        className="flex items-center justify-between px-3 py-2 rounded-lg border border-gray-800"
+                                        style={{backgroundColor: colors.background.card}}>
                                         <span className="text-xs text-gray-400">Bus Factor</span>
-                                        <span className="text-sm font-medium text-white">{selectedDependency.busFactor}</span>
+                                        <span
+                                            className="text-sm font-medium text-white">{selectedDependency.busFactor}</span>
                                     </div>
-                                    <div className="flex items-center justify-between px-3 py-2 rounded-lg border border-gray-800" style={{backgroundColor: colors.background.card}}>
+                                    <div
+                                        className="flex items-center justify-between px-3 py-2 rounded-lg border border-gray-800"
+                                        style={{backgroundColor: colors.background.card}}>
                                         <span className="text-xs text-gray-400">Vulnerability</span>
-                                        <span className="text-sm font-medium text-white">{selectedDependency.vulnerabilities}</span>
+                                        <span
+                                            className="text-sm font-medium text-white">{selectedDependency.vulnerabilities}</span>
                                     </div>
-                                    <div className="flex items-center justify-between px-3 py-2 rounded-lg border border-gray-800" style={{backgroundColor: colors.background.card}}>
+                                    <div
+                                        className="flex items-center justify-between px-3 py-2 rounded-lg border border-gray-800"
+                                        style={{backgroundColor: colors.background.card}}>
                                         <span className="text-xs text-gray-400">License</span>
-                                        <span className="text-sm font-medium text-white">{selectedDependency.licenseScore || 'N/A'}</span>
+                                        <span
+                                            className="text-sm font-medium text-white">{selectedDependency.licenseScore || 'N/A'}</span>
                                     </div>
-                                    <div className="col-span-2 flex items-center justify-between px-3 py-2 rounded-lg border border-gray-800" style={{backgroundColor: colors.background.card}}>
+                                    <div
+                                        className="col-span-2 flex items-center justify-between px-3 py-2 rounded-lg border border-gray-800"
+                                        style={{backgroundColor: colors.background.card}}>
                                         <span className="text-xs text-gray-400">Health Score</span>
-                                        <span className="text-sm font-medium text-white">{selectedDependency.healthScore}</span>
+                                        <span
+                                            className="text-sm font-medium text-white">{selectedDependency.healthScore}</span>
                                     </div>
                                 </div>
                             </div>
@@ -4023,7 +4121,8 @@ export default function ProjectDetailPage() {
                             {/* Vulnerabilities & License - Inline Row */}
                             <div className="grid grid-cols-2 gap-4">
                                 {/* Vulnerabilities */}
-                                <div className="p-3 rounded-lg border border-gray-800" style={{backgroundColor: colors.background.card}}>
+                                <div className="p-3 rounded-lg border border-gray-800"
+                                     style={{backgroundColor: colors.background.card}}>
                                     <div className="text-xs font-medium text-gray-400 mb-2">Vulnerabilities</div>
                                     <div className="flex items-center gap-2">
                                         <div className="w-2 h-2 rounded-full bg-green-500"></div>
@@ -4036,21 +4135,24 @@ export default function ProjectDetailPage() {
                                 </div>
 
                                 {/* License */}
-                                <div className="p-3 rounded-lg border border-gray-800" style={{backgroundColor: colors.background.card}}>
+                                <div className="p-3 rounded-lg border border-gray-800"
+                                     style={{backgroundColor: colors.background.card}}>
                                     <div className="text-xs font-medium text-gray-400 mb-2">License Information</div>
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-2">
-                                            <span className="px-2 py-1 rounded text-xs font-semibold bg-green-500/20 text-green-400">{selectedDependency.license}</span>
-                                            <span className="text-sm text-white">{selectedDependency.license} License</span>
+                                            <span
+                                                className="px-2 py-1 rounded text-xs font-semibold bg-green-500/20 text-green-400">{selectedDependency.license}</span>
+                                            <span
+                                                className="text-sm text-white">{selectedDependency.license} License</span>
                                         </div>
                                         {(() => {
                                             const hasProjectLicense = selectedDependency.projectLicense && selectedDependency.projectLicense !== 'unlicensed' && selectedDependency.projectLicense !== 'none' && selectedDependency.projectLicense !== null && selectedDependency.projectLicense !== undefined
                                             if (!hasProjectLicense) return null
                                             const licenseCompatibility = checkLicenseCompatibility(selectedDependency.projectLicense, selectedDependency.license)
                                             if (licenseCompatibility.isCompatible) {
-                                                return <Shield className="h-4 w-4 text-green-500" />
+                                                return <Shield className="h-4 w-4 text-green-500"/>
                                             } else {
-                                                return <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                                                return <AlertTriangle className="h-4 w-4 text-yellow-500"/>
                                             }
                                         })()}
                                     </div>
@@ -4084,7 +4186,8 @@ export default function ProjectDetailPage() {
                                 {/* Timeline */}
                                 <div className="space-y-3">
                                     <div className="flex items-start gap-2.5">
-                                        <div className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                        <div
+                                            className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center flex-shrink-0 mt-0.5">
                                             <User className="h-3 w-3 text-gray-400"/>
                                         </div>
                                         <div className="flex-1 min-w-0">
@@ -4102,15 +4205,18 @@ export default function ProjectDetailPage() {
                                     {selectedDependency.comments && selectedDependency.comments.length > 0 && (
                                         selectedDependency.comments.map((comment: any, index: number) => (
                                             <div key={index} className="flex items-start gap-2.5">
-                                                <div className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                                <div
+                                                    className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center flex-shrink-0 mt-0.5">
                                                     <MessageSquare className="h-3 w-3 text-gray-400"/>
                                                 </div>
                                                 <div className="flex-1 min-w-0">
                                                     <div className="text-sm">
-                                                        <span className="font-medium text-white">{comment.user?.name || comment.user?.email || comment.user_id}</span>
+                                                        <span
+                                                            className="font-medium text-white">{comment.user?.name || comment.user?.email || comment.user_id}</span>
                                                         <span className="text-gray-400"> commented</span>
                                                     </div>
-                                                    <div className="text-sm text-gray-300 mt-0.5">{comment.comment}</div>
+                                                    <div
+                                                        className="text-sm text-gray-300 mt-0.5">{comment.comment}</div>
                                                     <div className="text-xs text-gray-500">
                                                         {comment.created_at ? formatRelativeDate(comment.created_at) : 'Unknown date'}
                                                     </div>
@@ -4122,12 +4228,14 @@ export default function ProjectDetailPage() {
                                     {/* Approval event */}
                                     {selectedDependency.status === 'approved' && (
                                         <div className="flex items-start gap-2.5">
-                                            <div className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                            <div
+                                                className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
                                                 <Check className="h-3 w-3 text-green-400"/>
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <div className="text-sm">
-                                                    <span className="font-medium text-white">{selectedDependency.approvedBy || 'Someone'}</span>
+                                                    <span
+                                                        className="font-medium text-white">{selectedDependency.approvedBy || 'Someone'}</span>
                                                     <span className="text-gray-400"> approved this dependency</span>
                                                 </div>
                                                 <div className="text-xs text-gray-500">
@@ -4140,12 +4248,14 @@ export default function ProjectDetailPage() {
                                     {/* Rejection event */}
                                     {selectedDependency.status === 'rejected' && (
                                         <div className="flex items-start gap-2.5">
-                                            <div className="w-6 h-6 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                            <div
+                                                className="w-6 h-6 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
                                                 <Trash2 className="h-3 w-3 text-red-400"/>
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <div className="text-sm">
-                                                    <span className="font-medium text-white">{selectedDependency.rejectedBy || 'Someone'}</span>
+                                                    <span
+                                                        className="font-medium text-white">{selectedDependency.rejectedBy || 'Someone'}</span>
                                                     <span className="text-gray-400"> rejected this dependency</span>
                                                 </div>
                                                 <div className="text-xs text-gray-500">
@@ -4198,12 +4308,23 @@ export default function ProjectDetailPage() {
                                                                     console.error('Error refreshing watchlist data:', error)
                                                                 }
                                                                 setShowDependencyReviewDialog(false)
-                                                                toast({ title: "Dependency Approved", description: `${selectedDependency.name} has been approved.` })
+                                                                toast({
+                                                                    title: "Dependency Approved",
+                                                                    description: `${selectedDependency.name} has been approved.`
+                                                                })
                                                             } else {
-                                                                toast({ title: "Error", description: "Failed to approve dependency.", variant: "destructive" })
+                                                                toast({
+                                                                    title: "Error",
+                                                                    description: "Failed to approve dependency.",
+                                                                    variant: "destructive"
+                                                                })
                                                             }
                                                         } catch (error) {
-                                                            toast({ title: "Error", description: "Failed to approve dependency.", variant: "destructive" })
+                                                            toast({
+                                                                title: "Error",
+                                                                description: "Failed to approve dependency.",
+                                                                variant: "destructive"
+                                                            })
                                                         }
                                                     }}
                                                 >
@@ -4241,12 +4362,23 @@ export default function ProjectDetailPage() {
                                                                     console.error('Error refreshing watchlist data:', error)
                                                                 }
                                                                 setShowDependencyReviewDialog(false)
-                                                                toast({ title: "Dependency Rejected", description: `${selectedDependency.name} has been rejected.` })
+                                                                toast({
+                                                                    title: "Dependency Rejected",
+                                                                    description: `${selectedDependency.name} has been rejected.`
+                                                                })
                                                             } else {
-                                                                toast({ title: "Error", description: "Failed to reject dependency.", variant: "destructive" })
+                                                                toast({
+                                                                    title: "Error",
+                                                                    description: "Failed to reject dependency.",
+                                                                    variant: "destructive"
+                                                                })
                                                             }
                                                         } catch (error) {
-                                                            toast({ title: "Error", description: "Failed to reject dependency.", variant: "destructive" })
+                                                            toast({
+                                                                title: "Error",
+                                                                description: "Failed to reject dependency.",
+                                                                variant: "destructive"
+                                                            })
                                                         }
                                                     }}
                                                 >
@@ -4263,7 +4395,11 @@ export default function ProjectDetailPage() {
                                                     const textarea = document.querySelector('textarea[placeholder="Add a comment..."]') as HTMLTextAreaElement
                                                     const comment = textarea?.value?.trim()
                                                     if (!comment) {
-                                                        toast({ title: "Error", description: "Please enter a comment.", variant: "destructive" })
+                                                        toast({
+                                                            title: "Error",
+                                                            description: "Please enter a comment.",
+                                                            variant: "destructive"
+                                                        })
                                                         return
                                                     }
                                                     setIsSubmittingComment(true)
@@ -4271,11 +4407,17 @@ export default function ProjectDetailPage() {
                                                         const response = await fetch(`${apiBase}/projects/watchlist/${selectedDependency.id}/comment`, {
                                                             method: 'POST',
                                                             headers: {'Content-Type': 'application/json'},
-                                                            body: JSON.stringify({ userId: backendUserId, comment: comment })
+                                                            body: JSON.stringify({
+                                                                userId: backendUserId,
+                                                                comment: comment
+                                                            })
                                                         })
                                                         if (response.status >= 200 && response.status < 300) {
                                                             textarea.value = ''
-                                                            toast({ title: "Comment Added", description: "Your comment has been added." })
+                                                            toast({
+                                                                title: "Comment Added",
+                                                                description: "Your comment has been added."
+                                                            })
                                                             const newComment = {
                                                                 user_id: backendUserId,
                                                                 user: {
@@ -4292,22 +4434,33 @@ export default function ProjectDetailPage() {
                                                             setProjectWatchlist((prev: any[]) =>
                                                                 prev.map((item: any) =>
                                                                     item.id === selectedDependency.id
-                                                                        ? { ...item, comments: [...(item.comments || []), newComment] }
+                                                                        ? {
+                                                                            ...item,
+                                                                            comments: [...(item.comments || []), newComment]
+                                                                        }
                                                                         : item
                                                                 )
                                                             )
                                                         } else {
-                                                            toast({ title: "Error", description: `Failed to add comment. Status: ${response.status}`, variant: "destructive" })
+                                                            toast({
+                                                                title: "Error",
+                                                                description: `Failed to add comment. Status: ${response.status}`,
+                                                                variant: "destructive"
+                                                            })
                                                         }
                                                     } catch (error) {
-                                                        toast({ title: "Error", description: "Failed to add comment.", variant: "destructive" })
+                                                        toast({
+                                                            title: "Error",
+                                                            description: "Failed to add comment.",
+                                                            variant: "destructive"
+                                                        })
                                                     } finally {
                                                         setIsSubmittingComment(false)
                                                     }
                                                 }}
                                             >
                                                 {isSubmittingComment ? (
-                                                    <RefreshCw className="h-3 w-3 animate-spin" />
+                                                    <RefreshCw className="h-3 w-3 animate-spin"/>
                                                 ) : (
                                                     'Comment'
                                                 )}
@@ -4386,18 +4539,31 @@ export default function ProjectDetailPage() {
             </Dialog>
 
             <Dialog open={flatteningDialogOpen} onOpenChange={setFlatteningDialogOpen}>
-                <DialogContent className="max-w-6xl h-[700px] border border-gray-800 text-gray-200 overflow-hidden flex flex-col" style={{left: 'calc(280px + (100vw - 280px) / 2)', transform: 'translateX(-50%) translateY(-50%)', backgroundColor: 'rgb(12, 12, 12)'}}>
+                <DialogContent
+                    className="max-w-6xl h-[700px] border border-gray-800 text-gray-200 overflow-hidden flex flex-col"
+                    style={{
+                        left: 'calc(280px + (100vw - 280px) / 2)',
+                        transform: 'translateX(-50%) translateY(-50%)',
+                        backgroundColor: 'rgb(12, 12, 12)'
+                    }}>
                     <DialogHeader className="flex-shrink-0">
                         <DialogTitle className="text-white">Dependency Flattening Recommendations</DialogTitle>
                         <p className="text-xs text-gray-500">Provides recommendations for resolving dependency version
                             conflicts and consolidating transitive packages.</p>
                     </DialogHeader>
-                    <Tabs value={flatteningDialogTab} onValueChange={(value) => setFlatteningDialogTab(value as 'recommendations' | 'anchors')} className="w-full flex-1 flex flex-col min-h-0 overflow-hidden">
-                        <TabsList className="grid w-full grid-cols-2 flex-shrink-0" style={{backgroundColor: 'rgb(18, 18, 18)'}}>
-                            <TabsTrigger value="recommendations" className="data-[state=active]:text-white text-gray-400" style={{backgroundColor: 'transparent'}} data-state-active-style={{backgroundColor: 'rgb(26, 26, 26)'}}>
+                    <Tabs value={flatteningDialogTab}
+                          onValueChange={(value) => setFlatteningDialogTab(value as 'recommendations' | 'anchors')}
+                          className="w-full flex-1 flex flex-col min-h-0 overflow-hidden">
+                        <TabsList className="grid w-full grid-cols-2 flex-shrink-0"
+                                  style={{backgroundColor: 'rgb(18, 18, 18)'}}>
+                            <TabsTrigger value="recommendations"
+                                         className="data-[state=active]:text-white text-gray-400"
+                                         style={{backgroundColor: 'transparent'}}
+                                         data-state-active-style={{backgroundColor: 'rgb(26, 26, 26)'}}>
                                 Recommendations & Duplicates
                             </TabsTrigger>
-                            <TabsTrigger value="anchors" className="data-[state=active]:text-white text-gray-400" style={{backgroundColor: 'transparent'}}>
+                            <TabsTrigger value="anchors" className="data-[state=active]:text-white text-gray-400"
+                                         style={{backgroundColor: 'transparent'}}>
                                 High-Risk Anchors
                             </TabsTrigger>
                         </TabsList>
@@ -4406,12 +4572,12 @@ export default function ProjectDetailPage() {
                                 <div className="space-y-4">
                                     {[1, 2, 3].map((i) => (
                                         <div key={i} className="border border-gray-800 rounded-lg p-4 bg-gray-900">
-                                            <Skeleton className="h-5 w-3/4 mb-2 bg-gray-700" />
-                                            <Skeleton className="h-4 w-full mb-1 bg-gray-700" />
-                                            <Skeleton className="h-4 w-5/6 mb-3 bg-gray-700" />
+                                            <Skeleton className="h-5 w-3/4 mb-2 bg-gray-700"/>
+                                            <Skeleton className="h-4 w-full mb-1 bg-gray-700"/>
+                                            <Skeleton className="h-4 w-5/6 mb-3 bg-gray-700"/>
                                             <div className="flex gap-2 mt-3">
-                                                <Skeleton className="h-8 w-24 bg-gray-700" />
-                                                <Skeleton className="h-8 w-24 bg-gray-700" />
+                                                <Skeleton className="h-8 w-24 bg-gray-700"/>
+                                                <Skeleton className="h-8 w-24 bg-gray-700"/>
                                             </div>
                                         </div>
                                     ))}
@@ -4424,16 +4590,16 @@ export default function ProjectDetailPage() {
                                                 // Show all suggestions that have upgrade info (duplicates/upgrades)
                                                 const hasUpgradeInfo = 'packageName' in s && 'oldVersion' in s && 'newVersion' in s;
                                                 if (hasUpgradeInfo) return true;
-                                                
+
                                                 // Also show high-risk anchors that are also duplicates (check if there's a separate upgrade suggestion)
                                                 const isHighRiskAnchor = s.title?.includes("High-risk anchor") || s.title?.includes("high-risk anchor");
                                                 if (isHighRiskAnchor) {
                                                     // Extract package name from high-risk anchor suggestion
-                                                    const anchorPackageName = s.dependencies?.[0]?.split('@')[0] || 
-                                                                              s.title?.replace('High-risk anchor:', '').trim() || '';
+                                                    const anchorPackageName = s.dependencies?.[0]?.split('@')[0] ||
+                                                        s.title?.replace('High-risk anchor:', '').trim() || '';
                                                     // Check if there's a separate upgrade suggestion for this package
-                                                    return flatteningAnalysis.suggestions.some(upgradeSuggestion => 
-                                                        'packageName' in upgradeSuggestion && 
+                                                    return flatteningAnalysis.suggestions.some(upgradeSuggestion =>
+                                                        'packageName' in upgradeSuggestion &&
                                                         upgradeSuggestion.packageName?.toLowerCase() === anchorPackageName.toLowerCase() &&
                                                         'oldVersion' in upgradeSuggestion &&
                                                         'newVersion' in upgradeSuggestion
@@ -4447,9 +4613,13 @@ export default function ProjectDetailPage() {
                                                     suggestion={suggestion}
                                                     projectId={projectId}
                                                     apiBase={apiBase}
-                                                    allRecommendations={flatteningAnalysis.suggestions.filter((s): s is FlatteningSuggestion & { packageName: string; oldVersion: string; newVersion: string } => 
-                                                        'packageName' in s && 'oldVersion' in s && 'newVersion' in s && 
-                                                        !!s.packageName && !!s.oldVersion && !!s.newVersion
+                                                    allRecommendations={flatteningAnalysis.suggestions.filter((s): s is FlatteningSuggestion & {
+                                                            packageName: string;
+                                                            oldVersion: string;
+                                                            newVersion: string
+                                                        } =>
+                                                            'packageName' in s && 'oldVersion' in s && 'newVersion' in s &&
+                                                            !!s.packageName && !!s.oldVersion && !!s.newVersion
                                                     )}
                                                 />
                                             ))}
@@ -4458,10 +4628,10 @@ export default function ProjectDetailPage() {
                                             if (hasUpgradeInfo) return true;
                                             const isHighRiskAnchor = s.title?.includes("High-risk anchor") || s.title?.includes("high-risk anchor");
                                             if (isHighRiskAnchor) {
-                                                const anchorPackageName = s.dependencies?.[0]?.split('@')[0] || 
-                                                                          s.title?.replace('High-risk anchor:', '').trim() || '';
-                                                return flatteningAnalysis.suggestions.some(upgradeSuggestion => 
-                                                    'packageName' in upgradeSuggestion && 
+                                                const anchorPackageName = s.dependencies?.[0]?.split('@')[0] ||
+                                                    s.title?.replace('High-risk anchor:', '').trim() || '';
+                                                return flatteningAnalysis.suggestions.some(upgradeSuggestion =>
+                                                    'packageName' in upgradeSuggestion &&
                                                     upgradeSuggestion.packageName?.toLowerCase() === anchorPackageName.toLowerCase() &&
                                                     'oldVersion' in upgradeSuggestion &&
                                                     'newVersion' in upgradeSuggestion
@@ -4482,12 +4652,12 @@ export default function ProjectDetailPage() {
                                 <div className="space-y-4">
                                     {[1, 2, 3].map((i) => (
                                         <div key={i} className="border border-gray-800 rounded-lg p-4 bg-gray-900">
-                                            <Skeleton className="h-5 w-3/4 mb-2 bg-gray-700" />
-                                            <Skeleton className="h-4 w-full mb-1 bg-gray-700" />
-                                            <Skeleton className="h-4 w-5/6 mb-3 bg-gray-700" />
+                                            <Skeleton className="h-5 w-3/4 mb-2 bg-gray-700"/>
+                                            <Skeleton className="h-4 w-full mb-1 bg-gray-700"/>
+                                            <Skeleton className="h-4 w-5/6 mb-3 bg-gray-700"/>
                                             <div className="flex gap-2 mt-3">
-                                                <Skeleton className="h-8 w-24 bg-gray-700" />
-                                                <Skeleton className="h-8 w-24 bg-gray-700" />
+                                                <Skeleton className="h-8 w-24 bg-gray-700"/>
+                                                <Skeleton className="h-8 w-24 bg-gray-700"/>
                                             </div>
                                         </div>
                                     ))}
@@ -4503,9 +4673,13 @@ export default function ProjectDetailPage() {
                                                     suggestion={suggestion}
                                                     projectId={projectId}
                                                     apiBase={apiBase}
-                                                    allRecommendations={flatteningAnalysis.suggestions.filter((s): s is FlatteningSuggestion & { packageName: string; oldVersion: string; newVersion: string } => 
-                                                        'packageName' in s && 'oldVersion' in s && 'newVersion' in s && 
-                                                        !!s.packageName && !!s.oldVersion && !!s.newVersion
+                                                    allRecommendations={flatteningAnalysis.suggestions.filter((s): s is FlatteningSuggestion & {
+                                                            packageName: string;
+                                                            oldVersion: string;
+                                                            newVersion: string
+                                                        } =>
+                                                            'packageName' in s && 'oldVersion' in s && 'newVersion' in s &&
+                                                            !!s.packageName && !!s.oldVersion && !!s.newVersion
                                                     )}
                                                 />
                                             ))}
