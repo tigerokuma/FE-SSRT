@@ -368,6 +368,10 @@ export default function ProjectDetailPage() {
     const [sbomCompressed, setSbomCompressed] = useState(false);
     const [sbomIncludeWatchlist, setSbomIncludeWatchlist] = useState(true);
     const [isDownloadingSbom, setIsDownloadingSbom] = useState(false);
+
+    const [flatteningLoading, setFlatteningLoading] = useState(false)
+    const [flatteningError, setFlatteningError] = useState<string | null>(null)
+
     const handleTabChange = (tab: string) => {
         setCurrentTab(tab)
         router.replace(`/project/${projectId}?tab=${tab}`, {scroll: false})
@@ -562,7 +566,7 @@ export default function ProjectDetailPage() {
         const jiraConnected = searchParams.get('jira_connected')
         if (jiraConnected === 'true') {
             // Remove query param and refresh Jira data
-            router.replace(`/project/${projectId}?tab=settings&settingsTab=integrations`, { scroll: false })
+            router.replace(`/project/${projectId}?tab=settings&settingsTab=integrations`, {scroll: false})
             // Refresh Jira connection status
             if (backendUserId) {
                 fetch(`${apiBase}/jira/projects/${projectId}/status`)
@@ -581,7 +585,7 @@ export default function ProjectDetailPage() {
         const slackConnected = searchParams.get('slack_connected')
         if (slackConnected === 'true') {
             // Remove query param and refresh Slack data
-            router.replace(`/project/${projectId}?tab=settings&settingsTab=integrations`, { scroll: false })
+            router.replace(`/project/${projectId}?tab=settings&settingsTab=integrations`, {scroll: false})
             // Refresh Slack connection status
             if (backendUserId) {
                 fetch(`${apiBase}/slack/projects/${projectId}/status`)
@@ -594,6 +598,36 @@ export default function ProjectDetailPage() {
             }
         }
     }, [searchParams, router, projectId, backendUserId, apiBase])
+    useEffect(() => {
+        if (!projectId || !isUserReady) return
+
+        const controller = new AbortController()
+
+        ;(async () => {
+            try {
+                setFlatteningLoading(true)
+                setFlatteningError(null)
+
+                const res = await fetch(`${apiBase}/sbom/flattening-analysis/${projectId}`, {
+                    signal: controller.signal,
+                    cache: "no-store",
+                })
+
+                if (!res.ok) throw new Error(`Flattening fetch failed: ${res.status}`)
+
+                const data = await res.json()
+                setFlatteningAnalysisData(data)
+            } catch (e: any) {
+                if (e?.name === "AbortError") return
+                console.error("Failed to fetch flattening analysis:", e)
+                setFlatteningError("Failed to load flattening analysis")
+            } finally {
+                setFlatteningLoading(false)
+            }
+        })()
+
+        return () => controller.abort()
+    }, [projectId, isUserReady, apiBase])
 
     // Debug logging
     console.log('🔍 Project page - params:', params, 'projectId:', projectId)
@@ -710,15 +744,15 @@ export default function ProjectDetailPage() {
             }
 
             // Fetch flattening analysis from backend (includes score, recommendations, and low similarity packages)
-            try {
-                const flatteningResponse = await fetch(`${apiBase}/sbom/flattening-analysis/${projectId}`)
-                if (flatteningResponse.ok) {
-                    const flatteningData = await flatteningResponse.json()
-                    setFlatteningAnalysisData(flatteningData)
-                }
-            } catch (error) {
-                console.error('Failed to fetch flattening analysis:', error)
-            }
+            // try {
+            //     const flatteningResponse = await fetch(`${apiBase}/sbom/flattening-analysis/${projectId}`)
+            //     if (flatteningResponse.ok) {
+            //         const flatteningData = await flatteningResponse.json()
+            //         setFlatteningAnalysisData(flatteningData)
+            //     }
+            // } catch (error) {
+            //     console.error('Failed to fetch flattening analysis:', error)
+            // }
 
         } catch (err) {
             console.error('Error fetching project data:', err)
@@ -1280,7 +1314,7 @@ export default function ProjectDetailPage() {
             const suggestions: FlatteningSuggestion[] = [];
             const recommendations = flatteningAnalysisData.recommendations;
             const conflicts = flatteningAnalysisData.duplicateCount || 0;
-            
+
             // Use formatted recommendations if available (preferred)
             if (recommendations?.formatted && Array.isArray(recommendations.formatted) && recommendations.formatted.length > 0) {
                 suggestions.push(...recommendations.formatted);
@@ -2322,66 +2356,116 @@ export default function ProjectDetailPage() {
                             </Card>
 
                             {/* Dependency Flattening */}
-                            <Card
-                                 style={{backgroundColor: colors.background.card}}
-                             >
-                                 <CardHeader>
-                                     <CardTitle className="text-white">Dependency Flattening</CardTitle>
-                                 </CardHeader>
-                                 <CardContent>
-                                     <div className="space-y-4">
-                                         <div className="text-center">
-                                             <div className={`text-3xl font-bold ${flatteningScoreColor}`}>{flatteningAnalysis.score}</div>
-                                             <div className="text-sm text-gray-400">Flattening score</div>
-                                         </div>
+                            <Card style={{backgroundColor: colors.background.card}}>
+                                <CardHeader>
+                                    <CardTitle className="text-white">Dependency Flattening</CardTitle>
+                                </CardHeader>
 
-                                         <div className="space-y-3 text-sm text-gray-300">
-                                             <div className="flex items-center justify-between">
-                                                 <div className="flex items-center gap-2">
-                                                     <div className="w-3 h-3 rounded-full bg-indigo-400"></div>
-                                                     <span>Duplicate packages</span>
-                                                 </div>
-                                                 <button
-                                                     type="button"
-                                                     onClick={() => {
-                                                         setFlatteningDialogTab('recommendations')
-                                                         setFlatteningDialogOpen(true)
-                                                     }}
-                                                     className="text-white font-semibold hover:text-indigo-300 transition-colors cursor-pointer"
-                                                 >
-                                                     {flatteningAnalysis.duplicateCount}
-                                                 </button>
-                                             </div>
-                                             <div className="flex items-center justify-between">
-                                                 <div className="flex items-center gap-2">
-                                                     <div className="w-3 h-3 rounded-full bg-purple-400"></div>
-                                                     <span>High-risk anchors</span>
-                                                 </div>
-                                                 <button
-                                                     type="button"
-                                                     onClick={() => {
-                                                         setFlatteningDialogTab('anchors')
-                                                         setFlatteningDialogOpen(true)
-                                                     }}
-                                                     className="text-white font-semibold hover:text-purple-300 transition-colors cursor-pointer"
-                                                 >
-                                                     {flatteningAnalysis.highRiskCount}
-                                                 </button>
-                                             </div>
-                                         </div>
+                                <CardContent>
+                                    {flatteningLoading ? (
+                                        // ✅ Loading UI (only this card)
+                                        <div className="space-y-4">
+                                            <div className="text-center">
+                                                <div className="h-9 w-16 mx-auto bg-gray-600 rounded animate-pulse"/>
+                                                <div
+                                                    className="h-4 w-28 mx-auto mt-2 bg-gray-700 rounded animate-pulse"/>
+                                            </div>
 
-                                        <div className="flex justify-end">
+                                            <div className="space-y-3 text-sm">
+                                                {[1, 2].map((i) => (
+                                                    <div key={i} className="flex items-center justify-between">
+                                                        <div className="flex items-center gap-2">
+                                                            <div
+                                                                className="w-3 h-3 rounded-full bg-gray-600 animate-pulse"/>
+                                                            <div
+                                                                className="h-4 w-36 bg-gray-700 rounded animate-pulse"/>
+                                                        </div>
+                                                        <div className="h-4 w-8 bg-gray-600 rounded animate-pulse"/>
+                                                    </div>
+                                                ))}
+                                            </div>
+
+                                            <div className="flex justify-end">
+                                                <div className="h-3 w-28 bg-gray-700 rounded animate-pulse"/>
+                                            </div>
+                                        </div>
+                                    ) : flatteningError ? (
+                                        // ✅ Error UI (only this card)
+                                        <div className="space-y-2">
+                                            <div className="text-sm text-red-400">{flatteningError}</div>
                                             <button
                                                 type="button"
-                                                onClick={() => setFlatteningDialogOpen(true)}
+                                                onClick={() => {
+                                                    // optional: trigger re-fetch by calling your flattening fetch fn
+                                                    // or dispatch an event / set a refetch state
+                                                }}
                                                 className="text-xs font-semibold text-indigo-300 underline underline-offset-4 hover:text-indigo-200"
                                             >
-                                                Recommendations{flatteningAnalysis.recommendationsCount > 0 ? ` (${flatteningAnalysis.recommendationsCount})` : ''}
+                                                Retry
                                             </button>
                                         </div>
-                                     </div>
-                                 </CardContent>
-                             </Card>
+                                    ) : (
+                                        // ✅ Your existing UI (loaded)
+                                        <div className="space-y-4">
+                                            <div className="text-center">
+                                                <div className={`text-3xl font-bold ${flatteningScoreColor}`}>
+                                                    {flatteningAnalysis.score}
+                                                </div>
+                                                <div className="text-sm text-gray-400">Flattening score</div>
+                                            </div>
+
+                                            <div className="space-y-3 text-sm text-gray-300">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-3 h-3 rounded-full bg-indigo-400"></div>
+                                                        <span>Duplicate packages</span>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setFlatteningDialogTab("recommendations")
+                                                            setFlatteningDialogOpen(true)
+                                                        }}
+                                                        className="text-white font-semibold hover:text-indigo-300 transition-colors cursor-pointer"
+                                                    >
+                                                        {flatteningAnalysis.duplicateCount}
+                                                    </button>
+                                                </div>
+
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-3 h-3 rounded-full bg-purple-400"></div>
+                                                        <span>High-risk anchors</span>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setFlatteningDialogTab("anchors")
+                                                            setFlatteningDialogOpen(true)
+                                                        }}
+                                                        className="text-white font-semibold hover:text-purple-300 transition-colors cursor-pointer"
+                                                    >
+                                                        {flatteningAnalysis.highRiskCount}
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex justify-end">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setFlatteningDialogOpen(true)}
+                                                    className="text-xs font-semibold text-indigo-300 underline underline-offset-4 hover:text-indigo-200"
+                                                >
+                                                    Recommendations
+                                                    {flatteningAnalysis.recommendationsCount > 0
+                                                        ? ` (${flatteningAnalysis.recommendationsCount})`
+                                                        : ""}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
 
                             {/* License Compliance */}
                             <Card style={{backgroundColor: colors.background.card}}>
@@ -3328,19 +3412,20 @@ export default function ProjectDetailPage() {
                                                         <div>
                                                             <div className="text-white font-medium">Jira</div>
                                                             <div className="text-xs text-gray-400">
-                                                                {jiraConnected && jiraProjectKey 
-                                                                    ? `Connected to ${jiraProjectKey}` 
+                                                                {jiraConnected && jiraProjectKey
+                                                                    ? `Connected to ${jiraProjectKey}`
                                                                     : 'Project management'}
                                                             </div>
                                                         </div>
                                                     </div>
                                                     {jiraConnected ? (
-                                                        <Badge variant="outline" className="border-green-500/50 text-green-400 bg-green-500/10">
+                                                        <Badge variant="outline"
+                                                               className="border-green-500/50 text-green-400 bg-green-500/10">
                                                             Connected
                                                         </Badge>
                                                     ) : (
-                                                        <Button 
-                                                            variant="outline" 
+                                                        <Button
+                                                            variant="outline"
                                                             size="sm"
                                                             className="border-gray-600 text-gray-300 hover:bg-gray-700"
                                                             onClick={() => {
@@ -3367,19 +3452,20 @@ export default function ProjectDetailPage() {
                                                         <div>
                                                             <div className="text-white font-medium">Slack</div>
                                                             <div className="text-xs text-gray-400">
-                                                                {slackConnected && slackChannelId 
-                                                                    ? `Connected to ${slackChannelId}` 
+                                                                {slackConnected && slackChannelId
+                                                                    ? `Connected to ${slackChannelId}`
                                                                     : 'Team communication'}
                                                             </div>
                                                         </div>
                                                     </div>
                                                     {slackConnected ? (
-                                                        <Badge variant="outline" className="border-green-500/50 text-green-400 bg-green-500/10">
+                                                        <Badge variant="outline"
+                                                               className="border-green-500/50 text-green-400 bg-green-500/10">
                                                             Connected
                                                         </Badge>
                                                     ) : (
-                                                        <Button 
-                                                            variant="outline" 
+                                                        <Button
+                                                            variant="outline"
                                                             size="sm"
                                                             className="border-gray-600 text-gray-300 hover:bg-gray-700"
                                                             onClick={() => {
@@ -4829,18 +4915,24 @@ export default function ProjectDetailPage() {
             </Dialog>
 
             <Dialog open={flatteningDialogOpen} onOpenChange={setFlatteningDialogOpen}>
-                <DialogContent className="max-w-6xl h-[700px] border border-gray-800 bg-gray-950 text-gray-200 overflow-hidden flex flex-col" style={{left: 'calc(280px + (100vw - 280px) / 2)', transform: 'translateX(-50%) translateY(-50%)'}}>
+                <DialogContent
+                    className="max-w-6xl h-[700px] border border-gray-800 bg-gray-950 text-gray-200 overflow-hidden flex flex-col"
+                    style={{left: 'calc(280px + (100vw - 280px) / 2)', transform: 'translateX(-50%) translateY(-50%)'}}>
                     <DialogHeader className="flex-shrink-0">
                         <DialogTitle className="text-white">Dependency Flattening Recommendations</DialogTitle>
                         <p className="text-xs text-gray-500">Provides recommendations for resolving dependency version
                             conflicts and consolidating transitive packages.</p>
                     </DialogHeader>
-                    <Tabs value={flatteningDialogTab} onValueChange={(value) => setFlatteningDialogTab(value as 'recommendations' | 'anchors')} className="w-full flex-1 flex flex-col min-h-0 overflow-hidden">
+                    <Tabs value={flatteningDialogTab}
+                          onValueChange={(value) => setFlatteningDialogTab(value as 'recommendations' | 'anchors')}
+                          className="w-full flex-1 flex flex-col min-h-0 overflow-hidden">
                         <TabsList className="grid w-full grid-cols-2 bg-gray-900 flex-shrink-0">
-                            <TabsTrigger value="recommendations" className="data-[state=active]:bg-gray-800 data-[state=active]:text-white">
+                            <TabsTrigger value="recommendations"
+                                         className="data-[state=active]:bg-gray-800 data-[state=active]:text-white">
                                 Recommendations & Duplicates
                             </TabsTrigger>
-                            <TabsTrigger value="anchors" className="data-[state=active]:bg-gray-800 data-[state=active]:text-white">
+                            <TabsTrigger value="anchors"
+                                         className="data-[state=active]:bg-gray-800 data-[state=active]:text-white">
                                 High-Risk Anchors
                             </TabsTrigger>
                         </TabsList>
@@ -4849,12 +4941,12 @@ export default function ProjectDetailPage() {
                                 <div className="space-y-4">
                                     {[1, 2, 3].map((i) => (
                                         <div key={i} className="border border-gray-800 rounded-lg p-4 bg-gray-900">
-                                            <Skeleton className="h-5 w-3/4 mb-2 bg-gray-700" />
-                                            <Skeleton className="h-4 w-full mb-1 bg-gray-700" />
-                                            <Skeleton className="h-4 w-5/6 mb-3 bg-gray-700" />
+                                            <Skeleton className="h-5 w-3/4 mb-2 bg-gray-700"/>
+                                            <Skeleton className="h-4 w-full mb-1 bg-gray-700"/>
+                                            <Skeleton className="h-4 w-5/6 mb-3 bg-gray-700"/>
                                             <div className="flex gap-2 mt-3">
-                                                <Skeleton className="h-8 w-24 bg-gray-700" />
-                                                <Skeleton className="h-8 w-24 bg-gray-700" />
+                                                <Skeleton className="h-8 w-24 bg-gray-700"/>
+                                                <Skeleton className="h-8 w-24 bg-gray-700"/>
                                             </div>
                                         </div>
                                     ))}
@@ -4867,16 +4959,16 @@ export default function ProjectDetailPage() {
                                                 // Show all suggestions that have upgrade info (duplicates/upgrades)
                                                 const hasUpgradeInfo = 'packageName' in s && 'oldVersion' in s && 'newVersion' in s;
                                                 if (hasUpgradeInfo) return true;
-                                                
+
                                                 // Also show high-risk anchors that are also duplicates (check if there's a separate upgrade suggestion)
                                                 const isHighRiskAnchor = s.title?.includes("High-risk anchor") || s.title?.includes("high-risk anchor");
                                                 if (isHighRiskAnchor) {
                                                     // Extract package name from high-risk anchor suggestion
-                                                    const anchorPackageName = s.dependencies?.[0]?.split('@')[0] || 
-                                                                              s.title?.replace('High-risk anchor:', '').trim() || '';
+                                                    const anchorPackageName = s.dependencies?.[0]?.split('@')[0] ||
+                                                        s.title?.replace('High-risk anchor:', '').trim() || '';
                                                     // Check if there's a separate upgrade suggestion for this package
-                                                    return flatteningAnalysis.suggestions.some(upgradeSuggestion => 
-                                                        'packageName' in upgradeSuggestion && 
+                                                    return flatteningAnalysis.suggestions.some(upgradeSuggestion =>
+                                                        'packageName' in upgradeSuggestion &&
                                                         upgradeSuggestion.packageName?.toLowerCase() === anchorPackageName.toLowerCase() &&
                                                         'oldVersion' in upgradeSuggestion &&
                                                         'newVersion' in upgradeSuggestion
@@ -4890,9 +4982,13 @@ export default function ProjectDetailPage() {
                                                     suggestion={suggestion}
                                                     projectId={projectId}
                                                     apiBase={apiBase}
-                                                    allRecommendations={flatteningAnalysis.suggestions.filter((s): s is FlatteningSuggestion & { packageName: string; oldVersion: string; newVersion: string } => 
-                                                        'packageName' in s && 'oldVersion' in s && 'newVersion' in s && 
-                                                        !!s.packageName && !!s.oldVersion && !!s.newVersion
+                                                    allRecommendations={flatteningAnalysis.suggestions.filter((s): s is FlatteningSuggestion & {
+                                                            packageName: string;
+                                                            oldVersion: string;
+                                                            newVersion: string
+                                                        } =>
+                                                            'packageName' in s && 'oldVersion' in s && 'newVersion' in s &&
+                                                            !!s.packageName && !!s.oldVersion && !!s.newVersion
                                                     )}
                                                 />
                                             ))}
@@ -4901,10 +4997,10 @@ export default function ProjectDetailPage() {
                                             if (hasUpgradeInfo) return true;
                                             const isHighRiskAnchor = s.title?.includes("High-risk anchor") || s.title?.includes("high-risk anchor");
                                             if (isHighRiskAnchor) {
-                                                const anchorPackageName = s.dependencies?.[0]?.split('@')[0] || 
-                                                                          s.title?.replace('High-risk anchor:', '').trim() || '';
-                                                return flatteningAnalysis.suggestions.some(upgradeSuggestion => 
-                                                    'packageName' in upgradeSuggestion && 
+                                                const anchorPackageName = s.dependencies?.[0]?.split('@')[0] ||
+                                                    s.title?.replace('High-risk anchor:', '').trim() || '';
+                                                return flatteningAnalysis.suggestions.some(upgradeSuggestion =>
+                                                    'packageName' in upgradeSuggestion &&
                                                     upgradeSuggestion.packageName?.toLowerCase() === anchorPackageName.toLowerCase() &&
                                                     'oldVersion' in upgradeSuggestion &&
                                                     'newVersion' in upgradeSuggestion
@@ -4925,12 +5021,12 @@ export default function ProjectDetailPage() {
                                 <div className="space-y-4">
                                     {[1, 2, 3].map((i) => (
                                         <div key={i} className="border border-gray-800 rounded-lg p-4 bg-gray-900">
-                                            <Skeleton className="h-5 w-3/4 mb-2 bg-gray-700" />
-                                            <Skeleton className="h-4 w-full mb-1 bg-gray-700" />
-                                            <Skeleton className="h-4 w-5/6 mb-3 bg-gray-700" />
+                                            <Skeleton className="h-5 w-3/4 mb-2 bg-gray-700"/>
+                                            <Skeleton className="h-4 w-full mb-1 bg-gray-700"/>
+                                            <Skeleton className="h-4 w-5/6 mb-3 bg-gray-700"/>
                                             <div className="flex gap-2 mt-3">
-                                                <Skeleton className="h-8 w-24 bg-gray-700" />
-                                                <Skeleton className="h-8 w-24 bg-gray-700" />
+                                                <Skeleton className="h-8 w-24 bg-gray-700"/>
+                                                <Skeleton className="h-8 w-24 bg-gray-700"/>
                                             </div>
                                         </div>
                                     ))}
@@ -4946,9 +5042,13 @@ export default function ProjectDetailPage() {
                                                     suggestion={suggestion}
                                                     projectId={projectId}
                                                     apiBase={apiBase}
-                                                    allRecommendations={flatteningAnalysis.suggestions.filter((s): s is FlatteningSuggestion & { packageName: string; oldVersion: string; newVersion: string } => 
-                                                        'packageName' in s && 'oldVersion' in s && 'newVersion' in s && 
-                                                        !!s.packageName && !!s.oldVersion && !!s.newVersion
+                                                    allRecommendations={flatteningAnalysis.suggestions.filter((s): s is FlatteningSuggestion & {
+                                                            packageName: string;
+                                                            oldVersion: string;
+                                                            newVersion: string
+                                                        } =>
+                                                            'packageName' in s && 'oldVersion' in s && 'newVersion' in s &&
+                                                            !!s.packageName && !!s.oldVersion && !!s.newVersion
                                                     )}
                                                 />
                                             ))}
