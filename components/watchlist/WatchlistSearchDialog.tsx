@@ -31,6 +31,8 @@ interface WatchlistSearchDialogProps {
   projectId?: string
   open?: boolean
   onOpenChange?: (open: boolean) => void
+  existingWatchlistPackages?: string[]  // Package names already in watchlist
+  existingDependencies?: string[]       // Package names already in project dependencies
 }
 
 export function WatchlistSearchDialog({
@@ -41,6 +43,8 @@ export function WatchlistSearchDialog({
   projectId,
   open,
   onOpenChange,
+  existingWatchlistPackages = [],
+  existingDependencies = [],
 }: WatchlistSearchDialogProps) {
 // always go through our Next.js proxy (adds Clerk JWT)
   const apiBase = "/api/backend";
@@ -227,8 +231,6 @@ export function WatchlistSearchDialog({
                         onSelect={handlePackageSelect}
                         searchQuery={searchQuery}
                         isSelected={selectedPackage?.name === pkg.name}
-                        onAdd={handleAddToWatchlist}
-                        isAdding={isAdding}
                       />
                     ))}
                   </div>
@@ -261,7 +263,13 @@ export function WatchlistSearchDialog({
 
           {/* Right */}
           <div className="w-1/2 flex flex-col min-h-0" style={panelStyle}>
-            <PackageDetailsSummary pkg={selectedPackage} onAdd={handleAddToWatchlist} isAdding={isAddingToWatchlist|| !isLoaded || !backendUserId} />
+            <PackageDetailsSummary 
+              pkg={selectedPackage} 
+              onAdd={handleAddToWatchlist} 
+              isAdding={isAdding || !isLoaded || !backendUserId}
+              isInWatchlist={selectedPackage ? existingWatchlistPackages.includes(selectedPackage.name) : false}
+              isInDependencies={selectedPackage ? existingDependencies.includes(selectedPackage.name) : false}
+            />
           </div>
         </div>
       </DialogContent>

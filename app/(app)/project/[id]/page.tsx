@@ -325,6 +325,7 @@ export default function ProjectDetailPage() {
     const [tempSelectedFilters, setTempSelectedFilters] = useState<FilterId[]>([])
     const [showDependencyReviewDialog, setShowDependencyReviewDialog] = useState(false)
     const [selectedDependency, setSelectedDependency] = useState<any>(null)
+    const [isSubmittingComment, setIsSubmittingComment] = useState(false)
     const [alertFilter, setAlertFilter] = useState("all")
     const [selectedLicense, setSelectedLicense] = useState<string>("")
     const [isSavingLicense, setIsSavingLicense] = useState(false)
@@ -362,6 +363,14 @@ export default function ProjectDetailPage() {
         [key: string]: { status: string, hasScores: boolean }
     }>({})
     const [healthScore, setHealthScore] = useState<any>(0)
+    const [realVulnerabilities, setRealVulnerabilities] = useState<{
+        critical: number;
+        high: number;
+        medium: number;
+        low: number;
+        total: number;
+    }>({critical: 0, high: 0, medium: 0, low: 0, total: 0})
+    const [previewAlerts, setPreviewAlerts] = useState<any[]>([])
     const [showWatchFilterPopup, setShowWatchFilterPopup] = useState(false);
     const [showSbomDownloadDialog, setShowSbomDownloadDialog] = useState(false);
     const [sbomFormat, setSbomFormat] = useState<'cyclonedx' | 'spdx'>('cyclonedx');
@@ -413,9 +422,7 @@ export default function ProjectDetailPage() {
     // Use the exported FilterDef to keep structural typing aligned with deps-utils
     type FilterId =
         | 'high-risk'
-        | 'popular'
-        | 'few-contributors'
-        | 'stale';
+        | 'few-contributors';
 
     // 2) Local UI filter def with a strong id (FilterId) but util-compatible predicate
     type LocalFilterDef = {
@@ -442,28 +449,10 @@ export default function ProjectDetailPage() {
             predicate: (dep, _project) => (dep.package?.total_score ?? dep.risk ?? 100) <= 60,
         },
         {
-            id: 'popular',
-            label: 'Popular',
-            description: 'Stars ≥ 1000',
-            predicate: (dep) => (dep.package?.stars ?? 0) >= 1000,
-        },
-        {
             id: 'few-contributors',
             label: 'Few Contributors',
             description: 'Contributors < 5',
             predicate: (dep) => (dep.package?.contributors ?? 0) < 5,
-        },
-        {
-            id: 'stale',
-            label: 'Stale',
-            description: 'Updated > 180 days ago',
-            predicate: (dep) => {
-                const updated = dep.updated_at;
-                if (!updated) return false;
-                const daysBetween = (a: string | Date, b: string | Date) =>
-                    Math.abs((new Date(a).getTime() - new Date(b).getTime()) / (1000 * 60 * 60 * 24));
-                return daysBetween(updated, new Date()) > 180;
-            },
         },
     ];
 
@@ -695,6 +684,46 @@ export default function ProjectDetailPage() {
             if (watchlistResponse.ok) {
                 const watchlistData = await watchlistResponse.json()
                 setWatchlistDependencies(watchlistData)
+            }
+
+            // Fetch real OSV vulnerabilities
+            const vulnResponse = await fetch(`${apiBase}/sbom/vulnerable-packages/${projectId}`)
+            if (vulnResponse.ok) {
+                const vulnData = await vulnResponse.json()
+                // Sum up vulnerability counts across all packages
+                const totals = {
+                    critical: 0,
+                    high: 0,
+                    medium: 0,
+                    low: 0,
+                    total: 0
+                }
+                if (Array.isArray(vulnData)) {
+                    vulnData.forEach((pkg: any) => {
+                        totals.critical += pkg.criticalCount || 0
+                        totals.high += pkg.highCount || 0
+                        totals.medium += pkg.mediumCount || 0
+                        totals.low += pkg.lowCount || 0
+                        totals.total += pkg.totalCount || 0
+                    })
+                }
+                setRealVulnerabilities(totals)
+            }
+
+            // Fetch alerts for preview (only active/unresolved alerts)
+            const alertsResponse = await fetch(`${apiBase}/projects/${projectId}/alerts`)
+            if (alertsResponse.ok) {
+                const alertsData = await alertsResponse.json()
+                const allAlerts = [
+                    ...(alertsData.projectAlerts || []),
+                    ...(alertsData.packageAlerts || []),
+                ]
+                // Filter out resolved alerts, sort by date descending, take first 3
+                const activeAlerts = allAlerts
+                    .filter((a: any) => a.status !== 'resolved')
+                    .sort((a: any, b: any) => new Date(b.created_at || b.detected_at).getTime() - new Date(a.created_at || a.detected_at).getTime())
+                    .slice(0, 3)
+                setPreviewAlerts(activeAlerts)
             }
 
             // Check current user's role in the project
@@ -1597,152 +1626,78 @@ export default function ProjectDetailPage() {
                     {/* Tab Content - Overview skeleton */}
                     {currentTab === "overview" && (
                         <div className="space-y-6">
-                            {/* Project Health Overview */}
-                            <Card style={{backgroundColor: colors.background.card}}>
-                                <CardHeader>
-                                    <CardTitle className="text-white">Project Health</CardTitle>
-                                    <p className="text-gray-400 text-sm">Average dependency risk</p>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                                        {/* Left: Security Score Skeleton */}
-                                        <div className="flex flex-col justify-center items-center lg:col-span-3"
-                                             style={{marginLeft: 'auto'}}>
-                                            <div className="relative w-48 h-48">
-                                                <div className="w-48 h-48 bg-gray-600 rounded-full animate-pulse"></div>
-                                                <div className="absolute inset-0 flex items-center justify-center">
-                                                    <div className="h-16 bg-gray-600 rounded w-16 animate-pulse"></div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Right: Security Score Graph Skeleton */}
-                                        <div className="lg:col-span-9">
-                                            <div className="h-64 w-full bg-gray-600 rounded animate-pulse"></div>
-                                        </div>
+                            {/* Top Row: Project Health + Compliance Badge Skeleton */}
+                            <div className="flex items-center justify-between">
+                                {/* Project Health Skeleton */}
+                                <div className="flex items-center gap-4">
+                                    <div className="w-16 h-16 bg-gray-700 rounded-full animate-pulse"></div>
+                                    <div>
+                                        <div className="h-5 bg-gray-700 rounded w-32 mb-2 animate-pulse"></div>
+                                        <div className="h-4 bg-gray-700 rounded w-40 animate-pulse"></div>
                                     </div>
-                                </CardContent>
-                            </Card>
+                                </div>
+                                {/* Compliance Badge Skeleton */}
+                                <div className="h-9 bg-gray-700 rounded-lg w-32 animate-pulse"></div>
+                            </div>
 
-                            {/* Vulnerabilities, Dependencies Flattening and License Compliance Row */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {/* Vulnerabilities */}
+                            {/* Three Column Grid Skeleton */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                {/* Vulnerabilities Card Skeleton */}
                                 <Card style={{backgroundColor: colors.background.card}}>
-                                    <CardHeader>
-                                        <CardTitle className="text-white">Vulnerabilities</CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="space-y-4">
-                                            {/* Total Vulnerabilities Skeleton */}
-                                            <div className="text-center">
-                                                <div
-                                                    className="h-8 bg-gray-600 rounded w-16 mx-auto mb-2 animate-pulse"></div>
-                                                <div
-                                                    className="h-4 bg-gray-600 rounded w-40 mx-auto animate-pulse"></div>
-                                            </div>
+                                    <CardContent className="p-5">
+                                        <div className="h-5 bg-gray-700 rounded w-28 mb-4 animate-pulse"></div>
+                                        <div className="space-y-2">
+                                            {['Critical', 'High', 'Medium', 'Low'].map((label) => (
+                                                <div key={label} className="flex items-center justify-between py-1.5">
+                                                    <span className="text-sm text-gray-500">{label}</span>
+                                                    <div className="h-4 bg-gray-700 rounded w-6 animate-pulse"></div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </CardContent>
+                                </Card>
 
-                                            {/* Severity Breakdown Skeleton */}
-                                            <div className="space-y-3">
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-2">
-                                                        <div
-                                                            className="w-3 h-3 bg-gray-600 rounded-full animate-pulse"></div>
-                                                        <span className="text-sm text-gray-300">Critical</span>
-                                                    </div>
-                                                    <div className="h-4 bg-gray-600 rounded w-4 animate-pulse"></div>
-                                                </div>
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-2">
-                                                        <div
-                                                            className="w-3 h-3 bg-gray-600 rounded-full animate-pulse"></div>
-                                                        <span className="text-sm text-gray-300">High</span>
-                                                    </div>
-                                                    <div className="h-4 bg-gray-600 rounded w-4 animate-pulse"></div>
-                                                </div>
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-2">
-                                                        <div
-                                                            className="w-3 h-3 bg-gray-600 rounded-full animate-pulse"></div>
-                                                        <span className="text-sm text-gray-300">Medium</span>
-                                                    </div>
-                                                    <div className="h-4 bg-gray-600 rounded w-4 animate-pulse"></div>
-                                                </div>
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-2">
-                                                        <div
-                                                            className="w-3 h-3 bg-gray-600 rounded-full animate-pulse"></div>
-                                                        <span className="text-sm text-gray-300">Low</span>
-                                                    </div>
-                                                    <div className="h-4 bg-gray-600 rounded w-4 animate-pulse"></div>
-                                                </div>
+                                {/* Dependency Flattening Card Skeleton */}
+                                <Card style={{backgroundColor: colors.background.card}}>
+                                    <CardContent className="p-5">
+                                        <div className="h-5 bg-gray-700 rounded w-40 mb-4 animate-pulse"></div>
+                                        <div className="text-center mb-4">
+                                            <div
+                                                className="h-8 bg-gray-700 rounded w-12 mx-auto mb-1 animate-pulse"></div>
+                                            <div className="h-3 bg-gray-700 rounded w-16 mx-auto animate-pulse"></div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-sm text-gray-500">Duplicates</span>
+                                                <div className="h-4 bg-gray-700 rounded w-6 animate-pulse"></div>
+                                            </div>
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-sm text-gray-500">High-risk</span>
+                                                <div className="h-4 bg-gray-700 rounded w-6 animate-pulse"></div>
                                             </div>
                                         </div>
                                     </CardContent>
                                 </Card>
 
-                                {/* Dependency Flattening */}
-                                <Card
-                                    style={{backgroundColor: colors.background.card}}
-                                >
-                                    <CardHeader>
-                                        <CardTitle className="text-white">Dependency Flattening</CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="space-y-4">
-                                            <div className="text-center">
-                                                <div
-                                                    className="h-8 bg-gray-600 rounded w-16 mx-auto mb-2 animate-pulse"></div>
-                                                <div
-                                                    className="h-4 bg-gray-600 rounded w-40 mx-auto animate-pulse"></div>
-                                            </div>
-
-                                            <div className="space-y-3">
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-2">
-                                                        <div
-                                                            className="w-3 h-3 bg-gray-600 rounded-full animate-pulse"></div>
-                                                        <span
-                                                            className="text-sm text-gray-300">Duplicate packages</span>
-                                                    </div>
-                                                    <div className="h-4 bg-gray-600 rounded w-4 animate-pulse"></div>
-                                                </div>
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-2">
-                                                        <div
-                                                            className="w-3 h-3 bg-gray-600 rounded-full animate-pulse"></div>
-                                                        <span className="text-sm text-gray-300">High-risk anchors</span>
-                                                    </div>
-                                                    <div className="h-4 bg-gray-600 rounded w-4 animate-pulse"></div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-
-                                {/* License Compliance */}
+                                {/* Alerts Card Skeleton */}
                                 <Card style={{backgroundColor: colors.background.card}}>
-                                    <CardHeader>
-                                        <CardTitle className="text-white">License Compliance</CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="space-y-4">
-                                            {/* Project License Skeleton */}
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 bg-gray-600 rounded-lg animate-pulse"></div>
-                                                <div className="h-5 bg-gray-600 rounded w-24 animate-pulse"></div>
-                                            </div>
-
-                                            {/* Compliance Status Skeleton */}
-                                            <div className="space-y-3">
-                                                <div className="flex items-center justify-between">
-                                                    <span className="text-gray-400">Overall Compliance</span>
-                                                    <div className="h-4 bg-gray-600 rounded w-12 animate-pulse"></div>
+                                    <CardContent className="p-5">
+                                        <div className="flex items-center justify-between mb-4">
+                                            <div className="h-5 bg-gray-700 rounded w-16 animate-pulse"></div>
+                                            <div className="h-4 bg-gray-700 rounded w-16 animate-pulse"></div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            {[1, 2, 3].map((i) => (
+                                                <div key={i} className="flex items-center gap-3 p-2">
+                                                    <div className="w-8 h-8 bg-gray-700 rounded-lg animate-pulse"></div>
+                                                    <div className="flex-1">
+                                                        <div
+                                                            className="h-4 bg-gray-700 rounded w-24 mb-1 animate-pulse"></div>
+                                                        <div
+                                                            className="h-3 bg-gray-700 rounded w-32 animate-pulse"></div>
+                                                    </div>
                                                 </div>
-                                                <div className="flex items-center justify-between">
-                                                    <span className="text-gray-400">License Conflicts</span>
-                                                    <div className="h-4 bg-gray-600 rounded w-8 animate-pulse"></div>
-                                                </div>
-                                            </div>
+                                            ))}
                                         </div>
                                     </CardContent>
                                 </Card>
@@ -2172,350 +2127,246 @@ export default function ProjectDetailPage() {
                 {/* Tab Content */}
                 {currentTab === "overview" && (
                     <div className="space-y-6">
-                        {/* Project Health Overview */}
-                        <Card style={{backgroundColor: colors.background.card}}>
-                            <CardHeader>
-                                <CardTitle className="text-white">Project Health</CardTitle>
-                                <p className="text-gray-400 text-sm">Average dependency risk</p>
-                            </CardHeader>
-                            <CardContent>
-                                {/* MODIFIED: Changed to a 12-column grid to allow for a wider graph (3/9 split) */}
-                                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-
-                                    {/* Left: Security Score (3/12 columns on large screens) */}
-                                    <div className="flex flex-col justify-center items-center lg:col-span-3"
-                                         style={{marginLeft: 'auto'}}>
-                                        {/* Security Score with Progress Circle */}
-                                        <div className="relative">
-                                            <div className="relative w-48 h-48">
-                                                <svg className="w-48 h-48 transform -rotate-90" viewBox="0 0 100 100">
-                                                    <circle cx="50" cy="50" r="40" stroke="currentColor" strokeWidth="8"
-                                                            fill="none" className="text-gray-700"/>
-                                                    <circle
-                                                        cx="50"
-                                                        cy="50"
-                                                        r="40"
-                                                        stroke="currentColor"
-                                                        strokeWidth="8"
-                                                        fill="none"
-                                                        strokeDasharray={`${2 * Math.PI * 40}`}
-                                                        strokeDashoffset={`${2 * Math.PI * 40 * (1 - healthScore / 100)}`}
-                                                        style={{stroke: 'rgb(84, 0, 250)'}}
-                                                        strokeLinecap="round"
-                                                    />
-                                                </svg>
-                                                <div className="absolute inset-0 flex items-center justify-center">
-                                                    <div className="text-center">
-                                                        <div
-                                                            className="text-6xl font-bold text-white">{healthScore}</div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Right: Security Score Graph (9/12 columns on large screens) */}
-                                    <div className="lg:col-span-9">
-                                        <div className="h-64 w-full">
-                                            {/* MODIFIED: Increased viewBox width from 400 to 600 and adjusted points/text positions */}
-                                            <svg className="w-full h-full" viewBox="0 0 600 200">
-                                                {/* Grid lines */}
-                                                <defs>
-                                                    <pattern id="grid" width="20" height="20"
-                                                             patternUnits="userSpaceOnUse">
-                                                        <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#374151"
-                                                              strokeWidth="0.5" opacity="0.3"/>
-                                                    </pattern>
-                                                </defs>
-                                                <rect width="100%" height="100%" fill="url(#grid)"/>
-
-                                                {/* Y-axis scale numbers (no change) */}
-                                                <text x="15" y="25" fill="#9CA3AF" fontSize="12"
-                                                      textAnchor="middle">100
-                                                </text>
-                                                <text x="15" y="60" fill="#9CA3AF" fontSize="12"
-                                                      textAnchor="middle">80
-                                                </text>
-                                                <text x="15" y="95" fill="#9CA3AF" fontSize="12"
-                                                      textAnchor="middle">60
-                                                </text>
-                                                <text x="15" y="130" fill="#9CA3AF" fontSize="12"
-                                                      textAnchor="middle">40
-                                                </text>
-                                                <text x="15" y="165" fill="#9CA3AF" fontSize="12"
-                                                      textAnchor="middle">20
-                                                </text>
-                                                <text x="15" y="195" fill="#9CA3AF" fontSize="12"
-                                                      textAnchor="middle">0
-                                                </text>
-
-                                                {/* X-axis dates (Adjusted positions for wider graph: 50, 217, 384, 550) */}
-                                                <text x="50" y="195" fill="#9CA3AF" fontSize="10"
-                                                      textAnchor="middle">30d ago
-                                                </text>
-                                                <text x="217" y="195" fill="#9CA3AF" fontSize="10"
-                                                      textAnchor="middle">20d ago
-                                                </text>
-                                                <text x="384" y="195" fill="#9CA3AF" fontSize="10"
-                                                      textAnchor="middle">10d ago
-                                                </text>
-                                                <text x="550" y="195" fill="#9CA3AF" fontSize="10"
-                                                      textAnchor="middle">Today
-                                                </text>
-
-                                                {/* Line chart (Adjusted points for wider graph: 50, 150, 250, 350, 450, 550) */}
-                                                <polyline
-                                                    fill="none"
-                                                    stroke="rgb(84, 0, 250)"
-                                                    strokeWidth="3"
-                                                    points="50,180 150,160 250,140 350,120 450,100 550,60"
-                                                />
-
-                                                {/* Area fill (Adjusted points for wider graph) */}
-                                                <polygon
-                                                    fill="url(#securityGradient)"
-                                                    points="50,180 150,160 250,140 350,120 450,100 550,60 550,180 50,180"
-                                                />
-
-                                                {/* Gradient definition (no change) */}
-                                                <defs>
-                                                    <linearGradient id="securityGradient" x1="0%" y1="0%" x2="0%"
-                                                                    y2="100%">
-                                                        <stop offset="0%" stopColor="rgb(84, 0, 250)"
-                                                              stopOpacity="0.3"/>
-                                                        <stop offset="100%" stopColor="rgb(84, 0, 250)"
-                                                              stopOpacity="0.05"/>
-                                                    </linearGradient>
-                                                </defs>
-
-                                                {/* Data points (Adjusted positions for wider graph) */}
-                                                <circle cx="50" cy="180" r="3" fill="rgb(84, 0, 250)"/>
-                                                <circle cx="250" cy="140" r="3" fill="rgb(84, 0, 250)"/>
-                                                <circle cx="450" cy="100" r="3" fill="rgb(84, 0, 250)"/>
-                                                <circle cx="550" cy="60" r="3" fill="rgb(84, 0, 250)"/>
-                                            </svg>
-                                        </div>
+                        {/* Top Row: Project Health on left, Compliance Badge on right */}
+                        <div className="flex items-center justify-between">
+                            {/* Project Health (Inline) */}
+                            <div className="flex items-center gap-4">
+                                <div className="relative w-16 h-16">
+                                    <svg className="w-16 h-16 transform -rotate-90" viewBox="0 0 100 100">
+                                        <circle cx="50" cy="50" r="40" stroke="currentColor" strokeWidth="10"
+                                                fill="none" className="text-gray-700"/>
+                                        <circle
+                                            cx="50"
+                                            cy="50"
+                                            r="40"
+                                            stroke="currentColor"
+                                            strokeWidth="10"
+                                            fill="none"
+                                            strokeDasharray={`${2 * Math.PI * 40}`}
+                                            strokeDashoffset={`${2 * Math.PI * 40 * (1 - healthScore / 100)}`}
+                                            style={{stroke: 'rgb(84, 0, 250)'}}
+                                            strokeLinecap="round"
+                                        />
+                                    </svg>
+                                    <div className="absolute inset-0 flex items-center justify-center">
+                                        <div className="text-lg font-bold text-white">{healthScore}</div>
                                     </div>
                                 </div>
-                            </CardContent>
-                        </Card>
+                                <div>
+                                    <h2 className="text-xl font-bold text-white">Project Health</h2>
+                                    <p className="text-gray-400 text-sm">Based
+                                        on {projectDependencies.length} dependencies</p>
+                                </div>
+                            </div>
 
-                        {/* Vulnerabilities and License Compliance Row */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {/* Vulnerabilities */}
+                            {/* Compliance Status Badge (Right side) - Based on license issues only */}
+                            <div className={`flex items-center gap-2 px-4 py-2 rounded-lg ${
+                                complianceData.licenseConflicts === 0
+                                    ? 'bg-green-500/10 border border-green-500/30'
+                                    : 'bg-red-500/10 border border-red-500/30'
+                            }`}>
+                                {complianceData.licenseConflicts === 0 ? (
+                                    <>
+                                        <ShieldCheck className="h-4 w-4 text-green-400"/>
+                                        <span className="text-green-400 font-medium text-sm">Compliant</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <AlertTriangle className="h-4 w-4 text-red-400"/>
+                                        <span className="text-red-400 font-medium text-sm">Not Compliant</span>
+                                        <span className="text-gray-400 text-xs">
+                                            — {complianceData.licenseConflicts} license conflict{complianceData.licenseConflicts > 1 ? 's' : ''}
+                                        </span>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Main Content: Three Column Grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            {/* Vulnerabilities Card - Real OSV Data */}
                             <Card style={{backgroundColor: colors.background.card}}>
-                                <CardHeader>
-                                    <CardTitle className="text-white">Vulnerabilities</CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="space-y-4">
-                                        {/* Total Vulnerabilities */}
-                                        <div className="text-center">
-                                            <div
-                                                className="text-3xl font-bold text-white">{complianceData.vulnerableDependencies}</div>
-                                            <div className="text-sm text-gray-400">Total active vulnerabilities</div>
+                                <CardContent className="p-5">
+                                    <h3 className="text-base font-semibold text-white mb-4">Vulnerabilities</h3>
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between py-1.5">
+                                            <span className="text-sm text-gray-300">Critical</span>
+                                            <span
+                                                className={`font-semibold text-sm ${realVulnerabilities.critical > 0 ? 'text-red-400' : 'text-gray-500'}`}>{realVulnerabilities.critical}</span>
                                         </div>
-
-                                        {/* Severity Breakdown */}
-                                        <div className="space-y-3">
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-3 h-3 rounded-full bg-red-500"></div>
-                                                    <span className="text-sm text-gray-300">Critical</span>
-                                                </div>
-                                                <span
-                                                    className="text-white font-semibold">{complianceData.vulnerabilityBreakdown.critical}</span>
-                                            </div>
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-3 h-3 rounded-full bg-orange-500"></div>
-                                                    <span className="text-sm text-gray-300">High</span>
-                                                </div>
-                                                <span
-                                                    className="text-white font-semibold">{complianceData.vulnerabilityBreakdown.high}</span>
-                                            </div>
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-                                                    <span className="text-sm text-gray-300">Medium</span>
-                                                </div>
-                                                <span
-                                                    className="text-white font-semibold">{complianceData.vulnerabilityBreakdown.medium}</span>
-                                            </div>
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-                                                    <span className="text-sm text-gray-300">Low</span>
-                                                </div>
-                                                <span
-                                                    className="text-white font-semibold">{complianceData.vulnerabilityBreakdown.low}</span>
-                                            </div>
+                                        <div className="flex items-center justify-between py-1.5">
+                                            <span className="text-sm text-gray-300">High</span>
+                                            <span
+                                                className={`font-semibold text-sm ${realVulnerabilities.high > 0 ? 'text-orange-400' : 'text-gray-500'}`}>{realVulnerabilities.high}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between py-1.5">
+                                            <span className="text-sm text-gray-300">Medium</span>
+                                            <span
+                                                className={`font-semibold text-sm ${realVulnerabilities.medium > 0 ? 'text-yellow-400' : 'text-gray-500'}`}>{realVulnerabilities.medium}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between py-1.5">
+                                            <span className="text-sm text-gray-300">Low</span>
+                                            <span
+                                                className={`font-semibold text-sm ${realVulnerabilities.low > 0 ? 'text-blue-400' : 'text-gray-500'}`}>{realVulnerabilities.low}</span>
                                         </div>
                                     </div>
                                 </CardContent>
                             </Card>
 
-                            {/* Dependency Flattening */}
+                            {/* Dependency Flattening Card */}
                             <Card style={{backgroundColor: colors.background.card}}>
-                                <CardHeader>
-                                    <CardTitle className="text-white">Dependency Flattening</CardTitle>
-                                </CardHeader>
+                                <CardContent className="p-5">
+                                    <h3 className="text-base font-semibold text-white mb-4">Dependency Flattening</h3>
 
-                                <CardContent>
                                     {flatteningLoading ? (
-                                        // ✅ Loading UI (only this card)
-                                        <div className="space-y-4">
-                                            <div className="text-center">
+                                        // ✅ Loading (matches your new compact layout)
+                                        <>
+                                            <div className="text-center mb-4">
                                                 <div className="h-9 w-16 mx-auto bg-gray-600 rounded animate-pulse"/>
                                                 <div
-                                                    className="h-4 w-28 mx-auto mt-2 bg-gray-700 rounded animate-pulse"/>
+                                                    className="h-3 w-10 mx-auto mt-2 bg-gray-700 rounded animate-pulse"/>
                                             </div>
 
-                                            <div className="space-y-3 text-sm">
+                                            <div className="space-y-2 text-sm">
                                                 {[1, 2].map((i) => (
                                                     <div key={i} className="flex items-center justify-between">
-                                                        <div className="flex items-center gap-2">
-                                                            <div
-                                                                className="w-3 h-3 rounded-full bg-gray-600 animate-pulse"/>
-                                                            <div
-                                                                className="h-4 w-36 bg-gray-700 rounded animate-pulse"/>
-                                                        </div>
+                                                        <div className="h-4 w-20 bg-gray-700 rounded animate-pulse"/>
                                                         <div className="h-4 w-8 bg-gray-600 rounded animate-pulse"/>
                                                     </div>
                                                 ))}
                                             </div>
 
-                                            <div className="flex justify-end">
-                                                <div className="h-3 w-28 bg-gray-700 rounded animate-pulse"/>
-                                            </div>
-                                        </div>
+                                            <div className="mt-4 h-3 w-48 bg-gray-700 rounded animate-pulse"/>
+                                        </>
                                     ) : flatteningError ? (
-                                        // ✅ Error UI (only this card)
-                                        <div className="space-y-2">
-                                            <div className="text-sm text-red-400">{flatteningError}</div>
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    // optional: trigger re-fetch by calling your flattening fetch fn
-                                                    // or dispatch an event / set a refetch state
-                                                }}
-                                                className="text-xs font-semibold text-indigo-300 underline underline-offset-4 hover:text-indigo-200"
-                                            >
-                                                Retry
-                                            </button>
+                                        // ✅ Error (only this card)
+                                        <div className="text-sm text-red-400">
+                                            {flatteningError}
                                         </div>
                                     ) : (
-                                        // ✅ Your existing UI (loaded)
-                                        <div className="space-y-4">
-                                            <div className="text-center">
+                                        // ✅ Loaded (your real UI)
+                                        <>
+                                            <div className="text-center mb-4">
                                                 <div className={`text-3xl font-bold ${flatteningScoreColor}`}>
                                                     {flatteningAnalysis.score}
                                                 </div>
-                                                <div className="text-sm text-gray-400">Flattening score</div>
+                                                <div className="text-xs text-gray-400">Score</div>
                                             </div>
 
-                                            <div className="space-y-3 text-sm text-gray-300">
+                                            <div className="space-y-2 text-sm">
                                                 <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="w-3 h-3 rounded-full bg-indigo-400"></div>
-                                                        <span>Duplicate packages</span>
-                                                    </div>
+                                                    <span className="text-gray-300">Duplicates</span>
                                                     <button
                                                         type="button"
                                                         onClick={() => {
                                                             setFlatteningDialogTab("recommendations")
                                                             setFlatteningDialogOpen(true)
                                                         }}
-                                                        className="text-white font-semibold hover:text-indigo-300 transition-colors cursor-pointer"
+                                                        className="text-white font-semibold hover:text-gray-300 transition-colors cursor-pointer"
                                                     >
                                                         {flatteningAnalysis.duplicateCount}
                                                     </button>
                                                 </div>
 
                                                 <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="w-3 h-3 rounded-full bg-purple-400"></div>
-                                                        <span>High-risk anchors</span>
-                                                    </div>
+                                                    <span className="text-gray-300">High-risk</span>
                                                     <button
                                                         type="button"
                                                         onClick={() => {
                                                             setFlatteningDialogTab("anchors")
                                                             setFlatteningDialogOpen(true)
                                                         }}
-                                                        className="text-white font-semibold hover:text-purple-300 transition-colors cursor-pointer"
+                                                        className="text-white font-semibold hover:text-gray-300 transition-colors cursor-pointer"
                                                     >
                                                         {flatteningAnalysis.highRiskCount}
                                                     </button>
                                                 </div>
                                             </div>
 
-                                            <div className="flex justify-end">
+                                            {flatteningAnalysis.recommendationsCount > 0 && (
                                                 <button
                                                     type="button"
                                                     onClick={() => setFlatteningDialogOpen(true)}
-                                                    className="text-xs font-semibold text-indigo-300 underline underline-offset-4 hover:text-indigo-200"
+                                                    className="mt-4 text-xs font-medium text-gray-400 hover:text-white transition-colors"
                                                 >
-                                                    Recommendations
-                                                    {flatteningAnalysis.recommendationsCount > 0
-                                                        ? ` (${flatteningAnalysis.recommendationsCount})`
-                                                        : ""}
+                                                    View {flatteningAnalysis.recommendationsCount} recommendation
+                                                    {flatteningAnalysis.recommendationsCount > 1 ? "s" : ""} →
                                                 </button>
-                                            </div>
-                                        </div>
+                                            )}
+                                        </>
                                     )}
                                 </CardContent>
                             </Card>
 
-                            {/* License Compliance */}
+                            {/* Alerts Preview Card */}
                             <Card style={{backgroundColor: colors.background.card}}>
-                                <CardHeader>
-                                    <CardTitle className="text-white">License Compliance</CardTitle>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="space-y-4">
-                                        <div className="flex items-center gap-3">
-                                            <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                                                project?.license === 'MIT' ? 'bg-green-500/20' :
-                                                    project?.license === 'Apache-2.0' ? 'bg-blue-500/20' :
-                                                        project?.license === 'GPL-2.0' || project?.license === 'GPL-3.0' ? 'bg-red-500/20' :
-                                                            'bg-gray-500/20'
-                                            }`}>
-                        <span className={`font-bold text-sm ${
-                            project?.license === 'MIT' ? 'text-green-400' :
-                                project?.license === 'Apache-2.0' ? 'text-blue-400' :
-                                    project?.license === 'GPL-2.0' || project?.license === 'GPL-3.0' ? 'text-red-400' :
-                                        'text-gray-400'
-                        }`}>
-                          {project?.license ? project.license.substring(0, 3).toUpperCase() : 'N/A'}
-                        </span>
+                                <CardContent className="p-5">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <h3 className="text-base font-semibold text-white">Alerts</h3>
+                                        <button
+                                            onClick={() => setCurrentTab('alerts')}
+                                            className="text-xs font-medium text-gray-400 hover:text-white transition-colors"
+                                        >
+                                            View all →
+                                        </button>
+                                    </div>
+                                    <div className="space-y-2">
+                                        {previewAlerts.length === 0 ? (
+                                            <div className="py-4 text-center">
+                                                <ShieldCheck className="h-8 w-8 text-green-400 mx-auto mb-2"/>
+                                                <p className="text-sm text-gray-400">No active alerts</p>
                                             </div>
-                                            <div>
-                                                <div className="text-white font-medium">
-                                                    {project?.license ? getComplianceLicenseDisplayName(project.license) : 'No License Detected'}
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="space-y-3">
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-gray-400">Overall Compliance</span>
-                                                <span className={`font-semibold ${
-                                                    complianceData.overallCompliance >= 90 ? 'text-green-400' :
-                                                        complianceData.overallCompliance >= 70 ? 'text-yellow-400' :
-                                                            'text-red-400'
-                                                }`}>
-                          {complianceData.overallCompliance}%
-                        </span>
-                                            </div>
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-gray-400">License Conflicts</span>
-                                                <span className={`font-semibold ${
-                                                    complianceData.licenseConflicts === 0 ? 'text-green-400' : 'text-yellow-400'
-                                                }`}>
-                          {complianceData.licenseConflicts}
-                        </span>
-                                            </div>
-                                        </div>
+                                        ) : (
+                                            previewAlerts.map((alert, index) => {
+                                                const alertType = alert.alert_type
+                                                const severity = alert.severity?.toLowerCase()
+                                                const isVuln = alertType === 'vulnerability'
+                                                const isAnomaly = alertType === 'anomaly'
+                                                const isHealth = alertType === 'health'
+                                                const isLicense = alertType === 'license'
+
+                                                // Determine color based on type/severity
+                                                const bgColor = isVuln
+                                                    ? (severity === 'critical' ? 'bg-red-500/20' : severity === 'high' ? 'bg-orange-500/20' : 'bg-yellow-500/20')
+                                                    : isAnomaly ? 'bg-purple-500/20'
+                                                        : isHealth ? 'bg-blue-500/20'
+                                                            : 'bg-yellow-500/20'
+                                                const iconColor = isVuln
+                                                    ? (severity === 'critical' ? 'text-red-400' : severity === 'high' ? 'text-orange-400' : 'text-yellow-400')
+                                                    : isAnomaly ? 'text-purple-400'
+                                                        : isHealth ? 'text-blue-400'
+                                                            : 'text-yellow-400'
+
+                                                // Get message
+                                                let message = alert.message || ''
+                                                if (isVuln && alert.vulnerability_details?.summary) {
+                                                    message = alert.vulnerability_details.summary
+                                                }
+                                                const packageName = alert.package?.name || (isHealth ? 'Health' : isLicense ? 'License' : '')
+
+                                                return (
+                                                    <div
+                                                        key={alert.id || index}
+                                                        className="flex items-center gap-3 p-2 rounded cursor-pointer hover:bg-gray-800/50 transition-colors"
+                                                        onClick={() => setCurrentTab('alerts')}
+                                                    >
+                                                        <div
+                                                            className={`w-8 h-8 rounded-lg ${bgColor} flex items-center justify-center flex-shrink-0`}>
+                                                            <AlertTriangle className={`h-4 w-4 ${iconColor}`}/>
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="text-sm text-white truncate">
+                                                                {packageName && <span
+                                                                    className="font-medium">{packageName}: </span>}
+                                                                {alertType === 'vulnerability' ? 'Vulnerability' : alertType === 'anomaly' ? 'Anomaly' : alertType === 'health' ? 'Health Change' : 'License Issue'}
+                                                            </div>
+                                                            <div
+                                                                className="text-xs text-gray-400 truncate">{message || 'View details'}</div>
+                                                        </div>
+                                                    </div>
+                                                )
+                                            })
+                                        )}
                                     </div>
                                 </CardContent>
                             </Card>
@@ -2591,51 +2442,6 @@ export default function ProjectDetailPage() {
                                     )}
                                 </div>
                             </div>
-                        </div>
-
-                        <div
-                            className="hidden md:grid grid-cols-12 items-center px-3 py-2 rounded-lg mb-2"
-                            style={{backgroundColor: colors.background.card, border: '1px solid hsl(var(--border))'}}
-                        >
-                            <button
-                                type="button"
-                                className="col-span-5 text-left text-sm text-gray-300 hover:text-white"
-                                onClick={() => cycleDepSort('name')}
-                            >
-                                Name {depArrow('name')}
-                            </button>
-
-                            <button
-                                type="button"
-                                className="col-span-2 text-left text-sm text-gray-300 hover:text-white"
-                                onClick={() => cycleDepSort('version')}
-                            >
-                                Version {depArrow('version')}
-                            </button>
-
-                            <button
-                                type="button"
-                                className="col-span-2 text-left text-sm text-gray-300 hover:text-white"
-                                onClick={() => cycleDepSort('contributors')}
-                            >
-                                Contributors {depArrow('contributors')}
-                            </button>
-
-                            <button
-                                type="button"
-                                className="col-span-2 text-left text-sm text-gray-300 hover:text-white"
-                                onClick={() => cycleDepSort('stars')}
-                            >
-                                Stars {depArrow('stars')}
-                            </button>
-
-                            <button
-                                type="button"
-                                className="col-span-1 text-left text-sm text-gray-300 hover:text-white hidden lg:block"
-                                onClick={() => cycleDepSort('score')}
-                            >
-                                Score {depArrow('score')}
-                            </button>
                         </div>
 
                         {/* Dependencies List */}
@@ -2828,7 +2634,7 @@ export default function ProjectDetailPage() {
                                     <Button
                                         variant="outline"
                                         size="default"
-                                        className="border-blue-500 text-blue-400 hover:bg-blue-500/20 font-medium"
+                                        className="border-gray-600 text-white hover:bg-gray-700 font-medium"
                                         onClick={async () => {
                                             try {
                                                 const response = await fetch(`${apiBase}/projects/${projectId}/github-app/installation-url`);
@@ -2841,7 +2647,7 @@ export default function ProjectDetailPage() {
                                             }
                                         }}
                                     >
-                                        <img src="/Github_icon.png" alt="GitHub" className="w-5 h-5 mr-2"/>
+                                        <Github className="w-4 h-4 mr-2"/>
                                         Integrate GitHub
                                     </Button>
                                 ) : (
@@ -2850,10 +2656,10 @@ export default function ProjectDetailPage() {
                                             setCurrentTab("settings");
                                             setCurrentSettingsTab("integrations");
                                         }}
-                                        className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-600 bg-gray-800/50 hover:bg-gray-700/50 transition-colors cursor-pointer"
+                                        className="flex items-center gap-2 px-3 py-2 rounded-lg border border-green-600/50 bg-green-500/10 hover:bg-green-500/20 transition-colors cursor-pointer"
                                     >
-                                        <img src="/Github_icon.png" alt="GitHub" className="w-5 h-5"/>
-                                        <span className="text-sm font-medium text-gray-300">
+                                        <Github className="w-4 h-4 text-green-400"/>
+                                        <span className="text-sm font-medium text-green-400">
                                             Integrated
                                         </span>
                                     </button>
@@ -2861,53 +2667,7 @@ export default function ProjectDetailPage() {
                             </div>
                         </div>
 
-                        {/* C) Watchlist header with sortable columns */}
-                        <div
-                            className="hidden md:grid grid-cols-12 items-center px-3 py-2 rounded-lg mb-2"
-                            style={{backgroundColor: colors.background.card, border: '1px solid hsl(var(--border))'}}
-                        >
-                            <button
-                                className="col-span-4 text-left text-sm text-gray-300 hover:text-white"
-                                onClick={() => cycleWatchSort("name")}
-                                type="button"
-                            >
-                                Name {watchArrow("name")}
-                            </button>
-
-                            <button
-                                className="col-span-2 text-left text-sm text-gray-300 hover:text-white"
-                                onClick={() => cycleWatchSort("added_at")}
-                                type="button"
-                            >
-                                Added {watchArrow("added_at")}
-                            </button>
-
-                            <button
-                                className="col-span-2 text-left text-sm text-gray-300 hover:text-white"
-                                onClick={() => cycleWatchSort("risk")}
-                                type="button"
-                            >
-                                Risk {watchArrow("risk")}
-                            </button>
-
-                            <button
-                                className="col-span-2 text-left text-sm text-gray-300 hover:text-white"
-                                onClick={() => cycleWatchSort("stars")}
-                                type="button"
-                            >
-                                Stars {watchArrow("stars")}
-                            </button>
-
-                            <button
-                                className="col-span-2 text-left text-sm text-gray-300 hover:text-white"
-                                onClick={() => cycleWatchSort("status")}
-                                type="button"
-                            >
-                                Status {watchArrow("status")}
-                            </button>
-                        </div>
-
-                        {/* D) Watchlist list */}
+                        {/* Watchlist list */}
                         <div className="grid gap-4">
                             {watchlistItems && watchlistItems.length > 0 ? (
                                 watchlistItems.map((w) => {
@@ -3419,10 +3179,16 @@ export default function ProjectDetailPage() {
                                                         </div>
                                                     </div>
                                                     {jiraConnected ? (
-                                                        <Badge variant="outline"
-                                                               className="border-green-500/50 text-green-400 bg-green-500/10">
-                                                            Connected
-                                                        </Badge>
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            className="border-green-500/50 text-green-400 bg-green-500/10 hover:bg-green-500/20"
+                                                            onClick={() => {
+                                                                window.location.href = `${apiBase}/jira/connect?project_id=${projectId}`
+                                                            }}
+                                                        >
+                                                            Reconnect
+                                                        </Button>
                                                     ) : (
                                                         <Button
                                                             variant="outline"
@@ -3459,10 +3225,16 @@ export default function ProjectDetailPage() {
                                                         </div>
                                                     </div>
                                                     {slackConnected ? (
-                                                        <Badge variant="outline"
-                                                               className="border-green-500/50 text-green-400 bg-green-500/10">
-                                                            Connected
-                                                        </Badge>
+                                                        <Button
+                                                            variant="outline"
+                                                            size="sm"
+                                                            className="border-green-500/50 text-green-400 bg-green-500/10 hover:bg-green-500/20"
+                                                            onClick={() => {
+                                                                window.location.href = `${apiBase}/slack/connect?project_id=${projectId}`
+                                                            }}
+                                                        >
+                                                            Reconnect
+                                                        </Button>
                                                     ) : (
                                                         <Button
                                                             variant="outline"
@@ -3836,14 +3608,16 @@ export default function ProjectDetailPage() {
                                 <div className="space-y-8">
                                     <div className="flex items-center justify-between">
                                         <h2 className="text-2xl font-bold text-white">Team Members</h2>
-                                        <Button
-                                            style={{backgroundColor: colors.primary}}
-                                            className="hover:opacity-90 text-white"
-                                            onClick={handleAddMember}
-                                        >
-                                            <Plus className="h-4 w-4 mr-2"/>
-                                            Add Member
-                                        </Button>
+                                        {currentUserRole === 'admin' && (
+                                            <Button
+                                                style={{backgroundColor: colors.primary}}
+                                                className="hover:opacity-90 text-white"
+                                                onClick={handleAddMember}
+                                            >
+                                                <Plus className="h-4 w-4 mr-2"/>
+                                                Add Member
+                                            </Button>
+                                        )}
                                     </div>
 
                                     <div className="space-y-0 border border-gray-700 rounded-lg overflow-hidden">
@@ -3872,7 +3646,8 @@ export default function ProjectDetailPage() {
                                                             className="text-sm text-gray-400 capitalize">{member.role}</div>
                                                     </div>
                                                 </div>
-                                                {member.user?.user_id !== currentUser?.id && (
+                                                {/* Admin can promote/remove other members */}
+                                                {currentUserRole === 'admin' && member.user?.user_id !== currentUser?.id && (
                                                     <div className="flex items-center gap-2">
                                                         <Button variant="outline" size="sm"
                                                                 className="border-gray-600 text-gray-300 hover:bg-gray-700">
@@ -3883,6 +3658,13 @@ export default function ProjectDetailPage() {
                                                             <Trash2 className="h-4 w-4"/>
                                                         </Button>
                                                     </div>
+                                                )}
+                                                {/* Non-admin members can only leave (remove themselves) */}
+                                                {currentUserRole !== 'admin' && member.user?.user_id === currentUser?.id && (
+                                                    <Button variant="outline" size="sm"
+                                                            className="border-red-600 text-red-400 hover:bg-red-600/20">
+                                                        Leave Project
+                                                    </Button>
                                                 )}
                                             </div>
                                         ))}
@@ -4163,6 +3945,8 @@ export default function ProjectDetailPage() {
                 open={showWatchlistSearchDialog}
                 onOpenChange={setShowWatchlistSearchDialog}
                 projectId={projectId}
+                existingWatchlistPackages={projectWatchlist.map((w: any) => w.package?.name || w.name).filter(Boolean)}
+                existingDependencies={projectDependencies.map((d: any) => d.package?.name || d.name).filter(Boolean)}
                 onRepositoryAdded={async () => {
                     setShowWatchlistSearchDialog(false)
 
@@ -4249,602 +4033,442 @@ export default function ProjectDetailPage() {
             {/* Dependency Review Dialog */}
             <Dialog open={showDependencyReviewDialog} onOpenChange={setShowDependencyReviewDialog}>
                 <DialogContent
-                    className="bg-gray-900 border-gray-800 max-w-4xl max-h-[90vh] overflow-y-auto scrollbar-hide">
+                    className="border-gray-800 max-w-xl max-h-[85vh] overflow-y-auto scrollbar-hide"
+                    style={{backgroundColor: colors.background.main}}>
                     <DialogHeader>
-                        <DialogTitle className="text-white flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-lg flex items-center justify-center"
+                        <DialogTitle className="text-white flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-lg flex items-center justify-center"
                                  style={{backgroundColor: 'rgb(84, 0, 250)'}}>
-                                <img src="/package_icon.png" alt="Package" className="w-5 h-5"/>
+                                <img src="/package_icon.png" alt="Package" className="w-4 h-4"/>
                             </div>
-                            {selectedDependency?.name}
+                            <span className="text-lg font-semibold">{selectedDependency?.name}</span>
                         </DialogTitle>
                     </DialogHeader>
 
                     {selectedDependency && (
-                        <div className="space-y-6">
-                            {/* Package Details - Full Width */}
-                            <Card style={{backgroundColor: colors.background.card}}>
-                                <CardHeader>
-                                    <div className="flex items-center justify-between">
-                                        <CardTitle className="text-white">Package Details</CardTitle>
-                                        {/*<Button*/}
-                                        {/*    variant="outline"*/}
-                                        {/*    size="sm"*/}
-                                        {/*    className="border-gray-600 text-gray-300 hover:bg-gray-700"*/}
-                                        {/*    onClick={() => {*/}
-                                        {/*        const pkgId =*/}
-                                        {/*            selectedDependency?.package_id ??*/}
-                                        {/*            selectedDependency?.package?.id ??*/}
-                                        {/*            selectedDependency?.packageId*/}
-
-                                        {/*        const ver =*/}
-                                        {/*            selectedDependency?.version ??*/}
-                                        {/*            projectDependencies.find(d =>*/}
-                                        {/*                d.package_id === pkgId || d.package?.id === pkgId*/}
-                                        {/*            )?.version*/}
-
-                                        {/*        if (pkgId) {*/}
-                                        {/*            gotoDependency(pkgId, ver)   // ✅ uses your helper*/}
-                                        {/*        } else {*/}
-                                        {/*            console.error('No package ID found in selectedDependency')*/}
-                                        {/*        }*/}
-                                        {/*    }}*/}
-                                        {/*>*/}
-                                        {/*    <ExternalLinkIcon className="mr-2 h-4 w-4"/>*/}
-                                        {/*    View Full Details*/}
-                                        {/*</Button>*/}
-                                    </div>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="flex items-center gap-8">
-                                        {/* Progress Circle for Score */}
-                                        <div className="flex items-center gap-4">
-                                            <div className="relative w-32 h-32">
-                                                <svg className="w-32 h-32 transform -rotate-90" viewBox="0 0 36 36">
-                                                    <path
-                                                        className="text-gray-800"
-                                                        stroke="currentColor"
-                                                        strokeWidth="3"
-                                                        fill="none"
-                                                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                                                    />
-                                                    <path
-                                                        style={{stroke: 'rgb(84, 0, 250)'}}
-                                                        stroke="currentColor"
-                                                        strokeWidth="3"
-                                                        fill="none"
-                                                        strokeDasharray={`${selectedDependency.riskScore}, 100`}
-                                                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
-                                                    />
-                                                </svg>
-                                                <div className="absolute inset-0 flex items-center justify-center">
-                                                    <div className="text-center">
-                                                        <div
-                                                            className="text-3xl font-bold text-white">{selectedDependency.riskScore}</div>
-                                                        <div className="text-sm text-gray-400">Score</div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Progress Bars for Score Breakdown */}
-                                        <div className="flex-1 space-y-3">
-                                            <div>
-                                                <div className="flex items-center justify-between mb-2">
-                                                    <span className="text-sm text-gray-300">Activity Score</span>
-                                                    <span
-                                                        className="text-sm text-white font-medium">{selectedDependency.activityScore}</span>
-                                                </div>
-                                                <div className="w-full bg-gray-700 rounded-full h-2">
-                                                    <div
-                                                        className="h-2 rounded-full transition-all duration-300"
-                                                        style={{
-                                                            width: `${selectedDependency.activityScore}%`,
-                                                            backgroundColor: 'rgb(84, 0, 250)'
-                                                        }}
-                                                    ></div>
-                                                </div>
-                                            </div>
-
-                                            <div>
-                                                <div className="flex items-center justify-between mb-2">
-                                                    <span className="text-sm text-gray-300">Bus Factor</span>
-                                                    <span
-                                                        className="text-sm text-white font-medium">{selectedDependency.busFactor}</span>
-                                                </div>
-                                                <div className="w-full bg-gray-700 rounded-full h-2">
-                                                    <div
-                                                        className="h-2 rounded-full transition-all duration-300"
-                                                        style={{
-                                                            width: `${Math.min(selectedDependency.busFactor * 5, 100)}%`,
-                                                            backgroundColor: 'rgb(84, 0, 250)'
-                                                        }}
-                                                    ></div>
-                                                </div>
-                                            </div>
-
-                                            <div>
-                                                <div className="flex items-center justify-between mb-2">
-                                                    <span className="text-sm text-gray-300">Vulnerability Score</span>
-                                                    <span
-                                                        className="text-sm text-white font-medium">{selectedDependency.vulnerabilities}</span>
-                                                </div>
-                                                <div className="w-full bg-gray-700 rounded-full h-2">
-                                                    <div
-                                                        className="h-2 rounded-full transition-all duration-300"
-                                                        style={{
-                                                            width: `${selectedDependency.vulnerabilities}%`,
-                                                            backgroundColor: 'rgb(84, 0, 250)'
-                                                        }}
-                                                    ></div>
-                                                </div>
-                                            </div>
-
-                                            <div>
-                                                <div className="flex items-center justify-between mb-2">
-                                                    <span className="text-sm text-gray-300">License Score</span>
-                                                    <span
-                                                        className="text-sm text-white font-medium">{selectedDependency.licenseScore || 'N/A'}</span>
-                                                </div>
-                                                <div className="w-full bg-gray-700 rounded-full h-2">
-                                                    <div
-                                                        className="h-2 rounded-full transition-all duration-300"
-                                                        style={{
-                                                            width: `${selectedDependency.licenseScore || 0}%`,
-                                                            backgroundColor: 'rgb(84, 0, 250)'
-                                                        }}
-                                                    ></div>
-                                                </div>
-                                            </div>
-
-                                            <div>
-                                                <div className="flex items-center justify-between mb-2">
-                                                    <span className="text-sm text-gray-300">Health Score</span>
-                                                    <span
-                                                        className="text-sm text-white font-medium">{selectedDependency.healthScore}</span>
-                                                </div>
-                                                <div className="w-full bg-gray-700 rounded-full h-2">
-                                                    <div
-                                                        className="h-2 rounded-full transition-all duration-300"
-                                                        style={{
-                                                            width: `${selectedDependency.healthScore}%`,
-                                                            backgroundColor: 'rgb(84, 0, 250)'
-                                                        }}
-                                                    ></div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </CardContent>
-                            </Card>
-
-                            {/* Second Row - Vulnerabilities and License */}
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {/* Vulnerabilities Card */}
-                                <Card style={{backgroundColor: colors.background.card}}>
-                                    <CardHeader>
-                                        <CardTitle className="text-white">Vulnerabilities</CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="space-y-2">
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-3 h-3 rounded-full bg-green-500"></div>
-                                                <span className="text-sm text-gray-300">No known vulnerabilities in current version</span>
-                                            </div>
-                                            <div className="flex items-center gap-2 mt-2">
-                                                <img src="/osv_logo.svg" alt="OSV" className="w-4 h-4"/>
-                                                <span className="text-xs text-gray-500">Data from OSV</span>
-                                            </div>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-
-                                {/* License Information Card */}
-                                <Card style={{backgroundColor: colors.background.card}}>
-                                    <CardHeader>
-                                        <CardTitle className="text-white">License Information</CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-3">
+                        <div className="space-y-5">
+                            {/* Package Score & Metrics - Compact Layout */}
+                            <div className="flex items-center gap-6">
+                                {/* Compact Score Circle */}
+                                <div className="flex-shrink-0">
+                                    <div className="relative w-20 h-20">
+                                        <svg className="w-20 h-20 transform -rotate-90" viewBox="0 0 36 36">
+                                            <path
+                                                className="text-gray-800"
+                                                stroke="currentColor"
+                                                strokeWidth="3"
+                                                fill="none"
+                                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                            />
+                                            <path
+                                                style={{stroke: 'rgb(84, 0, 250)'}}
+                                                strokeWidth="3"
+                                                fill="none"
+                                                strokeDasharray={`${selectedDependency.riskScore}, 100`}
+                                                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                                            />
+                                        </svg>
+                                        <div className="absolute inset-0 flex items-center justify-center">
+                                            <div className="text-center">
                                                 <div
-                                                    className="px-3 py-2 rounded-lg bg-green-500/20 flex items-center justify-center min-w-fit">
-                                                    <span
-                                                        className="text-green-400 font-bold text-sm whitespace-nowrap">{selectedDependency.license}</span>
-                                                </div>
-                                                <div>
-                                                    <div
-                                                        className="text-white font-medium">{selectedDependency.license} License
-                                                    </div>
-                                                </div>
+                                                    className="text-xl font-bold text-white">{selectedDependency.riskScore}</div>
+                                                <div className="text-[10px] text-gray-500">Score</div>
                                             </div>
-                                            {(() => {
-                                                const hasProjectLicense = selectedDependency.projectLicense && selectedDependency.projectLicense !== 'unlicensed' && selectedDependency.projectLicense !== 'none' && selectedDependency.projectLicense !== null && selectedDependency.projectLicense !== undefined
-
-                                                if (!hasProjectLicense) {
-                                                    return null // Don't show anything if no project license
-                                                }
-
-                                                const licenseCompatibility = checkLicenseCompatibility(selectedDependency.projectLicense, selectedDependency.license)
-
-                                                if (licenseCompatibility.isCompatible) {
-                                                    return (
-                                                        <Badge variant="outline"
-                                                               className="border-green-500 text-green-500">
-                                                            <Shield className="mr-1 h-3 w-3"/>
-                                                            License OK
-                                                        </Badge>
-                                                    )
-                                                } else {
-                                                    const severityColor = licenseCompatibility.severity === 'high' ? 'red' :
-                                                        licenseCompatibility.severity === 'medium' ? 'yellow' : 'blue'
-                                                    return (
-                                                        <Badge variant="outline"
-                                                               className={`border-${severityColor}-500 text-${severityColor}-500`}>
-                                                            <AlertTriangle className="mr-1 h-3 w-3"/>
-                                                            License Issue
-                                                        </Badge>
-                                                    )
-                                                }
-                                            })()}
                                         </div>
-                                    </CardContent>
-                                </Card>
+                                    </div>
+                                </div>
+
+                                {/* Metrics Grid - Compact */}
+                                <div className="flex-1 grid grid-cols-2 gap-2">
+                                    <div
+                                        className="flex items-center justify-between px-3 py-2 rounded-lg border border-gray-800"
+                                        style={{backgroundColor: colors.background.card}}>
+                                        <span className="text-xs text-gray-400">Activity</span>
+                                        <span
+                                            className="text-sm font-medium text-white">{selectedDependency.activityScore}</span>
+                                    </div>
+                                    <div
+                                        className="flex items-center justify-between px-3 py-2 rounded-lg border border-gray-800"
+                                        style={{backgroundColor: colors.background.card}}>
+                                        <span className="text-xs text-gray-400">Bus Factor</span>
+                                        <span
+                                            className="text-sm font-medium text-white">{selectedDependency.busFactor}</span>
+                                    </div>
+                                    <div
+                                        className="flex items-center justify-between px-3 py-2 rounded-lg border border-gray-800"
+                                        style={{backgroundColor: colors.background.card}}>
+                                        <span className="text-xs text-gray-400">Vulnerability</span>
+                                        <span
+                                            className="text-sm font-medium text-white">{selectedDependency.vulnerabilities}</span>
+                                    </div>
+                                    <div
+                                        className="flex items-center justify-between px-3 py-2 rounded-lg border border-gray-800"
+                                        style={{backgroundColor: colors.background.card}}>
+                                        <span className="text-xs text-gray-400">License</span>
+                                        <span
+                                            className="text-sm font-medium text-white">{selectedDependency.licenseScore || 'N/A'}</span>
+                                    </div>
+                                    <div
+                                        className="col-span-2 flex items-center justify-between px-3 py-2 rounded-lg border border-gray-800"
+                                        style={{backgroundColor: colors.background.card}}>
+                                        <span className="text-xs text-gray-400">Health Score</span>
+                                        <span
+                                            className="text-sm font-medium text-white">{selectedDependency.healthScore}</span>
+                                    </div>
+                                </div>
                             </div>
 
-                            {/* Review and Timeline - Combined */}
-                            <Card style={{backgroundColor: colors.background.card}}>
-                                <CardHeader>
+                            {/* Vulnerabilities & License - Inline Row */}
+                            <div className="grid grid-cols-2 gap-4">
+                                {/* Vulnerabilities */}
+                                <div className="p-3 rounded-lg border border-gray-800"
+                                     style={{backgroundColor: colors.background.card}}>
+                                    <div className="text-xs font-medium text-gray-400 mb-2">Vulnerabilities</div>
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                                        <span className="text-sm text-gray-300">No known vulnerabilities</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5 mt-2">
+                                        <img src="/osv_logo.svg" alt="OSV" className="w-3 h-3 opacity-50"/>
+                                        <span className="text-[10px] text-gray-600">Data from OSV</span>
+                                    </div>
+                                </div>
+
+                                {/* License */}
+                                <div className="p-3 rounded-lg border border-gray-800"
+                                     style={{backgroundColor: colors.background.card}}>
+                                    <div className="text-xs font-medium text-gray-400 mb-2">License Information</div>
                                     <div className="flex items-center justify-between">
-                                        <CardTitle className="text-white">Review</CardTitle>
-                                        <div>
-                                            {selectedDependency.status === 'approved' && (
-                                                <Badge variant="outline" className="border-green-500 text-green-500">
-                                                    <Check className="mr-1 h-3 w-3"/>
-                                                    Approved
-                                                </Badge>
-                                            )}
-                                            {selectedDependency.status === 'rejected' && (
-                                                <Badge variant="outline" className="border-red-500 text-red-500">
-                                                    <Trash2 className="mr-1 h-3 w-3"/>
-                                                    Rejected
-                                                </Badge>
-                                            )}
-                                            {selectedDependency.status === 'pending' && (
-                                                <Badge variant="outline"
-                                                       className="border-gray-500 text-gray-400 bg-gray-800/50">
-                                                    <Clock className="mr-1 h-3 w-3"/>
-                                                    Pending
-                                                </Badge>
-                                            )}
+                                        <div className="flex items-center gap-2">
+                                            <span
+                                                className="px-2 py-1 rounded text-xs font-semibold bg-green-500/20 text-green-400">{selectedDependency.license}</span>
+                                            <span
+                                                className="text-sm text-white">{selectedDependency.license} License</span>
+                                        </div>
+                                        {(() => {
+                                            const hasProjectLicense = selectedDependency.projectLicense && selectedDependency.projectLicense !== 'unlicensed' && selectedDependency.projectLicense !== 'none' && selectedDependency.projectLicense !== null && selectedDependency.projectLicense !== undefined
+                                            if (!hasProjectLicense) return null
+                                            const licenseCompatibility = checkLicenseCompatibility(selectedDependency.projectLicense, selectedDependency.license)
+                                            if (licenseCompatibility.isCompatible) {
+                                                return <Shield className="h-4 w-4 text-green-500"/>
+                                            } else {
+                                                return <AlertTriangle className="h-4 w-4 text-yellow-500"/>
+                                            }
+                                        })()}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Review Section - Clean */}
+                            <div className="border-t border-gray-800 pt-4">
+                                <div className="flex items-center justify-between mb-3">
+                                    <span className="text-sm font-medium text-white">Review</span>
+                                    {selectedDependency.status === 'approved' && (
+                                        <Badge variant="outline" className="border-green-500 text-green-500 text-xs">
+                                            <Check className="mr-1 h-3 w-3"/>
+                                            Approved
+                                        </Badge>
+                                    )}
+                                    {selectedDependency.status === 'rejected' && (
+                                        <Badge variant="outline" className="border-red-500 text-red-500 text-xs">
+                                            <Trash2 className="mr-1 h-3 w-3"/>
+                                            Rejected
+                                        </Badge>
+                                    )}
+                                    {selectedDependency.status === 'pending' && (
+                                        <Badge variant="outline" className="border-gray-600 text-gray-400 text-xs">
+                                            <Clock className="mr-1 h-3 w-3"/>
+                                            Pending
+                                        </Badge>
+                                    )}
+                                </div>
+
+                                {/* Timeline */}
+                                <div className="space-y-3">
+                                    <div className="flex items-start gap-2.5">
+                                        <div
+                                            className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                            <User className="h-3 w-3 text-gray-400"/>
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="text-sm text-white">
+                                                <span className="font-medium">{selectedDependency.addedBy}</span>
+                                                <span className="text-gray-400"> added this to watchlist</span>
+                                            </div>
+                                            <div className="text-xs text-gray-500">
+                                                {selectedDependency.addedAt ? formatRelativeDate(selectedDependency.addedAt) : 'Unknown date'}
+                                            </div>
                                         </div>
                                     </div>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="space-y-4">
-                                        {/* Timeline */}
-                                        <div className="space-y-4">
-                                            <div className="flex items-start gap-3">
+
+                                    {/* Comments */}
+                                    {selectedDependency.comments && selectedDependency.comments.length > 0 && (
+                                        selectedDependency.comments.map((comment: any, index: number) => (
+                                            <div key={index} className="flex items-start gap-2.5">
                                                 <div
-                                                    className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
-                                                    <User className="h-4 w-4 text-blue-400"/>
+                                                    className="w-6 h-6 rounded-full bg-gray-700 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                                    <MessageSquare className="h-3 w-3 text-gray-400"/>
                                                 </div>
-                                                <div className="flex-1">
-                                                    <div
-                                                        className="text-white font-medium">{selectedDependency.addedBy} added
-                                                        this dependency to watchlist
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="text-sm">
+                                                        <span
+                                                            className="font-medium text-white">{comment.user?.name || comment.user?.email || comment.user_id}</span>
+                                                        <span className="text-gray-400"> commented</span>
                                                     </div>
-                                                    <div className="text-sm text-gray-400">
-                                                        {selectedDependency.addedAt ? formatRelativeDate(selectedDependency.addedAt) : 'Unknown date'}
+                                                    <div
+                                                        className="text-sm text-gray-300 mt-0.5">{comment.comment}</div>
+                                                    <div className="text-xs text-gray-500">
+                                                        {comment.created_at ? formatRelativeDate(comment.created_at) : 'Unknown date'}
                                                     </div>
                                                 </div>
                                             </div>
+                                        ))
+                                    )}
 
-                                            {/* Dynamic Comments */}
-                                            {selectedDependency.comments && selectedDependency.comments.length > 0 && (
-                                                selectedDependency.comments.map((comment: any, index: number) => (
-                                                    <div key={index} className="flex items-start gap-3">
-                                                        <div
-                                                            className="w-8 h-8 rounded-full bg-gray-500/20 flex items-center justify-center">
-                                                            <MessageSquare className="h-4 w-4 text-gray-400"/>
-                                                        </div>
-                                                        <div className="flex-1">
-                                                            <div
-                                                                className="text-white font-medium">{comment.user?.name || comment.user?.email || comment.user_id} commented
-                                                            </div>
-                                                            <div className="text-gray-300 mt-1">{comment.comment}</div>
-                                                            <div className="text-sm text-gray-400">
-                                                                {comment.created_at ? formatRelativeDate(comment.created_at) : 'Unknown date'}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                ))
-                                            )}
-
-                                            {/* Show approval/rejection events if not pending */}
-                                            {selectedDependency.status === 'approved' && (
-                                                <div className="flex items-start gap-3">
-                                                    <div
-                                                        className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
-                                                        <Check className="h-4 w-4 text-green-400"/>
-                                                    </div>
-                                                    <div className="flex-1">
-                                                        <div
-                                                            className="text-white font-medium">{selectedDependency.approvedBy || 'Someone'} approved
-                                                            this dependency
-                                                        </div>
-                                                        <div className="text-gray-300 mt-1">This package has been
-                                                            approved for use.
-                                                        </div>
-                                                        <div className="text-sm text-gray-400">
-                                                            {selectedDependency.approvedAt ? formatRelativeDate(selectedDependency.approvedAt) : 'Recently'}
-                                                        </div>
-                                                    </div>
+                                    {/* Approval event */}
+                                    {selectedDependency.status === 'approved' && (
+                                        <div className="flex items-start gap-2.5">
+                                            <div
+                                                className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                                <Check className="h-3 w-3 text-green-400"/>
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="text-sm">
+                                                    <span
+                                                        className="font-medium text-white">{selectedDependency.approvedBy || 'Someone'}</span>
+                                                    <span className="text-gray-400"> approved this dependency</span>
                                                 </div>
-                                            )}
-
-                                            {selectedDependency.status === 'rejected' && (
-                                                <div className="flex items-start gap-3">
-                                                    <div
-                                                        className="w-8 h-8 rounded-full bg-red-500/20 flex items-center justify-center">
-                                                        <Trash2 className="h-4 w-4 text-red-400"/>
-                                                    </div>
-                                                    <div className="flex-1">
-                                                        <div
-                                                            className="text-white font-medium">{selectedDependency.rejectedBy || 'Someone'} rejected
-                                                            this dependency
-                                                        </div>
-                                                        <div className="text-gray-300 mt-1">This package has been
-                                                            rejected and will not be used.
-                                                        </div>
-                                                        <div className="text-sm text-gray-400">
-                                                            {selectedDependency.rejectedAt ? formatRelativeDate(selectedDependency.rejectedAt) : 'Recently'}
-                                                        </div>
-                                                    </div>
+                                                <div className="text-xs text-gray-500">
+                                                    {selectedDependency.approvedAt ? formatRelativeDate(selectedDependency.approvedAt) : 'Recently'}
                                                 </div>
-                                            )}
+                                            </div>
                                         </div>
+                                    )}
 
-                                        {/* Add Comment Section - Only show when pending */}
-                                        {selectedDependency.status === 'pending' && (
-                                            <div className="border-t border-gray-700 pt-4">
-                                                <div className="flex items-start gap-3">
-                                                    <div
-                                                        className="w-8 h-8 rounded-full bg-blue-500/20 flex items-center justify-center">
-                                                        <User className="h-4 w-4 text-blue-400"/>
-                                                    </div>
-                                                    <div className="flex-1">
-                            <textarea
-                                placeholder="Add a comment..."
-                                className="w-full px-3 py-2 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                                style={{
-                                    backgroundColor: colors.background.card,
-                                    borderColor: 'hsl(var(--border))',
-                                    borderWidth: '1px'
-                                }}
-                                rows={3}
-                            />
-                                                        <div className="flex items-center justify-between mt-2">
-                                                            <div className="flex items-center gap-2">
-                                                                <Button
-                                                                    size="sm"
-                                                                    className="text-white"
-                                                                    style={{backgroundColor: 'rgb(34, 197, 94)'}}
-                                                                    onClick={async () => {
-                                                                        try {
-                                                                            const response = await fetch(`${apiBase}/projects/watchlist/${selectedDependency.id}/approve`, {
-                                                                                method: 'POST',
-                                                                                headers: {'Content-Type': 'application/json'},
-                                                                                body: JSON.stringify({userId: backendUserId})
-                                                                            })
+                                    {/* Rejection event */}
+                                    {selectedDependency.status === 'rejected' && (
+                                        <div className="flex items-start gap-2.5">
+                                            <div
+                                                className="w-6 h-6 rounded-full bg-red-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                                <Trash2 className="h-3 w-3 text-red-400"/>
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="text-sm">
+                                                    <span
+                                                        className="font-medium text-white">{selectedDependency.rejectedBy || 'Someone'}</span>
+                                                    <span className="text-gray-400"> rejected this dependency</span>
+                                                </div>
+                                                <div className="text-xs text-gray-500">
+                                                    {selectedDependency.rejectedAt ? formatRelativeDate(selectedDependency.rejectedAt) : 'Recently'}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
 
-                                                                            if (response.ok) {
-                                                                                // Refresh watchlist data to get actual approver info from database
-                                                                                try {
-                                                                                    const projectWatchlistResponse = await fetch(`${apiBase}/projects/${projectId}/project-watchlist`)
-                                                                                    if (projectWatchlistResponse.ok) {
-                                                                                        const projectWatchlistData = await projectWatchlistResponse.json()
-                                                                                        setProjectWatchlist(projectWatchlistData)
-
-                                                                                        // Find the updated package and update selectedDependency
-                                                                                        const updatedPackage = projectWatchlistData.find((pkg: any) => pkg.id === selectedDependency.id)
-                                                                                        if (updatedPackage) {
-                                                                                            setSelectedDependency((prev: any) => ({
-                                                                                                ...prev,
-                                                                                                status: updatedPackage.status,
-                                                                                                approvedBy: updatedPackage.approvedByUser?.name || updatedPackage.approvedBy,
-                                                                                                approvedAt: updatedPackage.approvedAt
-                                                                                            }))
-                                                                                        }
-                                                                                    }
-                                                                                } catch (error) {
-                                                                                    console.error('Error refreshing watchlist data:', error)
-                                                                                }
-
-                                                                                setShowDependencyReviewDialog(false)
-                                                                                toast({
-                                                                                    title: "Dependency Approved",
-                                                                                    description: `${selectedDependency.name} has been approved.`,
-                                                                                })
-                                                                                // Status updated successfully - UI already updated
-                                                                            } else {
-                                                                                toast({
-                                                                                    title: "Error",
-                                                                                    description: "Failed to approve dependency.",
-                                                                                    variant: "destructive"
-                                                                                })
-                                                                            }
-                                                                        } catch (error) {
-                                                                            toast({
-                                                                                title: "Error",
-                                                                                description: "Failed to approve dependency.",
-                                                                                variant: "destructive"
-                                                                            })
-                                                                        }
-                                                                    }}
-                                                                >
-                                                                    <Check className="mr-1 h-3 w-3"/>
-                                                                    Approve
-                                                                </Button>
-                                                                <Button
-                                                                    size="sm"
-                                                                    className="text-white"
-                                                                    style={{backgroundColor: 'rgb(239, 68, 68)'}}
-                                                                    onClick={async () => {
-                                                                        try {
-                                                                            const response = await fetch(`${apiBase}/projects/watchlist/${selectedDependency.id}/reject`, {
-                                                                                method: 'POST',
-                                                                                headers: {'Content-Type': 'application/json'},
-                                                                                body: JSON.stringify({userId: backendUserId})
-                                                                            })
-
-                                                                            if (response.ok) {
-                                                                                // Refresh watchlist data to get actual approver info from database
-                                                                                try {
-                                                                                    const projectWatchlistResponse = await fetch(`${apiBase}/projects/${projectId}/project-watchlist`)
-                                                                                    if (projectWatchlistResponse.ok) {
-                                                                                        const projectWatchlistData = await projectWatchlistResponse.json()
-                                                                                        setProjectWatchlist(projectWatchlistData)
-
-                                                                                        // Find the updated package and update selectedDependency
-                                                                                        const updatedPackage = projectWatchlistData.find((pkg: any) => pkg.id === selectedDependency.id)
-                                                                                        if (updatedPackage) {
-                                                                                            setSelectedDependency((prev: any) => ({
-                                                                                                ...prev,
-                                                                                                status: updatedPackage.status,
-                                                                                                rejectedBy: updatedPackage.rejectedByUser?.name || updatedPackage.rejectedBy,
-                                                                                                rejectedAt: updatedPackage.rejectedAt
-                                                                                            }))
-                                                                                        }
-                                                                                    }
-                                                                                } catch (error) {
-                                                                                    console.error('Error refreshing watchlist data:', error)
-                                                                                }
-
-                                                                                setShowDependencyReviewDialog(false)
-                                                                                toast({
-                                                                                    title: "Dependency Rejected",
-                                                                                    description: `${selectedDependency.name} has been rejected.`,
-                                                                                })
-                                                                                // Status updated successfully - UI already updated
-                                                                            } else {
-                                                                                toast({
-                                                                                    title: "Error",
-                                                                                    description: "Failed to reject dependency.",
-                                                                                    variant: "destructive"
-                                                                                })
-                                                                            }
-                                                                        } catch (error) {
-                                                                            toast({
-                                                                                title: "Error",
-                                                                                description: "Failed to reject dependency.",
-                                                                                variant: "destructive"
-                                                                            })
-                                                                        }
-                                                                    }}
-                                                                >
-                                                                    <Trash2 className="mr-1 h-3 w-3"/>
-                                                                    Reject
-                                                                </Button>
-                                                            </div>
-                                                            <Button
-                                                                size="sm"
-                                                                className="text-white"
-                                                                style={{backgroundColor: colors.primary}}
-                                                                onClick={async () => {
-                                                                    const textarea = document.querySelector('textarea[placeholder="Add a comment..."]') as HTMLTextAreaElement
-                                                                    const comment = textarea?.value?.trim()
-
-                                                                    if (!comment) {
-                                                                        toast({
-                                                                            title: "Error",
-                                                                            description: "Please enter a comment.",
-                                                                            variant: "destructive"
-                                                                        })
-                                                                        return
-                                                                    }
-
-                                                                    try {
-                                                                        const response = await fetch(`${apiBase}/projects/watchlist/${selectedDependency.id}/comment`, {
-                                                                            method: 'POST',
-                                                                            headers: {'Content-Type': 'application/json'},
-                                                                            body: JSON.stringify({
-                                                                                userId: backendUserId,
-                                                                                comment: comment
-                                                                            })
-                                                                        })
-
-                                                                        console.log('Comment API response:', response.status, response.statusText, 'ok:', response.ok)
-
-                                                                        if (response.status >= 200 && response.status < 300) {
-                                                                            console.log('SUCCESS: Comment added successfully')
-                                                                            textarea.value = ''
-                                                                            toast({
-                                                                                title: "Comment Added",
-                                                                                description: "Your comment has been added.",
-                                                                            })
-
-                                                                            // Add the new comment to the selected dependency immediately
-                                                                            console.log('Current user data:', currentUser)
-                                                                            const newComment = {
-                                                                                user_id: backendUserId,
-                                                                                user: {
-                                                                                    name: currentUser?.name || currentUser?.email || 'User',
-                                                                                    email: currentUser?.email || 'user@example.com'
-                                                                                },
-                                                                                comment: comment,
-                                                                                created_at: new Date().toISOString()
-                                                                            }
-                                                                            console.log('New comment object:', newComment)
-
+                                {/* Comment Input - Only when pending */}
+                                {selectedDependency.status === 'pending' && (
+                                    <div className="mt-4 pt-3 border-t border-gray-800">
+                                        <textarea
+                                            placeholder="Add a comment..."
+                                            className="w-full px-3 py-2 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-600 resize-none border border-gray-800"
+                                            style={{backgroundColor: colors.background.card}}
+                                            rows={2}
+                                        />
+                                        <div className="flex items-center justify-between mt-3">
+                                            <div className="flex items-center gap-2">
+                                                <Button
+                                                    size="sm"
+                                                    className="text-white text-xs h-7"
+                                                    style={{backgroundColor: 'rgb(34, 197, 94)'}}
+                                                    onClick={async () => {
+                                                        try {
+                                                            const response = await fetch(`${apiBase}/projects/watchlist/${selectedDependency.id}/approve`, {
+                                                                method: 'POST',
+                                                                headers: {'Content-Type': 'application/json'},
+                                                                body: JSON.stringify({userId: backendUserId})
+                                                            })
+                                                            if (response.ok) {
+                                                                try {
+                                                                    const projectWatchlistResponse = await fetch(`${apiBase}/projects/${projectId}/project-watchlist`)
+                                                                    if (projectWatchlistResponse.ok) {
+                                                                        const projectWatchlistData = await projectWatchlistResponse.json()
+                                                                        setProjectWatchlist(projectWatchlistData)
+                                                                        const updatedPackage = projectWatchlistData.find((pkg: any) => pkg.id === selectedDependency.id)
+                                                                        if (updatedPackage) {
                                                                             setSelectedDependency((prev: any) => ({
                                                                                 ...prev,
-                                                                                comments: [...(prev.comments || []), newComment]
+                                                                                status: updatedPackage.status,
+                                                                                approvedBy: updatedPackage.approvedByUser?.name || updatedPackage.approvedBy,
+                                                                                approvedAt: updatedPackage.approvedAt
                                                                             }))
-
-                                                                            // Also update the projectWatchlist to show the comment in the card
-                                                                            setProjectWatchlist((prev: any[]) =>
-                                                                                prev.map((item: any) =>
-                                                                                    item.id === selectedDependency.id
-                                                                                        ? {
-                                                                                            ...item,
-                                                                                            comments: [...(item.comments || []), newComment]
-                                                                                        }
-                                                                                        : item
-                                                                                )
-                                                                            )
-
-                                                                            // Comment added successfully - UI already updated
-                                                                        } else {
-                                                                            console.log('ERROR: Comment failed with status:', response.status)
-                                                                            const errorText = await response.text()
-                                                                            console.log('Comment API error:', response.status, errorText)
-                                                                            toast({
-                                                                                title: "Error",
-                                                                                description: `Failed to add comment. Status: ${response.status}`,
-                                                                                variant: "destructive"
-                                                                            })
                                                                         }
-                                                                    } catch (error) {
-                                                                        console.log('Comment API catch error:', error)
-                                                                        toast({
-                                                                            title: "Error",
-                                                                            description: "Failed to add comment.",
-                                                                            variant: "destructive"
-                                                                        })
                                                                     }
-                                                                }}
-                                                            >
-                                                                Comment
-                                                            </Button>
-                                                        </div>
-                                                    </div>
-                                                </div>
+                                                                } catch (error) {
+                                                                    console.error('Error refreshing watchlist data:', error)
+                                                                }
+                                                                setShowDependencyReviewDialog(false)
+                                                                toast({
+                                                                    title: "Dependency Approved",
+                                                                    description: `${selectedDependency.name} has been approved.`
+                                                                })
+                                                            } else {
+                                                                toast({
+                                                                    title: "Error",
+                                                                    description: "Failed to approve dependency.",
+                                                                    variant: "destructive"
+                                                                })
+                                                            }
+                                                        } catch (error) {
+                                                            toast({
+                                                                title: "Error",
+                                                                description: "Failed to approve dependency.",
+                                                                variant: "destructive"
+                                                            })
+                                                        }
+                                                    }}
+                                                >
+                                                    <Check className="mr-1 h-3 w-3"/>
+                                                    Approve
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    className="text-white text-xs h-7"
+                                                    style={{backgroundColor: 'rgb(239, 68, 68)'}}
+                                                    onClick={async () => {
+                                                        try {
+                                                            const response = await fetch(`${apiBase}/projects/watchlist/${selectedDependency.id}/reject`, {
+                                                                method: 'POST',
+                                                                headers: {'Content-Type': 'application/json'},
+                                                                body: JSON.stringify({userId: backendUserId})
+                                                            })
+                                                            if (response.ok) {
+                                                                try {
+                                                                    const projectWatchlistResponse = await fetch(`${apiBase}/projects/${projectId}/project-watchlist`)
+                                                                    if (projectWatchlistResponse.ok) {
+                                                                        const projectWatchlistData = await projectWatchlistResponse.json()
+                                                                        setProjectWatchlist(projectWatchlistData)
+                                                                        const updatedPackage = projectWatchlistData.find((pkg: any) => pkg.id === selectedDependency.id)
+                                                                        if (updatedPackage) {
+                                                                            setSelectedDependency((prev: any) => ({
+                                                                                ...prev,
+                                                                                status: updatedPackage.status,
+                                                                                rejectedBy: updatedPackage.rejectedByUser?.name || updatedPackage.rejectedBy,
+                                                                                rejectedAt: updatedPackage.rejectedAt
+                                                                            }))
+                                                                        }
+                                                                    }
+                                                                } catch (error) {
+                                                                    console.error('Error refreshing watchlist data:', error)
+                                                                }
+                                                                setShowDependencyReviewDialog(false)
+                                                                toast({
+                                                                    title: "Dependency Rejected",
+                                                                    description: `${selectedDependency.name} has been rejected.`
+                                                                })
+                                                            } else {
+                                                                toast({
+                                                                    title: "Error",
+                                                                    description: "Failed to reject dependency.",
+                                                                    variant: "destructive"
+                                                                })
+                                                            }
+                                                        } catch (error) {
+                                                            toast({
+                                                                title: "Error",
+                                                                description: "Failed to reject dependency.",
+                                                                variant: "destructive"
+                                                            })
+                                                        }
+                                                    }}
+                                                >
+                                                    <Trash2 className="mr-1 h-3 w-3"/>
+                                                    Reject
+                                                </Button>
                                             </div>
-                                        )}
+                                            <Button
+                                                size="sm"
+                                                className="text-white text-xs h-7"
+                                                style={{backgroundColor: colors.primary}}
+                                                disabled={isSubmittingComment}
+                                                onClick={async () => {
+                                                    const textarea = document.querySelector('textarea[placeholder="Add a comment..."]') as HTMLTextAreaElement
+                                                    const comment = textarea?.value?.trim()
+                                                    if (!comment) {
+                                                        toast({
+                                                            title: "Error",
+                                                            description: "Please enter a comment.",
+                                                            variant: "destructive"
+                                                        })
+                                                        return
+                                                    }
+                                                    setIsSubmittingComment(true)
+                                                    try {
+                                                        const response = await fetch(`${apiBase}/projects/watchlist/${selectedDependency.id}/comment`, {
+                                                            method: 'POST',
+                                                            headers: {'Content-Type': 'application/json'},
+                                                            body: JSON.stringify({
+                                                                userId: backendUserId,
+                                                                comment: comment
+                                                            })
+                                                        })
+                                                        if (response.status >= 200 && response.status < 300) {
+                                                            textarea.value = ''
+                                                            toast({
+                                                                title: "Comment Added",
+                                                                description: "Your comment has been added."
+                                                            })
+                                                            const newComment = {
+                                                                user_id: backendUserId,
+                                                                user: {
+                                                                    name: user?.fullName || user?.firstName || user?.primaryEmailAddress?.emailAddress || 'User',
+                                                                    email: user?.primaryEmailAddress?.emailAddress || 'user@example.com'
+                                                                },
+                                                                comment: comment,
+                                                                created_at: new Date().toISOString()
+                                                            }
+                                                            setSelectedDependency((prev: any) => ({
+                                                                ...prev,
+                                                                comments: [...(prev.comments || []), newComment]
+                                                            }))
+                                                            setProjectWatchlist((prev: any[]) =>
+                                                                prev.map((item: any) =>
+                                                                    item.id === selectedDependency.id
+                                                                        ? {
+                                                                            ...item,
+                                                                            comments: [...(item.comments || []), newComment]
+                                                                        }
+                                                                        : item
+                                                                )
+                                                            )
+                                                        } else {
+                                                            toast({
+                                                                title: "Error",
+                                                                description: `Failed to add comment. Status: ${response.status}`,
+                                                                variant: "destructive"
+                                                            })
+                                                        }
+                                                    } catch (error) {
+                                                        toast({
+                                                            title: "Error",
+                                                            description: "Failed to add comment.",
+                                                            variant: "destructive"
+                                                        })
+                                                    } finally {
+                                                        setIsSubmittingComment(false)
+                                                    }
+                                                }}
+                                            >
+                                                {isSubmittingComment ? (
+                                                    <RefreshCw className="h-3 w-3 animate-spin"/>
+                                                ) : (
+                                                    'Comment'
+                                                )}
+                                            </Button>
+                                        </div>
                                     </div>
-                                </CardContent>
-                            </Card>
+                                )}
+                            </div>
 
                         </div>
                     )}
@@ -4916,8 +4540,12 @@ export default function ProjectDetailPage() {
 
             <Dialog open={flatteningDialogOpen} onOpenChange={setFlatteningDialogOpen}>
                 <DialogContent
-                    className="max-w-6xl h-[700px] border border-gray-800 bg-gray-950 text-gray-200 overflow-hidden flex flex-col"
-                    style={{left: 'calc(280px + (100vw - 280px) / 2)', transform: 'translateX(-50%) translateY(-50%)'}}>
+                    className="max-w-6xl h-[700px] border border-gray-800 text-gray-200 overflow-hidden flex flex-col"
+                    style={{
+                        left: 'calc(280px + (100vw - 280px) / 2)',
+                        transform: 'translateX(-50%) translateY(-50%)',
+                        backgroundColor: 'rgb(12, 12, 12)'
+                    }}>
                     <DialogHeader className="flex-shrink-0">
                         <DialogTitle className="text-white">Dependency Flattening Recommendations</DialogTitle>
                         <p className="text-xs text-gray-500">Provides recommendations for resolving dependency version
@@ -4926,13 +4554,16 @@ export default function ProjectDetailPage() {
                     <Tabs value={flatteningDialogTab}
                           onValueChange={(value) => setFlatteningDialogTab(value as 'recommendations' | 'anchors')}
                           className="w-full flex-1 flex flex-col min-h-0 overflow-hidden">
-                        <TabsList className="grid w-full grid-cols-2 bg-gray-900 flex-shrink-0">
+                        <TabsList className="grid w-full grid-cols-2 flex-shrink-0"
+                                  style={{backgroundColor: 'rgb(18, 18, 18)'}}>
                             <TabsTrigger value="recommendations"
-                                         className="data-[state=active]:bg-gray-800 data-[state=active]:text-white">
+                                         className="data-[state=active]:text-white text-gray-400"
+                                         style={{backgroundColor: 'transparent'}}
+                                         data-state-active-style={{backgroundColor: 'rgb(26, 26, 26)'}}>
                                 Recommendations & Duplicates
                             </TabsTrigger>
-                            <TabsTrigger value="anchors"
-                                         className="data-[state=active]:bg-gray-800 data-[state=active]:text-white">
+                            <TabsTrigger value="anchors" className="data-[state=active]:text-white text-gray-400"
+                                         style={{backgroundColor: 'transparent'}}>
                                 High-Risk Anchors
                             </TabsTrigger>
                         </TabsList>

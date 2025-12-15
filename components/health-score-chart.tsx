@@ -14,6 +14,7 @@ import {
 } from 'recharts'
 import { format, parseISO } from 'date-fns'
 import { TrendingUp, Eye, ChevronRight } from 'lucide-react'
+import { colors } from '@/lib/design-system'
 
 // Custom dot component that shows selection state
 const CustomDot = ({ cx, cy, payload, isSelected }: any) => {
@@ -282,45 +283,53 @@ export function HealthScoreChart({
   const LoadingSkeleton = () => (
     <div className="w-full">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Scorecard Preview Skeleton - Left 1/3 */}
+        {/* Scorecard Score Skeleton - Left 1/3 */}
         <div className="lg:col-span-1">
           <div className="space-y-4">
             {/* Title with Logo Skeleton */}
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-gray-600 rounded animate-pulse"></div>
-              <div className="h-6 w-48 bg-gray-600 rounded animate-pulse"></div>
+              <div className="w-8 h-8 rounded animate-pulse" style={{ backgroundColor: colors.border.default }}></div>
+              <div className="h-6 w-40 rounded animate-pulse" style={{ backgroundColor: colors.border.default }}></div>
             </div>
             
             {/* Date Info Skeleton */}
-            <div className="h-4 w-64 bg-gray-600 rounded animate-pulse"></div>
+            <div className="h-4 w-48 rounded animate-pulse" style={{ backgroundColor: colors.border.default }}></div>
             
-            {/* Spacing */}
-            <div className="h-4"></div>
-            
-            {/* Overall Score Skeleton */}
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="h-12 w-16 bg-gray-600 rounded animate-pulse mb-2"></div>
-                <div className="h-4 w-20 bg-gray-600 rounded animate-pulse"></div>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-32 h-3 bg-gray-600 rounded-full animate-pulse"></div>
-                <div className="w-4 h-4 bg-gray-600 rounded animate-pulse"></div>
-              </div>
+            {/* Circular Score Skeleton */}
+            <div className="flex flex-col items-center py-6">
+              <div className="w-32 h-32 rounded-full animate-pulse" style={{ backgroundColor: 'rgba(55, 65, 81, 0.5)' }}></div>
             </div>
 
-            {/* Total Checks Skeleton */}
-            <div className="flex items-center justify-between">
-              <div className="h-4 w-24 bg-gray-600 rounded animate-pulse"></div>
-              <div className="h-4 w-8 bg-gray-600 rounded animate-pulse"></div>
-            </div>
+            {/* Button Skeleton */}
+            <div className="h-10 w-full rounded-lg animate-pulse" style={{ backgroundColor: colors.border.default }}></div>
           </div>
         </div>
         
-        {/* Graph Skeleton - Right 2/3 */}
+        {/* Score Breakdown Skeleton - Right 2/3 */}
         <div className="lg:col-span-2">
-          <div style={{ height: '300px', width: '100%' }} className="bg-gray-800/30 rounded-lg">
-            {/* Simple chart area skeleton without center circle */}
+          <div className="space-y-3">
+            <div className="h-4 w-40 rounded animate-pulse mb-4" style={{ backgroundColor: colors.border.default }}></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {[...Array(8)].map((_, i) => (
+                <div 
+                  key={i} 
+                  className="flex items-center justify-between p-3 rounded-lg"
+                  style={{ 
+                    backgroundColor: 'rgba(30, 30, 30, 0.8)',
+                    border: `1px solid ${colors.border.default}`
+                  }}
+                >
+                  <div className="flex-1 mr-3">
+                    <div className="h-4 w-24 rounded animate-pulse mb-1" style={{ backgroundColor: colors.border.default }}></div>
+                    <div className="h-3 w-32 rounded animate-pulse" style={{ backgroundColor: 'rgba(55, 65, 81, 0.5)' }}></div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-16 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: colors.border.default }}></div>
+                    <div className="w-6 h-4 rounded animate-pulse" style={{ backgroundColor: colors.border.default }}></div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -333,160 +342,162 @@ export function HealthScoreChart({
   }
 
   if (layout === 'side-by-side') {
+    // Get the most recent scorecard data
+    const latestScorecardData: ScorecardData | null = Array.isArray(scorecardData) 
+      ? (scorecardData.length > 0 ? scorecardData[scorecardData.length - 1] : null)
+      : scorecardData || null
+
+    // Sort checks by score (lowest first to highlight issues)
+    const sortedChecks = latestScorecardData?.checks 
+      ? [...latestScorecardData.checks].sort((a, b) => a.score - b.score)
+      : []
+
     return (
       <div className={`w-full ${className}`}>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Scorecard Preview - Left 1/3 */}
+          {/* Scorecard Score - Left 1/3 */}
           <div className="lg:col-span-1">
-            {selectedDataPoint && selectedScorecardData && (
+            {latestScorecardData ? (
               <div className="space-y-4">
                 {/* Title with Logo */}
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 flex items-center justify-center">
                     <img src="/Scorecard_logo.png" alt="Scorecard" className="w-full h-full object-contain" />
                   </div>
-                  <h3 className="text-lg font-semibold text-white">
-                    Scorecard Health History
+                  <h3 className="text-lg font-semibold" style={{ color: colors.text.primary }}>
+                    OpenSSF Scorecard
                   </h3>
                 </div>
                 
                 {/* Date Info */}
-                <p className="text-sm text-gray-400">
-                  OpenSSF Scorecard from {format(parseISO(selectedScorecardData.date), 'MMMM d, yyyy')}
-                  {selectedScorecardData.commitSha && (
-                    <span className="ml-2 text-xs text-gray-500">
-                      (Commit: {selectedScorecardData.commitSha.substring(0, 8)})
-                    </span>
-                  )}
+                <p className="text-sm" style={{ color: colors.text.secondary }}>
+                  Last updated {format(parseISO(latestScorecardData.date), 'MMMM d, yyyy')}
                 </p>
                 
-                {/* Spacing */}
-                <div className="h-4"></div>
-                
-                {/* Overall Score */}
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-3xl font-bold text-white transition-all duration-200 hover:scale-105 cursor-pointer">
-                      {selectedScorecardData.score}
-                    </div>
-                    <div className="text-sm text-gray-400">out of 10</div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <div className="w-32 bg-gray-700 rounded-full h-3">
-                      <div 
-                        className={`h-3 rounded-full ${getScorecardScoreBgColor(selectedScorecardData.score)}`}
-                        style={{ width: `${Math.max(0, selectedScorecardData.score) * 10}%` }}
+                {/* Large Score Display */}
+                <div className="flex flex-col items-center py-6">
+                  <div className="relative">
+                    {/* Circular progress background */}
+                    <svg className="w-32 h-32 transform -rotate-90" viewBox="0 0 100 100">
+                      <circle
+                        cx="50"
+                        cy="50"
+                        r="40"
+                        strokeWidth="8"
+                        fill="none"
+                        style={{ stroke: colors.border.default }}
                       />
+                      <circle
+                        cx="50"
+                        cy="50"
+                        r="40"
+                        strokeWidth="8"
+                        fill="none"
+                        strokeDasharray={`${2 * Math.PI * 40}`}
+                        strokeDashoffset={`${2 * Math.PI * 40 * (1 - Math.max(0, latestScorecardData.score) / 10)}`}
+                        style={{ 
+                          stroke: latestScorecardData.score >= 8 ? '#10b981' : 
+                                  latestScorecardData.score >= 6 ? '#eab308' : 
+                                  latestScorecardData.score >= 4 ? '#f97316' : '#ef4444'
+                        }}
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                      <span className="text-4xl font-bold" style={{ color: colors.text.primary }}>
+                        {latestScorecardData.score.toFixed(1)}
+                      </span>
+                      <span className="text-xs" style={{ color: colors.text.secondary }}>out of 10</span>
                     </div>
-                    <button 
-                      onClick={() => {
-                        const scorecardUrl = getScorecardViewerUrl(repoUrl)
-                        if (scorecardUrl) {
-                          window.open(scorecardUrl, '_blank', 'noopener,noreferrer')
-                        } else {
-                          // Fallback to the existing modal if no repo URL
-                          onViewFullAssessment?.(selectedScorecardData)
-                        }
-                      }}
-                      className="text-gray-400 hover:text-white transition-colors"
-                      title={repoUrl ? "Open in Scorecard Viewer" : "View Full Assessment"}
-                    >
-                      <ChevronRight className="w-4 h-4" />
-                    </button>
                   </div>
                 </div>
 
-                {/* Total Checks */}
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-400">Total Checks</span>
-                  <span className="text-sm font-medium text-white">
-                    {selectedScorecardData.checks.length}
-                  </span>
-                </div>
-
-
+                {/* View Full Report Link */}
+                <button 
+                  onClick={() => {
+                    const scorecardUrl = getScorecardViewerUrl(repoUrl)
+                    if (scorecardUrl) {
+                      window.open(scorecardUrl, '_blank', 'noopener,noreferrer')
+                    } else {
+                      onViewFullAssessment?.(latestScorecardData)
+                    }
+                  }}
+                  className="w-full flex items-center justify-center gap-2 text-sm transition-colors py-2 rounded-lg hover:opacity-80"
+                  style={{ 
+                    color: colors.text.secondary,
+                    border: `1px solid ${colors.border.default}`
+                  }}
+                >
+                  View Full Report
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full" style={{ color: colors.text.secondary }}>
+                <p>No scorecard data available</p>
               </div>
             )}
           </div>
           
-          {/* Graph - Right 2/3 */}
+          {/* Score Breakdown - Right 2/3 */}
           <div className="lg:col-span-2">
-            <div style={{ height: '300px', width: '100%' }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart
-                  data={timeBasedData}
-                  margin={{
-                    top: 20,
-                    right: 20,
-                    left: 20,
-                    bottom: 20,
-                  }}
-                  onClick={(data) => {
-                    if (data && data.activePayload && data.activePayload[0]) {
-                      const clickedData = data.activePayload[0].payload
-                      console.log('Chart clicked:', clickedData)
-                      setCurrentSelectedDate(clickedData.date)
-                      onDataPointSelect?.(clickedData)
-                    }
-                  }}
-                >
-                  <defs>
-                    <linearGradient id="healthGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor={selectedDataPoint ? getGraphColor(selectedDataPoint.score) : "#10b981"} stopOpacity={0.3} />
-                      <stop offset="95%" stopColor={selectedDataPoint ? getGraphColor(selectedDataPoint.score) : "#10b981"} stopOpacity={0.05} />
-                    </linearGradient>
-                  </defs>
-
-                  
-                  <CartesianGrid 
-                    strokeDasharray="3 3" 
-                    stroke="#374151" 
-                    opacity={0.3}
-                    vertical={false}
-                  />
-                  
-                  <XAxis
-                    dataKey="timestamp"
-                    tick={<CustomXAxisTick />}
-                    axisLine={false}
-                    tickLine={false}
-                    tickMargin={10}
-                    interval="preserveStartEnd"
-                    type="number"
-                    scale="time"
-                    domain={['dataMin', 'dataMax']}
-                  />
-                  
-                  <YAxis
-                    domain={[minScore, maxScore]}
-                    tick={<CustomYAxisTick />}
-                    axisLine={false}
-                    tickLine={false}
-                    tickMargin={10}
-                  />
-                  
-                  <Tooltip content={(props) => <CustomTooltip {...props} tooltipType={tooltipType} />} />
-                  
-                  <Area
-                    type="monotone"
-                    dataKey="score"
-                    stroke={selectedDataPoint ? getGraphColor(selectedDataPoint.score) : "#10b981"}
-                    strokeWidth={3}
-                    fill="url(#healthGradient)"
-                    dot={(props: any) => {
-                      const { key: dotKey, ...rest } = props || {};
-                      return (
-                        <CustomDot
-                          key={dotKey}
-                          {...rest}
-                          isSelected={rest.payload?.date === currentSelectedDate}
-                        />
-                      );
-                    }}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
+            {latestScorecardData && sortedChecks.length > 0 ? (
+              <div className="space-y-3">
+                <h4 className="text-sm font-medium mb-4" style={{ color: colors.text.secondary }}>
+                  Score Breakdown ({sortedChecks.length} checks)
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-[320px] overflow-y-auto pr-2">
+                  {sortedChecks.map((check, index) => (
+                    <div 
+                      key={index} 
+                      className="flex items-center justify-between p-3 rounded-lg transition-colors hover:opacity-80"
+                      style={{ 
+                        backgroundColor: 'rgba(30, 30, 30, 0.8)',
+                        border: `1px solid ${colors.border.default}`
+                      }}
+                    >
+                      <div className="flex-1 min-w-0 mr-3">
+                        <span className="text-sm font-medium block truncate" style={{ color: colors.text.primary }}>
+                          {check.name}
+                        </span>
+                        <p className="text-xs truncate mt-0.5" style={{ color: colors.text.muted }} title={check.reason}>
+                          {check.reason}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <div className="w-16 rounded-full h-1.5" style={{ backgroundColor: 'rgba(55, 65, 81, 0.5)' }}>
+                          <div 
+                            className="h-1.5 rounded-full"
+                            style={{ 
+                              width: `${Math.max(0, check.score) * 10}%`,
+                              backgroundColor: check.score >= 8 ? '#10b981' : 
+                                              check.score >= 6 ? '#eab308' : 
+                                              check.score >= 4 ? '#f97316' : 
+                                              check.score >= 0 ? '#ef4444' : colors.text.muted
+                            }}
+                          />
+                        </div>
+                        <span 
+                          className="text-sm font-bold w-6 text-right"
+                          style={{ 
+                            color: check.score >= 8 ? '#10b981' : 
+                                   check.score >= 6 ? '#eab308' : 
+                                   check.score >= 4 ? '#f97316' : 
+                                   check.score >= 0 ? '#ef4444' : colors.text.muted
+                          }}
+                        >
+                          {check.score >= 0 ? check.score : '-'}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-full" style={{ color: colors.text.secondary }}>
+                <p>No check data available</p>
+              </div>
+            )}
           </div>
         </div>
       </div>

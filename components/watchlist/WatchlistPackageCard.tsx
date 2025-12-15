@@ -222,7 +222,7 @@ export function WatchlistPackageCard({ package: pkg, searchQuery, projectLicense
                 ) : (
                   <div className="text-2xl font-bold text-white">{Math.round(riskScore)}</div>
                 )}
-                <div className="text-xs text-gray-400">Risk Score</div>
+                <div className="text-xs text-gray-400">Score</div>
               </div>
             </div>
           </div>
